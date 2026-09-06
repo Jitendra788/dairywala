@@ -1,11 +1,49 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { changePassword, changeUsername, getAuthRecord } from "@/lib/auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader } from "@/components/ui";
 
 export function SettingsView() {
   const dairy = useDairy();
+  const { username } = useAuth();
   const s = dairy.settings;
+  const [user, setUser] = useState(username);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  const [isDefault, setIsDefault] = useState(false);
+
+  useEffect(() => {
+    if (username) setUser(username);
+    setIsDefault(Boolean(getAuthRecord()?.isDefault));
+  }, [username]);
+
+  async function saveAccount() {
+    setMsg("");
+    setErr("");
+    try {
+      if (user.trim() && user.trim() !== username) {
+        await changeUsername(current, user);
+      }
+      if (next.trim()) {
+        await changePassword(current, next);
+      }
+      if (!next.trim() && user.trim() === username) {
+        setErr("Username ya naya password daalo.");
+        return;
+      }
+      setCurrent("");
+      setNext("");
+      setIsDefault(Boolean(getAuthRecord()?.isDefault));
+      setMsg("Account update ho gaya.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Update nahi hua");
+    }
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -44,6 +82,27 @@ export function SettingsView() {
             onChange={(e) => dairy.updateSettings({ address: e.target.value })}
           />
         </Field>
+      </Card>
+
+      <Card className="space-y-3 p-4 sm:p-5">
+        <h2 className="font-display text-xl">Login account</h2>
+        <p className="text-sm text-muted">
+          {isDefault ? "Abhi default admin / admin chal raha hai. Password change karo." : "Username ya password yahan se badlo."}
+        </p>
+        <Field label="Username">
+          <input className={inputClass} value={user} onChange={(e) => setUser(e.target.value)} />
+        </Field>
+        <Field label="Current password">
+          <input className={inputClass} type="password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        </Field>
+        <Field label="New password">
+          <input className={inputClass} type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="Optional" />
+        </Field>
+        {err ? <p className="text-sm text-danger">{err}</p> : null}
+        {msg ? <p className="text-sm font-medium text-primary">{msg}</p> : null}
+        <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => void saveAccount()}>
+          Update account
+        </button>
       </Card>
 
       <Card className="p-5">

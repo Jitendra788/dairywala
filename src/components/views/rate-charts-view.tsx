@@ -82,7 +82,7 @@ export function RateChartsView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto min-w-0 max-w-3xl space-y-4 sm:space-y-5">
       <PageHeader
         kicker="रेट चार्ट"
         title="Create rate chart"
@@ -96,26 +96,28 @@ export function RateChartsView() {
           const using = usedBy(item.kind);
           const expanded = open === item.kind;
           const ready = badge(item.kind) !== "Not set";
+          const cowActive = using === "Cow" || using === "Cow + Buffalo";
+          const buffaloActive = using === "Buffalo" || using === "Cow + Buffalo";
           return (
-            <Card key={item.kind} className="overflow-hidden p-0">
+            <Card key={item.kind} className="min-w-0 overflow-hidden p-0">
               <button
                 type="button"
-                className="flex w-full items-center gap-3 px-4 py-4 text-left"
+                className="flex w-full items-center gap-2.5 px-3 py-3 text-left sm:gap-3 sm:px-4 sm:py-4"
                 onClick={() => setOpen(expanded ? null : item.kind)}
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-primary">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-primary sm:h-11 sm:w-11">
                   {item.icon}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-display text-lg leading-none">{METHOD_LABEL[item.kind]}</span>
+                  <span className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <span className="font-display text-[17px] leading-tight sm:text-lg sm:leading-none">{METHOD_LABEL[item.kind]}</span>
                     {using ? (
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary uppercase">
                         {using}
                       </span>
                     ) : null}
                   </span>
-                  <span className="mt-1 block text-[13px] text-muted">{item.hint}</span>
+                  <span className="mt-1 line-clamp-2 hidden text-[13px] text-muted sm:block">{item.hint}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <span
@@ -130,19 +132,20 @@ export function RateChartsView() {
               </button>
 
               {expanded ? (
-                <div className="border-t border-line px-4 py-4">
+                <div className="min-w-0 border-t border-line px-3 py-3 sm:px-4 sm:py-4">
+                  <p className="mb-3 text-[12px] text-muted sm:hidden">{item.hint}</p>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:hidden">
                     <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${ready ? "bg-emerald-50 text-primary" : "bg-[#f4ead6] text-muted"}`}>
                       {badge(item.kind)}
                     </span>
                   </div>
                   <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex rounded-xl bg-[#f4ead6] p-0.5">
+                    <div className="flex w-full rounded-xl bg-[#f4ead6] p-0.5 sm:w-auto">
                       {(["buffalo", "cow"] as const).map((m) => (
                         <button
                           key={m}
                           type="button"
-                          className={`flex-1 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold capitalize sm:flex-none ${
+                          className={`min-h-11 flex-1 rounded-[10px] px-3 py-2 text-[13px] font-semibold capitalize sm:min-h-0 sm:flex-none sm:py-1.5 sm:text-[12px] ${
                             milk === m ? "bg-primary text-white" : "text-muted"
                           }`}
                           onClick={() => {
@@ -154,17 +157,17 @@ export function RateChartsView() {
                         </button>
                       ))}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                       <button
                         type="button"
-                        className={usedBy(item.kind) === "Cow" || usedBy(item.kind) === "Cow + Buffalo" ? btnGhost : btnPrimary}
+                        className={`${cowActive ? btnGhost : btnPrimary} w-full sm:w-auto`}
                         onClick={() => useFor(item.kind, "cow")}
                       >
                         Use for Cow
                       </button>
                       <button
                         type="button"
-                        className={usedBy(item.kind) === "Buffalo" || usedBy(item.kind) === "Cow + Buffalo" ? btnGhost : btnPrimary}
+                        className={`${buffaloActive ? btnGhost : btnPrimary} w-full sm:w-auto`}
                         onClick={() => useFor(item.kind, "buffalo")}
                       >
                         Use for Buffalo
@@ -236,8 +239,8 @@ function FatOnlyEditor({
   const kg = chart.kgFatRate || chart.fatRate * 100 || 0;
   const example = kgFatLitreRate({ ...chart, kgFatRate: kg }, 6);
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-4">
+    <div className="min-w-0 space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Field label="₹ / kg Fat">
           <input
             className={inputClass}
@@ -267,12 +270,12 @@ function FatOnlyEditor({
       <p className="text-sm text-muted">
         Rate / L = FAT% × {(kg / 100).toFixed(2)}. Example 6.0% FAT = {formatInr(example)}. Good milk needs SNF {chart.goodSnfMin}+.
       </p>
-      <button type="button" className={btnPrimary} onClick={() => onPatch(chart.id, { cells: generateFatOnlyCells({ ...chart, kgFatRate: kg, fatRate: kg / 100 }) })}>
+      <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => onPatch(chart.id, { cells: generateFatOnlyCells({ ...chart, kgFatRate: kg, fatRate: kg / 100 }) })}>
         Generate {chart.milkType} FAT chart
       </button>
       {chart.cells.length ? (
         <div className="table-scroll max-h-72 rounded-xl border border-line">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[280px] text-left text-sm">
             <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
               <tr>
                 <th className="px-3 py-2 font-medium">FAT %</th>
@@ -285,7 +288,7 @@ function FatOnlyEditor({
                   <td className="px-3 py-1.5">{cell.fat.toFixed(1)}</td>
                   <td className="px-3 py-1.5">
                     <input
-                      className="w-28 rounded-lg border border-line bg-[#fbf7ef] px-2 py-1 text-sm"
+                      className="w-full min-w-0 max-w-36 rounded-lg border border-line bg-[#fbf7ef] px-2 py-2 text-base sm:py-1 sm:text-sm"
                       inputMode="decimal"
                       value={cell.rate}
                       onChange={(e) => {
@@ -360,11 +363,11 @@ function FatRowEditor({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted">
-        Cow / FAT chart: har FAT% ka apna rate. Naya FAT Add karo, purana row Update karo.
+    <div className="min-w-0 space-y-4">
+      <p className="text-[13px] text-muted sm:text-sm">
+        Har FAT% ka apna rate. Naya FAT Add karo, purana row Update karo.
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         <Field label="FAT %">
           <input className={inputClass} inputMode="decimal" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="3.5" />
         </Field>
@@ -372,67 +375,106 @@ function FatRowEditor({
           <input className={inputClass} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="38.65" />
         </Field>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className={btnPrimary} onClick={() => save("add")}>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => save("add")}>
           Add
         </button>
-        <button type="button" className={btnGhost} onClick={() => save("update")}>
+        <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={() => save("update")}>
           Update
         </button>
         {editFat != null ? (
-          <button type="button" className={btnGhost} onClick={clear}>
+          <button type="button" className={`${btnGhost} col-span-2 w-full sm:col-auto sm:w-auto`} onClick={clear}>
             Cancel
           </button>
         ) : null}
       </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {rows.length ? (
-        <div className="table-scroll max-h-80 rounded-xl border border-line">
-          <table className="w-full text-left text-sm">
-            <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
-              <tr>
-                <th className="px-3 py-2 font-medium">FAT %</th>
-                <th className="px-3 py-2 font-medium">Rate / L</th>
-                <th className="px-3 py-2 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((cell) => (
-                <tr
-                  key={cell.fat}
-                  className={`border-t border-line/70 ${editFat != null && sameFat(editFat, cell.fat) ? "bg-emerald-50" : ""}`}
-                >
-                  <td className="px-3 py-1.5">{cell.fat.toFixed(2)}</td>
-                  <td className="px-3 py-1.5">{formatInr(cell.rate)}</td>
-                  <td className="px-3 py-1.5 text-right">
-                    <button
-                      type="button"
-                      className="mr-2 text-[12px] font-semibold text-primary"
-                      onClick={() => {
-                        setFat(String(cell.fat));
-                        setRate(String(cell.rate));
-                        setEditFat(cell.fat);
-                        setError("");
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-[12px] font-semibold text-danger"
-                      onClick={() => {
-                        onPatch(current.id, { cells: current.cells.filter((c) => !sameFat(c.fat, cell.fat)) });
-                        if (editFat != null && sameFat(editFat, cell.fat)) clear();
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </td>
+        <>
+          <div className="divide-y divide-line/70 overflow-hidden rounded-xl border border-line md:hidden">
+            {rows.map((cell) => (
+              <div
+                key={cell.fat}
+                className={`flex items-center gap-3 px-3 py-3 ${editFat != null && sameFat(editFat, cell.fat) ? "bg-emerald-50" : "bg-card"}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted">FAT {cell.fat.toFixed(2)}</p>
+                  <p className="font-semibold">{formatInr(cell.rate)}</p>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-xl border border-line px-3 text-[12px] font-semibold text-primary"
+                    onClick={() => {
+                      setFat(String(cell.fat));
+                      setRate(String(cell.rate));
+                      setEditFat(cell.fat);
+                      setError("");
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-3 text-[12px] font-semibold text-danger"
+                    onClick={() => {
+                      onPatch(current.id, { cells: current.cells.filter((c) => !sameFat(c.fat, cell.fat)) });
+                      if (editFat != null && sameFat(editFat, cell.fat)) clear();
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="table-scroll hidden max-h-80 rounded-xl border border-line md:block">
+            <table className="w-full text-left text-sm">
+              <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
+                <tr>
+                  <th className="px-3 py-2 font-medium">FAT %</th>
+                  <th className="px-3 py-2 font-medium">Rate / L</th>
+                  <th className="px-3 py-2 font-medium" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((cell) => (
+                  <tr
+                    key={cell.fat}
+                    className={`border-t border-line/70 ${editFat != null && sameFat(editFat, cell.fat) ? "bg-emerald-50" : ""}`}
+                  >
+                    <td className="px-3 py-1.5">{cell.fat.toFixed(2)}</td>
+                    <td className="px-3 py-1.5">{formatInr(cell.rate)}</td>
+                    <td className="px-3 py-1.5 text-right">
+                      <button
+                        type="button"
+                        className="mr-2 text-[12px] font-semibold text-primary"
+                        onClick={() => {
+                          setFat(String(cell.fat));
+                          setRate(String(cell.rate));
+                          setEditFat(cell.fat);
+                          setError("");
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-[12px] font-semibold text-danger"
+                        onClick={() => {
+                          onPatch(current.id, { cells: current.cells.filter((c) => !sameFat(c.fat, cell.fat)) });
+                          if (editFat != null && sameFat(editFat, cell.fat)) clear();
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         <p className="text-sm text-muted">Abhi koi FAT rate nahi. FAT aur Rate daal ke Add karo.</p>
       )}
@@ -456,18 +498,18 @@ function RulesEditor({
 
   return (
     <div className="mt-6 space-y-3 border-t border-line pt-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="font-display text-lg leading-none">Quality deductions</p>
           <p className="mt-1 text-[12px] text-muted">First matching rule wins. 100 = full rate, 0 = reject / no payment.</p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className={btnGhost} onClick={() => onPatch(chart.id, { rules: defaultRules(milk) })}>
-            Load Excel deductions
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={() => onPatch(chart.id, { rules: defaultRules(milk) })}>
+            Load Excel
           </button>
           <button
             type="button"
-            className={btnGhost}
+            className={`${btnGhost} w-full sm:w-auto`}
             onClick={() =>
               onPatch(chart.id, {
                 rules: [
@@ -500,7 +542,7 @@ function RulesEditor({
                 value={rule.label}
                 onChange={(e) => setRule(i, { label: e.target.value })}
               />
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 <BoundField label="FAT min" value={rule.fatMin} onChange={(fatMin) => setRule(i, { fatMin })} />
                 <BoundField label="FAT max" value={rule.fatMax} onChange={(fatMax) => setRule(i, { fatMax })} />
                 <BoundField label="SNF min" value={rule.snfMin} onChange={(snfMin) => setRule(i, { snfMin })} />
@@ -585,12 +627,12 @@ function ManualEditor({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <button type="button" className={btnGhost} onClick={onGenerateBlank}>
+    <div className="min-w-0 space-y-4">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row">
+        <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={onGenerateBlank}>
           Create blank {current.milkType} grid
         </button>
-        <button type="button" className={btnGhost} onClick={onCopyFormula}>
+        <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={onCopyFormula}>
           Copy from formula
         </button>
       </div>
@@ -598,18 +640,20 @@ function ManualEditor({
         <p className="text-sm text-muted">Not set. Create a blank grid or copy the formula chart, then type rates.</p>
       ) : (
         <>
-          <div className="flex items-center justify-between text-[12px] text-muted">
-            <button type="button" className={btnGhost} disabled={page <= 0} onClick={() => onFatPage(page - 1)}>
-              Prev FAT
-            </button>
-            <span>
+          <div className="flex flex-col gap-2 text-[12px] text-muted sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-center sm:order-2 sm:text-left">
               FAT {visibleFats[0]?.toFixed(1)} – {visibleFats.at(-1)?.toFixed(1)} · {current.cells.length} cells
-            </span>
-            <button type="button" className={btnGhost} disabled={page >= pages - 1} onClick={() => onFatPage(page + 1)}>
-              Next FAT
-            </button>
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              <button type="button" className={`${btnGhost} w-full sm:order-1 sm:w-auto`} disabled={page <= 0} onClick={() => onFatPage(page - 1)}>
+                Prev FAT
+              </button>
+              <button type="button" className={`${btnGhost} w-full sm:order-3 sm:w-auto`} disabled={page >= pages - 1} onClick={() => onFatPage(page + 1)}>
+                Next FAT
+              </button>
+            </div>
           </div>
-          <div className="table-scroll max-h-[420px] rounded-xl border border-line">
+          <div className="table-scroll max-h-[min(420px,60vh)] rounded-xl border border-line">
             <table className="min-w-max text-left text-[11px]">
               <thead className="table-head sticky top-0">
                 <tr>

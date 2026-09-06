@@ -197,28 +197,28 @@ export function CollectionDesk() {
         </div>
 
         <div className={`mt-3 rounded-2xl px-3.5 py-3 text-white ${quote.rejected && Number(fat) ? "bg-red-700" : "bg-primary"}`}>
-          <p className="text-[10px] text-white/70">
+          <p className="break-words text-[10px] text-white/70">
             {milkType === "buffalo" ? "Buffalo" : "Cow"} · {METHOD_LABEL[method]} · {chart?.name ?? "No chart"}
           </p>
-          <div className="mt-1 flex items-end justify-between">
-            <div>
+          <div className="mt-1 flex items-end justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-[11px] text-white/70">Rate / L</p>
               <p className="text-sm font-semibold">
                 {Number(fat) ? formatInr(rate) : "—"}
                 {quote.payPercent < 100 && Number(fat) ? (
-                  <span className="ml-1 text-[11px] font-normal text-white/70">
+                  <span className="mt-0.5 block text-[11px] font-normal text-white/70 sm:ml-1 sm:inline">
                     ({quote.payPercent}% of {formatInr(quote.base)})
                   </span>
                 ) : null}
               </p>
             </div>
-            <div className="text-right">
+            <div className="shrink-0 text-right">
               <p className="text-[11px] text-white/70">Amount</p>
               <p className="font-display text-2xl leading-none">{qty && Number(fat) ? formatInr(amount) : "—"}</p>
             </div>
           </div>
           {quote.rule && Number(fat) ? (
-            <p className="mt-2 text-[11px] text-white/80">{quote.rejected ? "Rejected — no payment. " : ""}{quote.rule.label}</p>
+            <p className="mt-2 break-words text-[11px] text-white/80">{quote.rejected ? "Rejected — no payment. " : ""}{quote.rule.label}</p>
           ) : null}
         </div>
 

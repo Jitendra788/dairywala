@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Menu, Sun, Moon } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
 import { ToastProvider } from "@/components/toast";
+import { UserMenu } from "@/components/user-menu";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { useDairy } from "@/hooks/use-dairy";
 
@@ -44,10 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               Offline
             </span>
-            <span className="hidden text-[13px] font-medium lg:block">{settings.dairyName}</span>
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-dark text-[11px] font-bold text-white">
-              TD
-            </span>
+            <UserMenu />
           </div>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[max(12px,env(safe-area-inset-bottom))]">
