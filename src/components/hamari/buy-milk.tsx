@@ -33,7 +33,7 @@ export function BuyMilkScreen() {
   const [shortcuts, setShortcuts] = useState(false);
 
   const farmer = dairy.farmerByCode(code);
-  const chart = pickChart(dairy.charts, milkType);
+  const chart = pickChart(dairy.charts, milkType, dairy.settings.rateMethod);
   const rate = lookupRate(chart, Number(fat), Number(snf));
   const total = calcAmount(Number(weight), rate);
 

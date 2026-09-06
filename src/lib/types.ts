@@ -1,6 +1,7 @@
 export type MilkType = "cow" | "buffalo";
 export type Shift = "morning" | "evening";
-export type ChartKind = "formula" | "grid";
+export type ChartMethod = "fat-only" | "formula" | "grid";
+export type ChartKind = ChartMethod;
 export type BillStatus = "open" | "paid";
 
 export type Farmer = {
@@ -46,6 +47,13 @@ export type RateChart = {
   fatCoeff: number;
   snfCoeff: number;
   base: number;
+  fatRate: number;
+  fatMin: number;
+  fatMax: number;
+  fatStep: number;
+  snfMin: number;
+  snfMax: number;
+  snfStep: number;
   cells: RateCell[];
   active: boolean;
 };
@@ -81,6 +89,7 @@ export type Settings = {
   centerName: string;
   phone: string;
   address: string;
+  rateMethod: ChartMethod;
 };
 
 export type DairyState = {

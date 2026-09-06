@@ -1,34 +1,24 @@
 import { addDays, todayISO } from "@/lib/dates";
-import { calcAmount, lookupRate } from "@/lib/rate";
+import { calcAmount, defaultChart, ensureMethodCharts, generateFormulaCells, lookupRate } from "@/lib/rate";
 import type { CollectionEntry, DairyState, Farmer, RateChart } from "@/lib/types";
 
 function id(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const cowChart: RateChart = {
-  id: "chart-cow",
-  name: "Cow FAT+SNF",
-  kind: "formula",
-  milkType: "cow",
-  fatCoeff: 6.85,
-  snfCoeff: 3.95,
-  base: 2.5,
-  cells: [],
-  active: true,
-};
+function seedCharts(): RateChart[] {
+  const formulaCow = defaultChart("formula", "cow");
+  formulaCow.id = "chart-cow";
+  formulaCow.cells = generateFormulaCells(formulaCow);
+  const formulaBuffalo = defaultChart("formula", "buffalo");
+  formulaBuffalo.id = "chart-buffalo";
+  formulaBuffalo.cells = generateFormulaCells(formulaBuffalo);
+  return ensureMethodCharts([formulaCow, formulaBuffalo]);
+}
 
-const buffaloChart: RateChart = {
-  id: "chart-buffalo",
-  name: "Buffalo FAT+SNF",
-  kind: "formula",
-  milkType: "buffalo",
-  fatCoeff: 7.35,
-  snfCoeff: 4.15,
-  base: 3,
-  cells: [],
-  active: true,
-};
+const seedChartList = seedCharts();
+const cowChart = seedChartList.find((c) => c.id === "chart-cow")!;
+const buffaloChart = seedChartList.find((c) => c.id === "chart-buffalo")!;
 
 const farmerSeed: Omit<Farmer, "createdAt">[] = [
   { id: "f-101", code: "101", name: "Ramesh Yadav", phone: "9876501011", milkType: "buffalo", bankName: "SBI", accountNo: "1122334455", ifsc: "SBIN0001234", upi: "ramesh@upi" },
@@ -98,10 +88,11 @@ export function createSeedState(): DairyState {
       centerName: "Bagru Collection Centre",
       phone: "9352729857",
       address: "Jaipur, Rajasthan",
+      rateMethod: "formula",
     },
     farmers,
     entries,
-    charts: [cowChart, buffaloChart],
+    charts: seedChartList,
     advances: [
       {
         id: "adv-1",

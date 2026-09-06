@@ -1,5 +1,5 @@
 import { todayISO } from "@/lib/dates";
-import { calcAmount, lookupRate, pickChart } from "@/lib/rate";
+import { calcAmount, ensureMethodCharts, lookupRate, pickChart } from "@/lib/rate";
 import { round2 } from "@/lib/money";
 import { createSeedState } from "@/lib/seed";
 import type {
@@ -55,7 +55,8 @@ export function hydrateDairy() {
   const raw = localStorage.getItem(KEY);
   if (raw) {
     try {
-      state = JSON.parse(raw) as DairyState;
+      state = migrateState(JSON.parse(raw) as DairyState);
+      persist();
       emit();
       return;
     } catch {
@@ -65,6 +66,17 @@ export function hydrateDairy() {
   state = createSeedState();
   persist();
   emit();
+}
+
+function migrateState(raw: DairyState): DairyState {
+  return {
+    ...raw,
+    settings: {
+      ...raw.settings,
+      rateMethod: raw.settings.rateMethod ?? "formula",
+    },
+    charts: ensureMethodCharts(raw.charts ?? []),
+  };
 }
 
 function uid(prefix: string) {
@@ -138,7 +150,7 @@ export function addCollection(input: {
   snf: number;
   clr: number;
 }) {
-  const chart = pickChart(state.charts, input.milkType);
+  const chart = pickChart(state.charts, input.milkType, state.settings.rateMethod);
   const rate = lookupRate(chart, input.fat, input.snf);
   const entry: CollectionEntry = {
     id: uid("col"),
@@ -175,7 +187,7 @@ export function updateCollection(
   const existing = state.entries.find((e) => e.id === id);
   if (!existing) throw new Error("Slip nahi mili");
   if (existing.billId) throw new Error("Billed slip edit nahi ho sakti");
-  const chart = pickChart(state.charts, input.milkType);
+  const chart = pickChart(state.charts, input.milkType, state.settings.rateMethod);
   const rate = lookupRate(chart, input.fat, input.snf);
   setState({
     ...state,
@@ -208,6 +220,13 @@ export function saveCharts(charts: RateChart[]) {
 
 export function addChart(input: Omit<RateChart, "id" | "cells">) {
   const chart: RateChart = {
+    fatRate: 10,
+    fatMin: 3,
+    fatMax: 6.5,
+    fatStep: 0.1,
+    snfMin: 8,
+    snfMax: 10,
+    snfStep: 0.1,
     ...input,
     id: uid("chart"),
     cells: [],

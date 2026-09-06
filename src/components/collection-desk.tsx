@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Pencil, Printer, Trash2 } from "lucide-react";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
-import { calcAmount, lookupRate, pickChart } from "@/lib/rate";
+import { calcAmount, lookupRate, METHOD_LABEL, pickChart } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnPrimary, Card, Field, Initials, MilkBadge, inputClass } from "@/components/ui";
 import type { MilkType, Shift } from "@/lib/types";
@@ -26,7 +26,7 @@ export function CollectionDesk() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const farmer = dairy.farmerByCode(code);
-  const chart = pickChart(dairy.charts, milkType);
+  const chart = pickChart(dairy.charts, milkType, dairy.settings.rateMethod);
   const rate = lookupRate(chart, Number(fat), Number(snf));
   const amount = calcAmount(Number(qty), rate);
 
@@ -195,7 +195,9 @@ export function CollectionDesk() {
         </div>
 
         <div className="mt-3 rounded-2xl bg-primary px-3.5 py-3 text-white">
-          <p className="text-[10px] text-white/70">{chart?.name ?? "No rate chart"}</p>
+          <p className="text-[10px] text-white/70">
+            {METHOD_LABEL[dairy.settings.rateMethod]} · {chart?.name ?? "No chart"}
+          </p>
           <div className="mt-1 flex items-end justify-between">
             <div>
               <p className="text-[11px] text-white/70">Rate / L</p>
