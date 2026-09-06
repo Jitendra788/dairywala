@@ -51,7 +51,7 @@ export function SettingsView() {
         <p className="mt-1 text-sm text-muted">
           Seed farmers, last 10 days ki collection aur ek advance wapas load hoga.
         </p>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             className={btnGhost}

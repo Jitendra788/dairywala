@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Printer, Trash2 } from "lucide-react";
+import { Pencil, Printer, Trash2 } from "lucide-react";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import { calcAmount, lookupRate, pickChart } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
-import { btnPrimary, Card, Field, inputClass } from "@/components/ui";
+import { btnPrimary, Card, Field, Initials, MilkBadge, inputClass } from "@/components/ui";
 import type { MilkType, Shift } from "@/lib/types";
 
 export function CollectionDesk() {
@@ -23,6 +23,7 @@ export function CollectionDesk() {
   const [clr, setClr] = useState("");
   const [error, setError] = useState("");
   const [lastId, setLastId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const farmer = dairy.farmerByCode(code);
   const chart = pickChart(dairy.charts, milkType);
@@ -61,7 +62,28 @@ export function CollectionDesk() {
     setCode("");
     setQty("");
     setError("");
+    setEditingId(null);
     codeRef.current?.focus();
+  }
+
+  function loadEdit(id: string) {
+    const row = dairy.entries.find((e) => e.id === id);
+    const f = row ? dairy.farmerById(row.farmerId) : undefined;
+    if (!row || !f) return;
+    if (row.billId) {
+      setError("Billed slip edit nahi ho sakti");
+      return;
+    }
+    setEditingId(row.id);
+    setDate(row.date);
+    setShift(row.shift);
+    setMilkType(row.milkType);
+    setCode(f.code);
+    setQty(String(row.qty));
+    setFat(String(row.fat));
+    setSnf(String(row.snf));
+    setClr(String(row.clr));
+    setError("");
   }
 
   function onSave() {
@@ -74,7 +96,7 @@ export function CollectionDesk() {
       setError("Qty, FAT aur SNF zaroori hain.");
       return;
     }
-    const entry = dairy.addCollection({
+    const payload = {
       farmerId: farmer.id,
       date,
       shift,
@@ -83,15 +105,25 @@ export function CollectionDesk() {
       fat: Number(fat),
       snf: Number(snf),
       clr: Number(clr) || 0,
-    });
-    setLastId(entry.id);
-    resetLine();
+    };
+    try {
+      if (editingId) {
+        dairy.updateCollection(editingId, payload);
+        setLastId(editingId);
+      } else {
+        const entry = dairy.addCollection(payload);
+        setLastId(entry.id);
+      }
+      resetLine();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save nahi hua");
+    }
   }
 
   return (
-    <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+    <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
       <Card className="flex flex-col p-4">
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           <Toggle
             value={shift}
             onChange={setShift}
@@ -131,15 +163,23 @@ export function CollectionDesk() {
           </Field>
         </div>
 
-        <p className="mt-2 min-h-5 text-[13px] font-medium text-primary">
-          {farmer
-            ? `${farmer.name} · ${formatInr(dairy.farmerBalance(farmer.id))}`
-            : code
-              ? "Code nahi mila"
-              : " "}
-        </p>
+        <div className="mt-3 min-h-[52px] rounded-2xl bg-[#f7f1e6] px-3 py-2">
+          {farmer ? (
+            <div className="flex items-center gap-2">
+              <Initials name={farmer.name} />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{farmer.name}</p>
+                <p className="text-[11px] text-muted">Balance {formatInr(dairy.farmerBalance(farmer.id))}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="py-1.5 text-[13px] text-muted">
+              {code ? "Code nahi mila — farmer add karo" : "Farmer code daalo"}
+            </p>
+          )}
+        </div>
 
-        <div className="mt-1 grid grid-cols-2 gap-2.5">
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
           <Field label="Qty (L)">
             <input id="qty-input" inputMode="decimal" className={inputClass} value={qty} onChange={(e) => setQty(e.target.value)} />
           </Field>
@@ -154,57 +194,111 @@ export function CollectionDesk() {
           </Field>
         </div>
 
-        <div className="mt-3 rounded-xl bg-emerald-50/80 px-3 py-2.5 text-sm">
-          <p className="text-[10px] text-muted">{chart?.name ?? "No rate chart"}</p>
-          <div className="mt-0.5 flex justify-between text-[13px]">
-            <span className="text-muted">Rate / L</span>
-            <span>{rate ? formatInr(rate) : "—"}</span>
-          </div>
-          <div className="flex justify-between font-semibold">
-            <span>Amount</span>
-            <span className="text-primary">{qty && rate ? formatInr(amount) : "—"}</span>
+        <div className="mt-3 rounded-2xl bg-primary px-3.5 py-3 text-white">
+          <p className="text-[10px] text-white/70">{chart?.name ?? "No rate chart"}</p>
+          <div className="mt-1 flex items-end justify-between">
+            <div>
+              <p className="text-[11px] text-white/70">Rate / L</p>
+              <p className="text-sm font-semibold">{rate ? formatInr(rate) : "—"}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-white/70">Amount</p>
+              <p className="font-display text-2xl leading-none">{qty && rate ? formatInr(amount) : "—"}</p>
+            </div>
           </div>
         </div>
 
         {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
 
-        <button type="button" className={`${btnPrimary} mt-3 w-full`} onClick={onSave}>
-          Save slip
-        </button>
+        <div className="mt-3 flex gap-2">
+          <button type="button" className={`${btnPrimary} flex-1 py-2.5`} onClick={onSave}>
+            {editingId ? "Update slip" : "Save slip"}
+          </button>
+          {editingId ? (
+            <button type="button" className="rounded-xl border border-line px-3 text-sm" onClick={resetLine}>
+              Cancel
+            </button>
+          ) : null}
+        </div>
         {lastId ? (
-          <Link href={`/collection/${lastId}`} className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-primary">
+          <Link href={`/collection/${lastId}`} className="mt-2 flex items-center justify-center gap-1.5 text-xs font-semibold text-primary">
             <Printer size={14} /> Print last slip
           </Link>
         ) : null}
       </Card>
 
       <Card className="flex min-h-0 flex-col overflow-hidden p-0">
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-4 py-3">
           <div>
             <h2 className="font-display text-lg leading-none">Shift desk</h2>
             <p className="mt-1 text-xs text-muted">
               {formatDate(date)} · {shift} · {formatQty(totals.qty)} · {formatInr(totals.amount)}
             </p>
           </div>
-          <span className="rounded-full bg-background px-2.5 py-1 text-xs text-muted">{rows.length} slips</span>
+          <span className="rounded-full bg-[#f4ead6] px-2.5 py-1 text-xs font-medium">{rows.length} slips</span>
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
-          <table className="w-full text-left text-[13px]">
-            <thead className="sticky top-0 bg-card text-[10px] tracking-wider text-muted uppercase">
+          <div className="divide-y divide-line/70 md:hidden">
+            {rows.length === 0 ? (
+              <p className="px-4 py-10 text-center text-sm text-muted">Is shift mein koi slip nahi. Code daal ke save karo.</p>
+            ) : (
+              rows.map((row) => {
+                const f = dairy.farmerById(row.farmerId);
+                return (
+                  <div key={row.id} className="flex items-start gap-3 px-4 py-3">
+                    <Link href={`/collection/${row.id}`} className="flex min-w-0 flex-1 items-center gap-2">
+                      <Initials name={f?.name ?? "F"} />
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{f?.name}</span>
+                        <span className="text-[11px] text-muted">{row.qty} L · FAT {row.fat} · SNF {row.snf}</span>
+                      </span>
+                    </Link>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[13px] font-semibold">{formatInr(row.amount)}</p>
+                      <div className="mt-1">
+                        <button type="button" className="mr-1 rounded-lg p-1 text-muted hover:bg-[#f4ead6] hover:text-primary disabled:opacity-30" disabled={Boolean(row.billId)} onClick={() => loadEdit(row.id)} aria-label="Edit slip">
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg p-1 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
+                          disabled={Boolean(row.billId)}
+                          onClick={() => {
+                            if (!confirm("Is slip ko delete karein?")) return;
+                            try {
+                              dairy.deleteCollection(row.id);
+                              if (editingId === row.id) resetLine();
+                            } catch (e) {
+                              setError(e instanceof Error ? e.message : "Delete nahi hua");
+                            }
+                          }}
+                          aria-label="Delete slip"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <table className="hidden w-full text-left text-[13px] md:table">
+            <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-4 py-2 font-medium">Farmer</th>
-                <th className="py-2 font-medium">Milk</th>
-                <th className="py-2 font-medium">L</th>
-                <th className="py-2 font-medium">FAT</th>
-                <th className="py-2 font-medium">SNF</th>
-                <th className="py-2 font-medium">Amount</th>
-                <th className="px-3 py-2 font-medium" />
+                <th className="px-4 py-2.5 font-medium">Farmer</th>
+                <th className="py-2.5 font-medium">Milk</th>
+                <th className="py-2.5 font-medium">L</th>
+                <th className="py-2.5 font-medium">FAT</th>
+                <th className="py-2.5 font-medium">SNF</th>
+                <th className="py-2.5 font-medium">Amount</th>
+                <th className="px-3 py-2.5 font-medium" />
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted">
+                  <td colSpan={7} className="px-4 py-14 text-center text-muted">
                     Is shift mein koi slip nahi. Code daal ke save karo.
                   </td>
                 </tr>
@@ -212,23 +306,46 @@ export function CollectionDesk() {
                 rows.map((row) => {
                   const f = dairy.farmerById(row.farmerId);
                   return (
-                    <tr key={row.id} className="border-t border-line/80 hover:bg-background/60">
-                      <td className="px-4 py-2">
-                        <Link href={`/collection/${row.id}`} className="hover:text-primary">
-                          {f?.code} · {f?.name}
+                    <tr key={row.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
+                      <td className="px-4 py-2.5">
+                        <Link href={`/collection/${row.id}`} className="flex items-center gap-2 hover:text-primary">
+                          <Initials name={f?.name ?? "F"} />
+                          <span>
+                            <span className="block font-medium">{f?.name}</span>
+                            <span className="text-[11px] text-muted">{f?.code}</span>
+                          </span>
                         </Link>
                       </td>
-                      <td className="capitalize">{row.milkType}</td>
+                      <td>
+                        <MilkBadge type={row.milkType} />
+                      </td>
                       <td>{row.qty}</td>
                       <td>{row.fat}</td>
                       <td>{row.snf}</td>
-                      <td className="font-medium">{formatInr(row.amount)}</td>
+                      <td className="font-semibold">{formatInr(row.amount)}</td>
                       <td className="px-3 text-right">
                         <button
                           type="button"
-                          className="p-1 text-muted hover:text-danger disabled:opacity-30"
+                          className="mr-1 rounded-lg p-1 text-muted hover:bg-[#f4ead6] hover:text-primary disabled:opacity-30"
                           disabled={Boolean(row.billId)}
-                          onClick={() => dairy.deleteCollection(row.id)}
+                          onClick={() => loadEdit(row.id)}
+                          aria-label="Edit slip"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg p-1 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
+                          disabled={Boolean(row.billId)}
+                          onClick={() => {
+                            if (!confirm("Is slip ko delete karein?")) return;
+                            try {
+                              dairy.deleteCollection(row.id);
+                              if (editingId === row.id) resetLine();
+                            } catch (e) {
+                              setError(e instanceof Error ? e.message : "Delete nahi hua");
+                            }
+                          }}
                           aria-label="Delete slip"
                         >
                           <Trash2 size={14} />
@@ -256,14 +373,14 @@ function Toggle<T extends string>({
   options: { value: T; label: string }[];
 }) {
   return (
-    <div className="flex flex-1 rounded-lg bg-background p-0.5">
+    <div className="flex flex-1 rounded-xl bg-[#f4ead6] p-0.5">
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium ${
-            value === opt.value ? "bg-primary text-white" : "text-muted"
+          className={`flex-1 rounded-[10px] px-2 py-1.5 text-[11px] font-semibold ${
+            value === opt.value ? "bg-primary text-white shadow-sm" : "text-muted"
           }`}
         >
           {opt.label}

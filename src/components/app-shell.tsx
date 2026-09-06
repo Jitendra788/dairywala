@@ -1,48 +1,60 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Menu } from "lucide-react";
+import { Menu, Sun, Moon } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
+import { ToastProvider } from "@/components/toast";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { useDairy } from "@/hooks/use-dairy";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { settings } = useDairy();
-  const shift = currentShift() === "morning" ? "Morning" : "Evening";
+  const morning = currentShift() === "morning";
 
   return (
+    <ToastProvider>
     <div className="flex h-dvh overflow-hidden">
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-line bg-card/80 px-4 backdrop-blur">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-card/75 px-3 backdrop-blur-md sm:gap-3 sm:px-4 pt-[max(0px,env(safe-area-inset-top))]">
           <button
             type="button"
-            className="rounded-md p-1.5 text-foreground lg:hidden"
+            className="rounded-lg p-1.5 text-foreground lg:hidden"
             onClick={() => setOpen(true)}
             aria-label="Open menu"
           >
             <Menu size={18} />
           </button>
-          <p className="hidden text-[13px] text-muted lg:block">
-            {formatDate(todayISO())}
-            <span className="mx-2 text-line">|</span>
-            {shift} shift
-          </p>
-          <div className="ml-auto flex items-center gap-2.5">
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-primary uppercase">
+          <div className="min-w-0 lg:hidden">
+            <p className="truncate text-[13px] font-medium">{settings.dairyName}</p>
+            <p className="text-[10px] text-muted">{formatDate(todayISO())}</p>
+          </div>
+          <div className="hidden items-center gap-2 lg:flex">
+            <span className="rounded-full bg-[#f4ead6] px-2.5 py-1 text-[12px] text-foreground/80">
+              {formatDate(todayISO())}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-primary">
+              {morning ? <Sun size={12} /> : <Moon size={12} />}
+              {morning ? "Morning" : "Evening"} shift
+            </span>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-primary uppercase sm:px-2.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               Offline
             </span>
-            <span className="hidden text-[13px] sm:block">{settings.dairyName}</span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-dark text-[10px] font-bold text-white">
+            <span className="hidden text-[13px] font-medium lg:block">{settings.dairyName}</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-dark text-[11px] font-bold text-white">
               TD
             </span>
           </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 lg:px-6">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[max(12px,env(safe-area-inset-bottom))]">
           {children}
         </main>
       </div>
     </div>
+    </ToastProvider>
   );
 }

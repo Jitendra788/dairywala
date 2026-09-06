@@ -22,7 +22,7 @@ export function ModuleWorkspace({
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted">
               Phase {module.phase} · {module.nameHi}
             </p>
-            <h1 className="font-display text-3xl text-foreground">{module.name}</h1>
+            <h1 className="font-display text-2xl text-foreground sm:text-3xl">{module.name}</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
               {module.summary}
             </p>
@@ -44,7 +44,7 @@ export function ModuleWorkspace({
         />
       </div>
 
-      <section className="rounded-2xl border border-line bg-card p-6">
+      <section className="rounded-2xl border border-line bg-card p-4 sm:p-6">
         <h2 className="font-display text-xl">Work flow</h2>
         <ol className="mt-4 grid gap-3 md:grid-cols-2">
           {module.workflow.map((step, i) => (

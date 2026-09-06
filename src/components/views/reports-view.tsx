@@ -46,7 +46,7 @@ export function ReportsView() {
         </Field>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Mini label="Milk" value={formatQty(round2(qty))} />
         <Mini label="Amount" value={formatInr(amount)} />
         <Mini label="Avg FAT" value={round2(avgFat).toFixed(2)} />
@@ -55,7 +55,8 @@ export function ReportsView() {
 
       <Card className="p-5">
         <h2 className="font-display text-xl">Farmer statement</h2>
-        <table className="mt-3 w-full text-left text-sm">
+        <div className="table-scroll mt-3">
+        <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="text-[11px] uppercase tracking-[0.12em] text-muted">
             <tr>
               <th className="pb-2 font-medium">Farmer</th>
@@ -80,6 +81,7 @@ export function ReportsView() {
             })}
           </tbody>
         </table>
+        </div>
       </Card>
     </div>
   );

@@ -116,13 +116,15 @@ export function updateFarmer(id: string, patch: Partial<Farmer>) {
 }
 
 export function deleteFarmer(id: string) {
-  if (state.entries.some((e) => e.farmerId === id)) {
-    throw new Error("Farmer has collection entries");
+  if (state.entries.some((e) => e.farmerId === id && e.billId)) {
+    throw new Error("Billed slips wali farmer delete nahi ho sakti");
   }
   setState({
     ...state,
     farmers: state.farmers.filter((f) => f.id !== id),
+    entries: state.entries.filter((e) => e.farmerId !== id),
     advances: state.advances.filter((a) => a.farmerId !== id),
+    bills: state.bills.filter((b) => b.farmerId !== id),
   });
 }
 
@@ -157,9 +159,42 @@ export function addCollection(input: {
   return entry;
 }
 
+export function updateCollection(
+  id: string,
+  input: {
+    farmerId: string;
+    date: string;
+    shift: Shift;
+    milkType: MilkType;
+    qty: number;
+    fat: number;
+    snf: number;
+    clr: number;
+  },
+) {
+  const existing = state.entries.find((e) => e.id === id);
+  if (!existing) throw new Error("Slip nahi mili");
+  if (existing.billId) throw new Error("Billed slip edit nahi ho sakti");
+  const chart = pickChart(state.charts, input.milkType);
+  const rate = lookupRate(chart, input.fat, input.snf);
+  setState({
+    ...state,
+    entries: state.entries.map((e) =>
+      e.id === id
+        ? {
+            ...e,
+            ...input,
+            rate,
+            amount: calcAmount(input.qty, rate),
+          }
+        : e,
+    ),
+  });
+}
+
 export function deleteCollection(id: string) {
   const entry = state.entries.find((e) => e.id === id);
-  if (entry?.billId) throw new Error("Billed slip cannot be deleted");
+  if (entry?.billId) throw new Error("Billed slip delete nahi ho sakti");
   setState({ ...state, entries: state.entries.filter((e) => e.id !== id) });
 }
 
@@ -169,6 +204,54 @@ export function lastEntryForFarmer(farmerId: string) {
 
 export function saveCharts(charts: RateChart[]) {
   setState({ ...state, charts });
+}
+
+export function addChart(input: Omit<RateChart, "id" | "cells">) {
+  const chart: RateChart = {
+    ...input,
+    id: uid("chart"),
+    cells: [],
+  };
+  setState({ ...state, charts: [...state.charts, chart] });
+  return chart;
+}
+
+export function deleteChart(id: string) {
+  if (state.charts.length <= 1) throw new Error("Kam se kam ek rate chart chahiye");
+  setState({ ...state, charts: state.charts.filter((c) => c.id !== id) });
+}
+
+export function updateAdvance(
+  id: string,
+  input: { farmerId: string; amount: number; note: string; date: string },
+) {
+  const existing = state.advances.find((a) => a.id === id);
+  if (!existing) throw new Error("Advance nahi mila");
+  if (existing.recovered) throw new Error("Recovered advance edit nahi ho sakta");
+  setState({
+    ...state,
+    advances: state.advances.map((a) => (a.id === id ? { ...a, ...input } : a)),
+  });
+}
+
+export function deleteAdvance(id: string) {
+  const existing = state.advances.find((a) => a.id === id);
+  if (existing?.recovered) throw new Error("Recovered advance delete nahi ho sakta");
+  setState({ ...state, advances: state.advances.filter((a) => a.id !== id) });
+}
+
+export function deleteBill(id: string) {
+  const bill = state.bills.find((b) => b.id === id);
+  if (!bill) throw new Error("Bill nahi mili");
+  if (bill.status === "paid") throw new Error("Paid bill delete nahi ho sakti");
+  setState({
+    ...state,
+    bills: state.bills.filter((b) => b.id !== id),
+    entries: state.entries.map((e) => (e.billId === id ? { ...e, billId: null } : e)),
+    advances: state.advances.map((a) =>
+      a.billId === id ? { ...a, recovered: false, billId: null } : a,
+    ),
+  });
 }
 
 export function addAdvance(input: { farmerId: string; amount: number; note: string; date: string }) {

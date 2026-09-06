@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
-import { btnPrimary, Card } from "@/components/ui";
+import { btnDanger, btnPrimary, Card, confirmAction } from "@/components/ui";
 
 export function BillView() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const dairy = useDairy();
   const bill = dairy.bills.find((b) => b.id === id);
   const farmer = bill ? dairy.farmerById(bill.farmerId) : undefined;
@@ -28,9 +29,22 @@ export function BillView() {
           Print bill
         </button>
         {bill.status === "open" ? (
-          <button type="button" className={btnPrimary} onClick={() => dairy.markBillPaid(bill.id)}>
-            Mark paid / UPI done
-          </button>
+          <>
+            <button type="button" className={btnPrimary} onClick={() => dairy.markBillPaid(bill.id)}>
+              Mark paid
+            </button>
+            <button
+              type="button"
+              className={btnDanger}
+              onClick={() => {
+                if (!confirmAction("Bill delete karein?")) return;
+                dairy.deleteBill(bill.id);
+                router.push("/payments");
+              }}
+            >
+              Delete bill
+            </button>
+          </>
         ) : null}
         <Link href="/payments" className="self-center text-sm text-primary">
           All bills
@@ -56,7 +70,8 @@ export function BillView() {
           </p>
         </div>
 
-        <table className="mt-5 w-full text-left text-sm">
+        <div className="table-scroll mt-5">
+        <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="text-[11px] uppercase text-muted">
             <tr>
               <th className="pb-2">Date</th>
@@ -80,6 +95,7 @@ export function BillView() {
             ))}
           </tbody>
         </table>
+        </div>
 
         <div className="mt-4 space-y-1 border-t border-line pt-4 text-sm">
           <Line label="Total qty" value={formatQty(bill.qty)} />

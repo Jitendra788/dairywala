@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f3eee4;
-  --foreground: #163024;
-  --card: #fffcf6;
-  --muted: #6b726c;
-  --line: #e3d8c4;
-  --primary: #1b7a4a;
-  --primary-dark: #145c38;
-  --gold: #c4a35a;
-  --sidebar: #0e2218;
-  --sidebar-fg: #d7e6dc;
+  --background: #f1ebe0;
+  --foreground: #12281e;
+  --card: #fffdf8;
+  --muted: #667066;
+  --line: #e4d8c5;
+  --primary: #187a48;
+  --primary-dark: #115734;
+  --gold: #c49a45;
+  --sidebar: #0b1d14;
+  --sidebar-fg: #d8e8de;
   --danger: #b42318;
 }
 
@@ -34,18 +34,44 @@ html,
 body {
   height: 100%;
   overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   background:
-    radial-gradient(1200px 500px at 80% -10%, #fff7e6 0%, transparent 50%),
+    radial-gradient(900px 420px at 100% 0%, rgba(196, 154, 69, 0.14), transparent 55%),
+    radial-gradient(800px 380px at 0% 100%, rgba(24, 122, 72, 0.08), transparent 50%),
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
 }
 
 ::selection {
-  background: #cfe8d6;
+  background: #c8e6d2;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c9b89a transparent;
+}
+
+.table-head {
+  background: #f7f1e6;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 639px) {
+  input[type="date"],
+  input[type="time"],
+  select {
+    min-height: 44px;
+  }
 }
 
 @media print {
