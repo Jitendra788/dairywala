@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { currentShift, todayISO } from "@/lib/dates";
 import { round2 } from "@/lib/money";
-import { calcAmount, lookupRate, pickChart } from "@/lib/rate";
+import { calcAmount, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
 import { BuffaloIcon, CowIcon, MilkCans } from "@/components/hamari/icons";
 import type { MilkType, Shift } from "@/lib/types";
@@ -33,8 +33,10 @@ export function BuyMilkScreen() {
   const [shortcuts, setShortcuts] = useState(false);
 
   const farmer = dairy.farmerByCode(code);
-  const chart = pickChart(dairy.charts, milkType, dairy.settings.rateMethod);
-  const rate = lookupRate(chart, Number(fat), Number(snf));
+  const method = methodForMilk(dairy.settings, milkType);
+  const chart = pickChart(dairy.charts, milkType, method);
+  const quote = quoteRate(chart, Number(fat), Number(snf));
+  const rate = quote.rate;
   const total = calcAmount(Number(weight), rate);
 
   const rows = useMemo(
@@ -270,6 +272,11 @@ export function BuyMilkScreen() {
             <span>RS/Ltr: {rate ? rate.toFixed(2) : "0.00"}</span>
             <span>Total: {total ? total.toFixed(2) : "0.00"}</span>
           </div>
+          {quote.rule && Number(fat) ? (
+            <p className={`mt-1 text-[11px] ${quote.rejected ? "text-danger" : "text-muted"}`}>
+              {quote.payPercent}% · {quote.rule.label}
+            </p>
+          ) : null}
 
           <div className="mt-4 flex gap-2">
             <button

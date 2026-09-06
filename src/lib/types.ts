@@ -39,6 +39,16 @@ export type RateCell = {
   rate: number;
 };
 
+export type QualityRule = {
+  id: string;
+  label: string;
+  fatMin: number | null;
+  fatMax: number | null;
+  snfMin: number | null;
+  snfMax: number | null;
+  payPercent: number;
+};
+
 export type RateChart = {
   id: string;
   name: string;
@@ -48,6 +58,10 @@ export type RateChart = {
   snfCoeff: number;
   base: number;
   fatRate: number;
+  kgFatRate: number;
+  efuRate: number;
+  snfEfuFactor: number;
+  goodSnfMin: number;
   fatMin: number;
   fatMax: number;
   fatStep: number;
@@ -55,6 +69,7 @@ export type RateChart = {
   snfMax: number;
   snfStep: number;
   cells: RateCell[];
+  rules: QualityRule[];
   active: boolean;
 };
 
@@ -90,6 +105,8 @@ export type Settings = {
   phone: string;
   address: string;
   rateMethod: ChartMethod;
+  cowMethod: ChartMethod;
+  buffaloMethod: ChartMethod;
 };
 
 export type DairyState = {

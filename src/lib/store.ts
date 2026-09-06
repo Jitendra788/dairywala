@@ -1,5 +1,5 @@
 import { todayISO } from "@/lib/dates";
-import { calcAmount, ensureMethodCharts, lookupRate, pickChart } from "@/lib/rate";
+import { calcAmount, ensureMethodCharts, methodForMilk, normalizeChart, pickChart, quoteRate } from "@/lib/rate";
 import { round2 } from "@/lib/money";
 import { createSeedState } from "@/lib/seed";
 import type {
@@ -74,6 +74,8 @@ function migrateState(raw: DairyState): DairyState {
     settings: {
       ...raw.settings,
       rateMethod: raw.settings.rateMethod ?? "formula",
+      cowMethod: raw.settings.cowMethod ?? raw.settings.rateMethod ?? "formula",
+      buffaloMethod: raw.settings.buffaloMethod ?? "fat-only",
     },
     charts: ensureMethodCharts(raw.charts ?? []),
   };
@@ -150,8 +152,7 @@ export function addCollection(input: {
   snf: number;
   clr: number;
 }) {
-  const chart = pickChart(state.charts, input.milkType, state.settings.rateMethod);
-  const rate = lookupRate(chart, input.fat, input.snf);
+  const rate = pricedRate(input.milkType, input.fat, input.snf);
   const entry: CollectionEntry = {
     id: uid("col"),
     farmerId: input.farmerId,
@@ -187,8 +188,7 @@ export function updateCollection(
   const existing = state.entries.find((e) => e.id === id);
   if (!existing) throw new Error("Slip nahi mili");
   if (existing.billId) throw new Error("Billed slip edit nahi ho sakti");
-  const chart = pickChart(state.charts, input.milkType, state.settings.rateMethod);
-  const rate = lookupRate(chart, input.fat, input.snf);
+  const rate = pricedRate(input.milkType, input.fat, input.snf);
   setState({
     ...state,
     entries: state.entries.map((e) =>
@@ -218,12 +218,18 @@ export function saveCharts(charts: RateChart[]) {
   setState({ ...state, charts });
 }
 
+function pricedRate(milkType: MilkType, fat: number, snf: number) {
+  const method = methodForMilk(state.settings, milkType);
+  const chart = pickChart(state.charts, milkType, method);
+  return quoteRate(chart, fat, snf).rate;
+}
+
 export function addChart(input: Omit<RateChart, "id" | "cells">) {
-  const chart: RateChart = {
+  const chart = normalizeChart({
     ...input,
     id: uid("chart"),
     cells: [],
-  };
+  });
   setState({ ...state, charts: [...state.charts, chart] });
   return chart;
 }

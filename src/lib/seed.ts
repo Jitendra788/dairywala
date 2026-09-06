@@ -1,5 +1,5 @@
 import { addDays, todayISO } from "@/lib/dates";
-import { calcAmount, defaultChart, ensureMethodCharts, generateFormulaCells, lookupRate } from "@/lib/rate";
+import { calcAmount, defaultChart, ensureMethodCharts, generateFormulaCells, milkKey, quoteRate } from "@/lib/rate";
 import type { CollectionEntry, DairyState, Farmer, RateChart } from "@/lib/types";
 
 function id(prefix: string) {
@@ -17,8 +17,8 @@ function seedCharts(): RateChart[] {
 }
 
 const seedChartList = seedCharts();
-const cowChart = seedChartList.find((c) => c.id === "chart-cow")!;
-const buffaloChart = seedChartList.find((c) => c.id === "chart-buffalo")!;
+const cowChart = seedChartList.find((c) => c.kind === "formula" && milkKey(c.milkType) === "cow")!;
+const buffaloChart = seedChartList.find((c) => c.kind === "fat-only" && milkKey(c.milkType) === "buffalo")!;
 
 const farmerSeed: Omit<Farmer, "createdAt">[] = [
   { id: "f-101", code: "101", name: "Ramesh Yadav", phone: "9876501011", milkType: "buffalo", bankName: "SBI", accountNo: "1122334455", ifsc: "SBIN0001234", upi: "ramesh@upi" },
@@ -39,7 +39,7 @@ function makeEntry(
   clr: number,
 ): CollectionEntry {
   const chart = milkType === "buffalo" ? buffaloChart : cowChart;
-  const rate = lookupRate(chart, fat, snf);
+  const rate = quoteRate(chart, fat, snf).rate;
   return {
     id: id("col"),
     farmerId: farmer.id,
@@ -89,6 +89,8 @@ export function createSeedState(): DairyState {
       phone: "9352729857",
       address: "Jaipur, Rajasthan",
       rateMethod: "formula",
+      cowMethod: "formula",
+      buffaloMethod: "fat-only",
     },
     farmers,
     entries,

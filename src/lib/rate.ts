@@ -1,21 +1,51 @@
 import { round2 } from "@/lib/money";
-import type { ChartMethod, MilkType, RateCell, RateChart } from "@/lib/types";
+import type { ChartMethod, MilkType, QualityRule, RateCell, RateChart, Settings } from "@/lib/types";
 
 export const METHOD_LABEL: Record<ChartMethod, string> = {
-  "fat-only": "Rate by FAT only",
-  formula: "SNF + FAT (Auto formula)",
-  grid: "SNF + FAT (Manual chart)",
+  "fat-only": "₹ / kg Fat",
+  formula: "EFU (SNF + FAT)",
+  grid: "Manual SNF × FAT chart",
+};
+
+export type RateQuote = {
+  base: number;
+  rate: number;
+  payPercent: number;
+  rule: QualityRule | null;
+  rejected: boolean;
 };
 
 export function milkKey(milkType: MilkType | "all"): MilkType {
   return milkType === "buffalo" ? "buffalo" : "cow";
 }
 
+export function methodForMilk(settings: Pick<Settings, "cowMethod" | "buffaloMethod" | "rateMethod">, milkType: MilkType) {
+  if (milkType === "buffalo") return settings.buffaloMethod ?? "fat-only";
+  return settings.cowMethod ?? "formula";
+}
+
 export function defaultRanges(milk: MilkType) {
   if (milk === "buffalo") {
-    return { fatMin: 5, fatMax: 11.5, fatStep: 0.1, snfMin: 8, snfMax: 11, snfStep: 0.1 };
+    return { fatMin: 5.1, fatMax: 10, fatStep: 0.1, snfMin: 9, snfMax: 11, snfStep: 0.1 };
   }
-  return { fatMin: 3, fatMax: 6.5, fatStep: 0.1, snfMin: 8, snfMax: 10, snfStep: 0.1 };
+  return { fatMin: 3, fatMax: 5, fatStep: 0.1, snfMin: 8.5, snfMax: 10, snfStep: 0.1 };
+}
+
+export function defaultRules(milk: MilkType): QualityRule[] {
+  if (milk === "buffalo") {
+    return [
+      { id: "b-low-fat", label: "FAT 0.1–5.0 and SNF ≤ 9.0 → 25% of good milk", fatMin: 0.1, fatMax: 5, snfMin: null, snfMax: 9, payPercent: 25 },
+      { id: "b-snf-84", label: "SNF 8.4 → 25% of good milk", fatMin: null, fatMax: null, snfMin: 8.4, snfMax: 8.4, payPercent: 25 },
+      { id: "b-snf-85", label: "SNF 8.5–8.7 → 4% deduction", fatMin: null, fatMax: null, snfMin: 8.5, snfMax: 8.7, payPercent: 96 },
+      { id: "b-snf-88", label: "SNF 8.8–8.9 → 2% deduction", fatMin: null, fatMax: null, snfMin: 8.8, snfMax: 8.9, payPercent: 98 },
+    ];
+  }
+  return [
+    { id: "c-snf-80", label: "SNF 8.0 → 25% of EFU rate", fatMin: null, fatMax: null, snfMin: 8, snfMax: 8, payPercent: 25 },
+    { id: "c-high-fat", label: "FAT 5.1+ and SNF 8.5+ → 85% of EFU rate", fatMin: 5.1, fatMax: null, snfMin: 8.5, snfMax: null, payPercent: 85 },
+    { id: "c-snf-81", label: "SNF 8.1–8.2 → 96% of EFU rate", fatMin: null, fatMax: null, snfMin: 8.1, snfMax: 8.2, payPercent: 96 },
+    { id: "c-snf-83", label: "SNF 8.3–8.4 → 98% of EFU rate", fatMin: null, fatMax: null, snfMin: 8.3, snfMax: 8.4, payPercent: 98 },
+  ];
 }
 
 export function axisValues(min: number, max: number, step: number) {
@@ -46,23 +76,82 @@ function nearestCell(cells: RateCell[], fat: number, snf: number, useSnf: boolea
   return best;
 }
 
+export function kgFatLitreRate(chart: RateChart, fat: number) {
+  const perPoint = (chart.kgFatRate || chart.fatRate * 100 || 0) / 100;
+  return round2(fat * perPoint + (chart.base || 0));
+}
+
+export function efuLitreRate(chart: RateChart, fat: number, snf: number) {
+  const factor = chart.snfEfuFactor || 2 / 3;
+  const totalEfu = fat + snf * factor;
+  return round2((totalEfu * (chart.efuRate || 0)) / 100);
+}
+
 export function formulaRate(chart: RateChart, fat: number, snf: number) {
+  if (chart.efuRate > 0) return efuLitreRate(chart, fat, snf);
   return round2(chart.base + fat * chart.fatCoeff + snf * chart.snfCoeff);
 }
 
 export function fatOnlyRate(chart: RateChart, fat: number) {
-  return round2(fat * (chart.fatRate || 0) + (chart.base || 0));
+  return kgFatLitreRate(chart, fat);
+}
+
+function inBound(value: number, min: number | null, max: number | null) {
+  if (min != null && value < min - 0.001) return false;
+  if (max != null && value > max + 0.001) return false;
+  return true;
+}
+
+export function matchQualityRule(rules: QualityRule[] | undefined, fat: number, snf: number) {
+  for (const rule of rules ?? []) {
+    if (!inBound(fat, rule.fatMin, rule.fatMax)) continue;
+    if (!inBound(snf, rule.snfMin, rule.snfMax)) continue;
+    return rule;
+  }
+  return null;
+}
+
+function baseRate(chart: RateChart, fat: number, snf: number) {
+  if (chart.kind === "grid" && chart.cells.length) {
+    return round2(nearestCell(chart.cells, fat, snf, true).rate);
+  }
+  if (chart.cells.length && (chart.kind === "fat-only" || chart.kind === "formula")) {
+    return round2(nearestCell(chart.cells, fat, 0, false).rate);
+  }
+  if (chart.kind === "fat-only") return kgFatLitreRate(chart, fat);
+  return formulaRate(chart, fat, snf);
+}
+
+export function upsertFatCell(cells: RateCell[], fat: number, rate: number, snf = 0): RateCell[] {
+  const nextFat = round2(fat);
+  const next = cells.filter((c) => Math.abs(c.fat - nextFat) > 0.001);
+  next.push({ fat: nextFat, snf: round2(snf), rate: round2(rate) });
+  next.sort((a, b) => a.fat - b.fat);
+  return next;
+}
+
+export function removeFatCell(cells: RateCell[], fat: number): RateCell[] {
+  return cells.filter((c) => Math.abs(c.fat - fat) > 0.001);
+}
+
+export function quoteRate(chart: RateChart | undefined, fat: number, snf: number): RateQuote {
+  if (!chart || !fat) {
+    return { base: 0, rate: 0, payPercent: 0, rule: null, rejected: true };
+  }
+  const base = baseRate(chart, fat, snf || chart.goodSnfMin || 0);
+  const rule = matchQualityRule(chart.rules, fat, snf || 0);
+  const payPercent = rule?.payPercent ?? 100;
+  return {
+    base,
+    rate: round2(base * (payPercent / 100)),
+    payPercent,
+    rule,
+    rejected: payPercent === 0,
+  };
 }
 
 export function lookupRate(chart: RateChart | undefined, fat: number, snf: number) {
-  if (!chart || !fat) return 0;
-  if (chart.kind === "fat-only") {
-    if (chart.cells.length) return round2(nearestCell(chart.cells, fat, 0, false).rate);
-    return fatOnlyRate(chart, fat);
-  }
-  if (!snf) return 0;
-  if (chart.cells.length) return round2(nearestCell(chart.cells, fat, snf, true).rate);
-  return formulaRate(chart, fat, snf);
+  return quoteRate(chart, fat, snf).rate;
 }
 
 export function pickChart(charts: RateChart[], milkType: MilkType, method?: ChartMethod) {
@@ -85,19 +174,18 @@ export function generateFatOnlyCells(chart: RateChart): RateCell[] {
   return axisValues(chart.fatMin, chart.fatMax, chart.fatStep).map((fat) => ({
     fat,
     snf: 0,
-    rate: fatOnlyRate(chart, fat),
+    rate: kgFatLitreRate(chart, fat),
   }));
 }
 
 export function generateFormulaCells(chart: RateChart): RateCell[] {
-  const { fats, snfs } = chartAxes(chart);
-  const cells: RateCell[] = [];
-  for (const fat of fats) {
-    for (const snf of snfs) {
-      cells.push({ fat, snf, rate: formulaRate(chart, fat, snf) });
-    }
-  }
-  return cells;
+  const fats = axisValues(chart.fatMin, chart.fatMax, chart.fatStep);
+  const goodSnf = chart.goodSnfMin || chart.snfMin;
+  return fats.map((fat) => ({
+    fat,
+    snf: goodSnf,
+    rate: formulaRate(chart, fat, goodSnf),
+  }));
 }
 
 export function generateBlankGrid(chart: RateChart): RateCell[] {
@@ -129,34 +217,49 @@ export function defaultChart(kind: ChartMethod, milk: MilkType): RateChart {
     milkType: milk,
     fatCoeff: isBuffalo ? 7.35 : 6.85,
     snfCoeff: isBuffalo ? 4.15 : 3.95,
-    base: isBuffalo ? 3 : 2.5,
-    fatRate: isBuffalo ? 10 : 9,
+    base: 0,
+    fatRate: isBuffalo ? 9 : 0,
+    kgFatRate: isBuffalo ? 900 : 0,
+    efuRate: isBuffalo ? 0 : 421.69,
+    snfEfuFactor: 2 / 3,
+    goodSnfMin: isBuffalo ? 9 : 8.5,
     ...ranges,
     cells: [],
-    active: kind === "formula",
+    rules: defaultRules(milk),
+    active: kind === (isBuffalo ? "fat-only" : "formula"),
   };
+}
+
+export function applyStandardSheet(chart: RateChart): RateChart {
+  const milk = milkKey(chart.milkType);
+  const next = { ...defaultChart(chart.kind, milk), id: chart.id, kind: chart.kind };
+  if (chart.kind === "fat-only") next.cells = generateFatOnlyCells(next);
+  if (chart.kind === "formula") next.cells = generateFormulaCells(next);
+  return next;
 }
 
 export function normalizeChart(chart: Partial<RateChart> & Pick<RateChart, "id">): RateChart {
   const kind: ChartMethod = chart.kind === "grid" ? "grid" : chart.kind === "fat-only" ? "fat-only" : "formula";
   const milk = milkKey(chart.milkType ?? "cow");
   const base = defaultChart(kind, milk);
+  const kgFatRate = chart.kgFatRate ?? (chart.fatRate ? chart.fatRate * 100 : base.kgFatRate);
   return {
     ...base,
     ...chart,
     kind,
     milkType: milk,
     cells: chart.cells ?? [],
+    rules: chart.rules?.length ? chart.rules : base.rules,
+    kgFatRate,
+    efuRate: chart.efuRate ?? base.efuRate,
+    snfEfuFactor: chart.snfEfuFactor ?? base.snfEfuFactor,
+    goodSnfMin: chart.goodSnfMin ?? base.goodSnfMin,
     fatMin: chart.fatMin ?? base.fatMin,
     fatMax: chart.fatMax ?? base.fatMax,
     fatStep: chart.fatStep ?? base.fatStep,
     snfMin: chart.snfMin ?? base.snfMin,
     snfMax: chart.snfMax ?? base.snfMax,
     snfStep: chart.snfStep ?? base.snfStep,
-    fatRate: chart.fatRate ?? base.fatRate,
-    fatCoeff: chart.fatCoeff ?? base.fatCoeff,
-    snfCoeff: chart.snfCoeff ?? base.snfCoeff,
-    base: chart.base ?? base.base,
   };
 }
 
@@ -166,12 +269,20 @@ export function ensureMethodCharts(charts: RateChart[]) {
     for (const milk of ["cow", "buffalo"] as const) {
       if (!next.some((c) => c.kind === kind && milkKey(c.milkType) === milk)) {
         const created = defaultChart(kind, milk);
-        if (kind === "formula") created.cells = generateFormulaCells(created);
+        if (kind === "fat-only" && milk === "buffalo") created.cells = generateFatOnlyCells(created);
+        if (kind === "formula" && milk === "cow") created.cells = generateFormulaCells(created);
         next.push(created);
       }
     }
   }
-  return next.map((c) =>
-    c.kind === "formula" && c.cells.length === 0 ? { ...c, cells: generateFormulaCells(c) } : c,
-  );
+  return next.map((c) => {
+    if (c.cells.length) return c;
+    if (c.kind === "fat-only" && milkKey(c.milkType) === "buffalo") {
+      return { ...c, cells: generateFatOnlyCells(c) };
+    }
+    if (c.kind === "formula" && milkKey(c.milkType) === "cow") {
+      return { ...c, cells: generateFormulaCells(c) };
+    }
+    return c;
+  });
 }

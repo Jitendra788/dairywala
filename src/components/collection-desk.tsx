@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Pencil, Printer, Trash2 } from "lucide-react";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
-import { calcAmount, lookupRate, METHOD_LABEL, pickChart } from "@/lib/rate";
+import { calcAmount, METHOD_LABEL, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnPrimary, Card, Field, Initials, MilkBadge, inputClass } from "@/components/ui";
 import type { MilkType, Shift } from "@/lib/types";
@@ -26,8 +26,10 @@ export function CollectionDesk() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const farmer = dairy.farmerByCode(code);
-  const chart = pickChart(dairy.charts, milkType, dairy.settings.rateMethod);
-  const rate = lookupRate(chart, Number(fat), Number(snf));
+  const method = methodForMilk(dairy.settings, milkType);
+  const chart = pickChart(dairy.charts, milkType, method);
+  const quote = quoteRate(chart, Number(fat), Number(snf));
+  const rate = quote.rate;
   const amount = calcAmount(Number(qty), rate);
 
   useEffect(() => {
@@ -194,20 +196,30 @@ export function CollectionDesk() {
           </Field>
         </div>
 
-        <div className="mt-3 rounded-2xl bg-primary px-3.5 py-3 text-white">
+        <div className={`mt-3 rounded-2xl px-3.5 py-3 text-white ${quote.rejected && Number(fat) ? "bg-red-700" : "bg-primary"}`}>
           <p className="text-[10px] text-white/70">
-            {METHOD_LABEL[dairy.settings.rateMethod]} · {chart?.name ?? "No chart"}
+            {milkType === "buffalo" ? "Buffalo" : "Cow"} · {METHOD_LABEL[method]} · {chart?.name ?? "No chart"}
           </p>
           <div className="mt-1 flex items-end justify-between">
             <div>
               <p className="text-[11px] text-white/70">Rate / L</p>
-              <p className="text-sm font-semibold">{rate ? formatInr(rate) : "—"}</p>
+              <p className="text-sm font-semibold">
+                {Number(fat) ? formatInr(rate) : "—"}
+                {quote.payPercent < 100 && Number(fat) ? (
+                  <span className="ml-1 text-[11px] font-normal text-white/70">
+                    ({quote.payPercent}% of {formatInr(quote.base)})
+                  </span>
+                ) : null}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-[11px] text-white/70">Amount</p>
-              <p className="font-display text-2xl leading-none">{qty && rate ? formatInr(amount) : "—"}</p>
+              <p className="font-display text-2xl leading-none">{qty && Number(fat) ? formatInr(amount) : "—"}</p>
             </div>
           </div>
+          {quote.rule && Number(fat) ? (
+            <p className="mt-2 text-[11px] text-white/80">{quote.rejected ? "Rejected — no payment. " : ""}{quote.rule.label}</p>
+          ) : null}
         </div>
 
         {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
