@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { AuthGate } from "@/components/auth-gate";
 import "./globals.css";
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${sans.variable} ${display.variable} h-full overflow-hidden antialiased`}
     >
       <body className="h-full overflow-hidden font-sans">
-        <AuthGate>{children}</AuthGate>
+        <Suspense>
+          <AuthGate>{children}</AuthGate>
+        </Suspense>
       </body>
     </html>
   );

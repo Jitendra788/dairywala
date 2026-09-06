@@ -15,6 +15,8 @@ const AUTH_KEY = "tony-dairy-auth";
 const SESSION_KEY = "tony-dairy-session";
 
 const listeners = new Set<() => void>();
+let cachedRaw: string | null = null;
+let cachedSession: AuthSession | null = null;
 
 function emit() {
   listeners.forEach((fn) => fn());
@@ -63,10 +65,17 @@ function sessionStore(remember: boolean) {
 function readSession(): AuthSession | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
+  if (raw === cachedRaw) return cachedSession;
+  cachedRaw = raw;
+  if (!raw) {
+    cachedSession = null;
+    return null;
+  }
   try {
-    return JSON.parse(raw) as AuthSession;
+    cachedSession = JSON.parse(raw) as AuthSession;
+    return cachedSession;
   } catch {
+    cachedSession = null;
     return null;
   }
 }
@@ -74,7 +83,10 @@ function readSession(): AuthSession | null {
 function writeSession(session: AuthSession) {
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
-  sessionStore(session.remember).setItem(SESSION_KEY, JSON.stringify(session));
+  const raw = JSON.stringify(session);
+  sessionStore(session.remember).setItem(SESSION_KEY, raw);
+  cachedRaw = raw;
+  cachedSession = session;
   emit();
 }
 
@@ -119,6 +131,8 @@ export async function login(username: string, password: string, remember: boolea
 export function logout() {
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
+  cachedRaw = null;
+  cachedSession = null;
   emit();
 }
 
