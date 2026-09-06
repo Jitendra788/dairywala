@@ -3,7 +3,7 @@ import type { ChartMethod, MilkType, QualityRule, RateCell, RateChart, Settings 
 
 export const METHOD_LABEL: Record<ChartMethod, string> = {
   "fat-only": "₹ / kg Fat",
-  formula: "EFU (SNF + FAT)",
+  formula: "FAT rate table",
   grid: "Manual SNF × FAT chart",
 };
 
@@ -112,26 +112,15 @@ export function matchQualityRule(rules: QualityRule[] | undefined, fat: number, 
 }
 
 function baseRate(chart: RateChart, fat: number, snf: number) {
-  if (chart.kind === "grid" && chart.cells.length) {
-    return round2(nearestCell(chart.cells, fat, snf, true).rate);
+  if (chart.kind === "grid") {
+    if (chart.cells.length) return round2(nearestCell(chart.cells, fat, snf, true).rate);
+    return formulaRate(chart, fat, snf);
   }
-  if (chart.cells.length && (chart.kind === "fat-only" || chart.kind === "formula")) {
+  if (chart.cells.length) {
     return round2(nearestCell(chart.cells, fat, 0, false).rate);
   }
   if (chart.kind === "fat-only") return kgFatLitreRate(chart, fat);
   return formulaRate(chart, fat, snf);
-}
-
-export function upsertFatCell(cells: RateCell[], fat: number, rate: number, snf = 0): RateCell[] {
-  const nextFat = round2(fat);
-  const next = cells.filter((c) => Math.abs(c.fat - nextFat) > 0.001);
-  next.push({ fat: nextFat, snf: round2(snf), rate: round2(rate) });
-  next.sort((a, b) => a.fat - b.fat);
-  return next;
-}
-
-export function removeFatCell(cells: RateCell[], fat: number): RateCell[] {
-  return cells.filter((c) => Math.abs(c.fat - fat) > 0.001);
 }
 
 export function quoteRate(chart: RateChart | undefined, fat: number, snf: number): RateQuote {
