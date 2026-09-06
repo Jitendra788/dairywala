@@ -22,6 +22,12 @@ export function SettingsView() {
     setIsDefault(Boolean(getAuthRecord()?.isDefault));
   }, [username]);
 
+  useEffect(() => {
+    const id = window.location.hash.replace("#", "");
+    if (!id) return;
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }, []);
+
   async function saveAccount() {
     setMsg("");
     setErr("");
@@ -53,7 +59,7 @@ export function SettingsView() {
         hint="Centre name slips aur bills par chhapega. Data is browser mein save hota hai — Hamari jaisa offline desk."
       />
 
-      <Card className="space-y-3 p-5">
+      <Card id="profile" className="space-y-3 p-5">
         <Field label="Dairy name">
           <input
             className={inputClass}
@@ -84,8 +90,8 @@ export function SettingsView() {
         </Field>
       </Card>
 
-      <Card className="space-y-3 p-4 sm:p-5">
-        <h2 className="font-display text-xl">Login account</h2>
+      <Card id="account" className="space-y-3 p-4 sm:p-5">
+        <h2 className="font-display text-xl">Users & staff</h2>
         <p className="text-sm text-muted">
           {isDefault ? "Abhi default admin / admin chal raha hai. Password change karo." : "Username ya password yahan se badlo."}
         </p>
@@ -105,10 +111,10 @@ export function SettingsView() {
         </button>
       </Card>
 
-      <Card className="p-5">
-        <h2 className="font-display text-xl">Demo data</h2>
+      <Card id="data" className="p-5">
+        <h2 className="font-display text-xl">Backup & demo data</h2>
         <p className="mt-1 text-sm text-muted">
-          Seed farmers, last 10 days ki collection aur ek advance wapas load hoga.
+          Collection data is saved in this browser. Reset restores seed farmers and recent slips.
         </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button

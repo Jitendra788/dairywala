@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Pause, Pencil, Play } from "lucide-react";
 import { customerApi } from "@/lib/customers/client";
-import type { CustomerRow, CustomerStatus, DeliveryStatus } from "@/lib/customers/types";
+import type { CustomerMilkType, CustomerRow, CustomerStatus, CustomerType } from "@/lib/customers/types";
 import { formatInr, formatQty } from "@/lib/money";
 import { addDays, todayISO } from "@/lib/dates";
 import { useToast } from "@/components/toast";
@@ -19,16 +20,18 @@ import {
   inputClass,
   PageHeader,
 } from "@/components/ui";
-import { CustomerStatusBadge, DeliveryStatusBadge, EmptyState, LoadingRows } from "@/components/customers/shared";
+import { CustomerStatusBadge, CustomerTypeBadge, EmptyState, LoadingRows } from "@/components/customers/shared";
 
 export function AllCustomersView() {
   const toast = useToast();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<CustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<"all" | CustomerStatus>("all");
-  const [milk, setMilk] = useState<"all" | "cow" | "buffalo" | "mixed">("all");
-  const [today, setToday] = useState<"all" | DeliveryStatus>("all");
+  const [type, setType] = useState<"all" | CustomerType>("all");
+  const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
+  const [milk, setMilk] = useState<"all" | CustomerMilkType>("all");
+  const [payment, setPayment] = useState<"all" | "pending" | "clear">("all");
   const [editing, setEditing] = useState<CustomerRow | null>(null);
   const [pauseRow, setPauseRow] = useState<CustomerRow | null>(null);
   const [pauseFrom, setPauseFrom] = useState(todayISO());
@@ -62,12 +65,21 @@ export function AllCustomersView() {
     void load();
   }, []);
 
+  useEffect(() => {
+    const next = searchParams.get("type");
+    if (next === "regular" || next === "walkin") setType(next);
+    else setType("all");
+  }, [searchParams]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return rows.filter((row) => {
-      if (status !== "all" && row.status !== status) return false;
+      if (type !== "all" && row.customerType !== type) return false;
+      if (status === "active" && row.status !== "active") return false;
+      if (status === "inactive" && row.status === "active") return false;
       if (milk !== "all" && row.milkType !== milk) return false;
-      if (today !== "all" && row.todayDelivery?.status !== today) return false;
+      if (payment === "pending" && row.outstanding <= 0) return false;
+      if (payment === "clear" && row.outstanding > 0) return false;
       if (!s) return true;
       return (
         row.name.toLowerCase().includes(s) ||
@@ -76,7 +88,7 @@ export function AllCustomersView() {
         row.address.toLowerCase().includes(s)
       );
     });
-  }, [rows, q, status, milk, today]);
+  }, [rows, q, type, status, milk, payment]);
 
   function startEdit(row: CustomerRow) {
     setEditing(row);
@@ -85,8 +97,8 @@ export function AllCustomersView() {
       mobile: row.mobile,
       address: row.address,
       milkType: row.milkType,
-      dailyQty: String(row.subscription?.dailyQty ?? ""),
-      rate: String(row.subscription?.rate ?? ""),
+      dailyQty: String(row.subscription?.dailyQty ?? row.defaultQty ?? ""),
+      rate: String(row.subscription?.rate ?? row.defaultRate ?? ""),
       deliveryTime: row.subscription?.deliveryTime ?? "06:30",
       paymentCycle: row.subscription?.paymentCycle ?? "monthly",
       status: row.status,
@@ -150,8 +162,8 @@ export function AllCustomersView() {
     <div className="mx-auto max-w-7xl space-y-5">
       <PageHeader
         kicker="ग्राहक"
-        title="All Customers"
-        hint="One customer record, one subscription. Today’s delivery is generated from the active schedule."
+        title={type === "regular" ? "Regular Customers" : type === "walkin" ? "Daily / Walk-in Customers" : "All Customers"}
+        hint="Regular customers have a daily subscription. Daily / walk-in customers are billed only on the days they buy milk."
         actions={
           <Link href="/customers/new" className={btnPrimary}>
             Add customer
@@ -184,15 +196,28 @@ export function AllCustomersView() {
                 <option value="mixed">Mixed</option>
               </select>
             </Field>
-            <Field label="Daily quantity">
-              <input className={inputClass} type="number" min="0.1" step="0.1" value={form.dailyQty} onChange={(e) => setForm({ ...form, dailyQty: e.target.value })} />
-            </Field>
-            <Field label="Milk rate">
-              <input className={inputClass} type="number" min="1" step="0.5" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
-            </Field>
-            <Field label="Delivery time">
-              <input className={inputClass} type="time" value={form.deliveryTime} onChange={(e) => setForm({ ...form, deliveryTime: e.target.value })} />
-            </Field>
+            {editing.customerType === "regular" ? (
+              <>
+                <Field label="Daily quantity">
+                  <input className={inputClass} type="number" min="0.1" step="0.1" value={form.dailyQty} onChange={(e) => setForm({ ...form, dailyQty: e.target.value })} />
+                </Field>
+                <Field label="Milk rate">
+                  <input className={inputClass} type="number" min="1" step="0.5" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+                </Field>
+                <Field label="Delivery time">
+                  <input className={inputClass} type="time" value={form.deliveryTime} onChange={(e) => setForm({ ...form, deliveryTime: e.target.value })} />
+                </Field>
+              </>
+            ) : (
+              <>
+                <Field label="Default quantity">
+                  <input className={inputClass} type="number" min="0" step="0.1" value={form.dailyQty} onChange={(e) => setForm({ ...form, dailyQty: e.target.value })} />
+                </Field>
+                <Field label="Default rate">
+                  <input className={inputClass} type="number" min="0" step="0.5" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+                </Field>
+              </>
+            )}
             <Field label="Status">
               <select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CustomerStatus })}>
                 <option value="active">Active</option>
@@ -213,13 +238,17 @@ export function AllCustomersView() {
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        <div className="grid gap-3 border-b border-line p-4 md:grid-cols-4">
+        <div className="grid gap-3 border-b border-line p-4 md:grid-cols-5">
           <input className={inputClass} placeholder="Search ID, name, mobile, address" value={q} onChange={(e) => setQ(e.target.value)} />
+          <select className={inputClass} value={type} onChange={(e) => setType(e.target.value as typeof type)}>
+            <option value="all">All customer types</option>
+            <option value="regular">Regular</option>
+            <option value="walkin">Daily / Walk-in</option>
+          </select>
           <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
-            <option value="all">All statuses</option>
+            <option value="all">Active / Inactive</option>
             <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="stopped">Stopped</option>
+            <option value="inactive">Inactive</option>
           </select>
           <select className={inputClass} value={milk} onChange={(e) => setMilk(e.target.value as typeof milk)}>
             <option value="all">All milk types</option>
@@ -227,14 +256,10 @@ export function AllCustomersView() {
             <option value="buffalo">Buffalo</option>
             <option value="mixed">Mixed</option>
           </select>
-          <select className={inputClass} value={today} onChange={(e) => setToday(e.target.value as typeof today)}>
-            <option value="all">Today — all</option>
-            <option value="pending">Pending</option>
-            <option value="delivered">Delivered</option>
-            <option value="skipped">Skipped</option>
-            <option value="partial">Partial</option>
-            <option value="extra">Extra</option>
-            <option value="not_delivered">Not delivered</option>
+          <select className={inputClass} value={payment} onChange={(e) => setPayment(e.target.value as typeof payment)}>
+            <option value="all">All payment status</option>
+            <option value="pending">Outstanding</option>
+            <option value="clear">Clear</option>
           </select>
         </div>
         <div className="divide-y divide-line/70 md:hidden">
@@ -250,15 +275,14 @@ export function AllCustomersView() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{row.name}</p>
+                      <CustomerTypeBadge type={row.customerType} />
                       <CustomerStatusBadge status={row.status} />
                     </div>
                     <p className="font-mono text-[11px] text-muted">{row.customerCode} · {row.mobile}</p>
-                    <p className="truncate text-[12px] text-muted">{row.address}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
                       <MilkBadge type={row.milkType} />
-                      <span>{formatQty(row.subscription?.dailyQty ?? 0)}</span>
-                      <span>{formatInr(row.subscription?.rate ?? 0)}</span>
-                      <DeliveryStatusBadge status={row.todayDelivery?.status ?? null} />
+                      <span>{formatQty(row.subscription?.dailyQty ?? row.defaultQty)}</span>
+                      <span>{formatInr(row.subscription?.rate ?? row.defaultRate)}</span>
                     </div>
                     <p className="mt-1 text-[13px] font-semibold">{formatInr(row.outstanding)}</p>
                   </div>
@@ -266,7 +290,8 @@ export function AllCustomersView() {
                     <button type="button" className="rounded-lg p-1.5 text-muted hover:bg-[#f4ead6] hover:text-primary" onClick={() => startEdit(row)} aria-label="Edit">
                       <Pencil size={14} />
                     </button>
-                    {row.status === "paused" ? (
+                    {row.customerType === "regular" ? (
+                      row.status === "paused" ? (
                       <button type="button" className="rounded-lg p-1.5 text-muted hover:bg-emerald-50 hover:text-primary" onClick={() => void resume(row)} aria-label="Resume">
                         <Play size={14} />
                       </button>
@@ -283,7 +308,8 @@ export function AllCustomersView() {
                       >
                         <Pause size={14} />
                       </button>
-                    )}
+                    )
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -291,18 +317,18 @@ export function AllCustomersView() {
           )}
         </div>
         <div className="table-scroll hidden md:block">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[1080px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Customer ID</th>
                 <th className="py-2.5 font-medium">Name</th>
                 <th className="py-2.5 font-medium">Mobile</th>
-                <th className="py-2.5 font-medium">Address</th>
-                <th className="py-2.5 font-medium">Milk</th>
-                <th className="py-2.5 font-medium">Daily qty</th>
+                <th className="py-2.5 font-medium">Customer Type</th>
+                <th className="py-2.5 font-medium">Milk Type</th>
+                <th className="py-2.5 font-medium">Default Quantity</th>
                 <th className="py-2.5 font-medium">Rate</th>
-                <th className="py-2.5 font-medium">Today</th>
-                <th className="py-2.5 font-medium">Outstanding</th>
+                <th className="py-2.5 font-medium">Outstanding Balance</th>
+                <th className="py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium text-right">Actions</th>
               </tr>
             </thead>
@@ -313,7 +339,7 @@ export function AllCustomersView() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={10}>
-                      <EmptyState title="No customers match" hint="Change filters or add a customer once. Daily milk is generated from the subscription." />
+                      <EmptyState title="No customers match" hint="Change filters or add a regular or daily / walk-in customer." />
                     </td>
                   </tr>
                 ) : (
@@ -323,45 +349,46 @@ export function AllCustomersView() {
                       <td className="py-2.5">
                         <span className="flex items-center gap-2">
                           <Initials name={row.name} />
-                          <span>
-                            <span className="block font-medium">{row.name}</span>
-                            <CustomerStatusBadge status={row.status} />
-                          </span>
+                          <span className="font-medium">{row.name}</span>
                         </span>
                       </td>
                       <td>{row.mobile}</td>
-                      <td className="max-w-[160px] truncate text-muted">{row.address}</td>
+                      <td>
+                        <CustomerTypeBadge type={row.customerType} />
+                      </td>
                       <td>
                         <MilkBadge type={row.milkType} />
                       </td>
-                      <td>{formatQty(row.subscription?.dailyQty ?? 0)}</td>
-                      <td>{formatInr(row.subscription?.rate ?? 0)}</td>
-                      <td>
-                        <DeliveryStatusBadge status={row.todayDelivery?.status ?? null} />
-                      </td>
+                      <td>{formatQty(row.subscription?.dailyQty ?? row.defaultQty)}</td>
+                      <td>{formatInr(row.subscription?.rate ?? row.defaultRate)}</td>
                       <td className="font-semibold">{formatInr(row.outstanding)}</td>
+                      <td>
+                        <CustomerStatusBadge status={row.status} />
+                      </td>
                       <td className="px-4 text-right">
                         <button type="button" className="mr-1 rounded-lg p-1.5 text-muted hover:bg-[#f4ead6] hover:text-primary" onClick={() => startEdit(row)} aria-label="Edit">
                           <Pencil size={14} />
                         </button>
-                        {row.status === "paused" ? (
-                          <button type="button" className="rounded-lg p-1.5 text-muted hover:bg-emerald-50 hover:text-primary" onClick={() => void resume(row)} aria-label="Resume">
-                            <Play size={14} />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="rounded-lg p-1.5 text-muted hover:bg-amber-50 hover:text-amber-800"
-                            onClick={() => {
-                              setPauseRow(row);
-                              setPauseFrom(todayISO());
-                              setResumeDate(addDays(todayISO(), 3));
-                            }}
-                            aria-label="Pause"
-                          >
-                            <Pause size={14} />
-                          </button>
-                        )}
+                        {row.customerType === "regular" ? (
+                          row.status === "paused" ? (
+                            <button type="button" className="rounded-lg p-1.5 text-muted hover:bg-emerald-50 hover:text-primary" onClick={() => void resume(row)} aria-label="Resume">
+                              <Play size={14} />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="rounded-lg p-1.5 text-muted hover:bg-amber-50 hover:text-amber-800"
+                              onClick={() => {
+                                setPauseRow(row);
+                                setPauseFrom(todayISO());
+                                setResumeDate(addDays(todayISO(), 3));
+                              }}
+                              aria-label="Pause"
+                            >
+                              <Pause size={14} />
+                            </button>
+                          )
+                        ) : null}
                       </td>
                     </tr>
                   ))

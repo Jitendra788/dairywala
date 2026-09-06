@@ -27,6 +27,14 @@ export function formatDate(iso: string) {
   });
 }
 
+export function formatTime(iso: string) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function toDMY(iso: string) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");

@@ -2,13 +2,16 @@ import { addDays, todayISO } from "@/lib/dates";
 import { DEFAULT_DAIRY_ID } from "@/lib/customers/context";
 import {
   createCustomer,
+  createWalkInSale,
   ensureDeliveriesForDate,
   getCustomerRow,
   getOutstanding,
+  listCustomers,
   listDeliveries,
   listLedger,
   listMonthlyBills,
   listPayments,
+  listWalkInSales,
   markDelivered,
   markExtra,
   markPartial,
@@ -46,6 +49,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
       mobile: "9876502001",
       address: "Should not save",
       milkType: "buffalo",
+      customerType: "regular",
       dailyQty: 2,
       rate: 60,
       startDate: today,
@@ -192,6 +196,78 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
       `${resumed.status}, today=${resumedList?.status ?? "none"}`,
     ),
   );
+
+  const walkinMobile = "9876502012";
+  const existingWalkin = listCustomers(dairyId).find((row) => row.mobile === walkinMobile);
+  const walkin =
+    existingWalkin ??
+    createCustomer(dairyId, {
+      name: "Walk-in Ramesh",
+      mobile: walkinMobile,
+      address: "",
+      milkType: "cow",
+      customerType: "walkin",
+      status: "active",
+    });
+  const beforeCount = listCustomers(dairyId).filter((row) => row.mobile === walkinMobile).length;
+  const monthPrefix = today.slice(0, 8);
+  const dayA = `${monthPrefix}01`;
+  const dayB = `${monthPrefix}03`;
+  const dayC = `${monthPrefix}02`;
+  createWalkInSale(dairyId, {
+    customerId: walkin.id,
+    date: dayA,
+    milkType: "cow",
+    quantity: 3,
+    rate: 60,
+    paymentStatus: "paid",
+    paymentMode: "cash",
+  });
+  createWalkInSale(dairyId, {
+    customerId: walkin.id,
+    date: dayB,
+    milkType: "cow",
+    quantity: 5,
+    rate: 60,
+    paymentStatus: "pending",
+    paymentMode: "cash",
+  });
+  const afterCount = listCustomers(dairyId).filter((row) => row.mobile === walkinMobile).length;
+  const walkinLedger = listLedger(dairyId, dayA, dayB, walkin.id);
+  const quietLedger = listLedger(dairyId, dayC, dayC, walkin.id);
+  const autoOnDesk = listDeliveries(dairyId, today).some((row) => row.customerId === walkin.id);
+  const walkinBills = listMonthlyBills(dairyId, Number(dayA.slice(0, 4)), Number(dayA.slice(5, 7)));
+  const walkinBill = walkinBills.find((row) => row.customerId === walkin.id);
+  const walkinOutstanding = getOutstanding(dairyId, walkin.id);
+  checks.push(check("Walk-in stays one customer master", beforeCount === 1 && afterCount === 1, `${walkin.customerCode} records=${afterCount}`));
+  checks.push(
+    check(
+      "Two dated walk-in transactions",
+      walkinLedger.filter((row) => row.date === dayA || row.date === dayB).length === 2 &&
+        walkinLedger.some((row) => row.date === dayA && row.deliveredQty === 3 && row.amount === 180) &&
+        walkinLedger.some((row) => row.date === dayB && row.deliveredQty === 5 && row.amount === 300),
+      `${walkinLedger.length} ledger lines`,
+    ),
+  );
+  checks.push(check("No charge on a day without purchase", quietLedger.length === 0, `${dayC} lines=${quietLedger.length}`));
+  checks.push(check("Walk-in not auto-listed on daily delivery", !autoOnDesk, autoOnDesk ? "appeared" : "hidden"));
+  checks.push(
+    check(
+      "Monthly bill uses only actual walk-in sales",
+      Boolean(walkinBill && walkinBill.totalDelivered >= 8 && walkinBill.totalAmount >= 480),
+      walkinBill ? `${walkinBill.totalDelivered} L / ₹${walkinBill.totalAmount}` : "no bill",
+    ),
+  );
+  checks.push(check("Pending walk-in sale increases outstanding", walkinOutstanding >= 300, `outstanding ₹${walkinOutstanding}`));
+  checks.push(check("Walk-in sales list for sale date", listWalkInSales(dairyId, dayA).some((row) => row.customerId === walkin.id), dayA));
+
+  let pauseBlocked = false;
+  try {
+    pauseCustomer(dairyId, walkin.id, today, addDays(today, 2));
+  } catch (error) {
+    pauseBlocked = error instanceof Error && /no daily subscription/i.test(error.message);
+  }
+  checks.push(check("Walk-in cannot be paused like a subscription", pauseBlocked, "pause rejected"));
 
   const passed = checks.filter((c) => c.ok).length;
   return {

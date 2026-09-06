@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { todayISO } from "@/lib/dates";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
@@ -20,6 +20,12 @@ export function ReportsView() {
   const amount = rows.reduce((s, e) => s + e.amount, 0);
   const avgFat = qty ? rows.reduce((s, e) => s + e.fat * e.qty, 0) / qty : 0;
   const avgSnf = qty ? rows.reduce((s, e) => s + e.snf * e.qty, 0) / qty : 0;
+
+  useEffect(() => {
+    const id = window.location.hash.replace("#", "");
+    if (!id) return;
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }, []);
 
   const byFarmer = new Map<string, { qty: number; amount: number }>();
   for (const e of rows) {
@@ -46,14 +52,14 @@ export function ReportsView() {
         </Field>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div id="collection" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Mini label="Milk" value={formatQty(round2(qty))} />
         <Mini label="Amount" value={formatInr(amount)} />
         <Mini label="Avg FAT" value={round2(avgFat).toFixed(2)} />
         <Mini label="Avg SNF" value={round2(avgSnf).toFixed(2)} />
       </div>
 
-      <Card className="p-5">
+      <Card id="statement" className="p-5">
         <h2 className="font-display text-xl">Farmer statement</h2>
         <div className="table-scroll mt-3">
         <table className="w-full min-w-[520px] text-left text-sm">

@@ -38,7 +38,7 @@ export function MonthlyBillsView() {
       <PageHeader
         kicker="मासिक बिल"
         title="Monthly Bills"
-        hint="Totals come from the milk ledger and payments for the same customer — not a new customer each day."
+        hint="Regular customers are billed from delivered subscription milk. Daily / walk-in customers are billed only from actual purchases."
       />
       <Card className="grid gap-3 p-4 md:grid-cols-2">
         <Field label="Year">

@@ -1,6 +1,8 @@
 export const CUSTOMER_STATUSES = ["active", "paused", "stopped"] as const;
+export const CUSTOMER_TYPES = ["regular", "walkin"] as const;
 export const MILK_TYPES = ["cow", "buffalo", "mixed"] as const;
 export const PAYMENT_CYCLES = ["daily", "weekly", "10-day", "monthly"] as const;
+export const SALE_PAYMENT_STATUSES = ["paid", "pending", "partial"] as const;
 export const DELIVERY_STATUSES = [
   "pending",
   "delivered",
@@ -9,10 +11,12 @@ export const DELIVERY_STATUSES = [
   "extra",
   "not_delivered",
 ] as const;
-export const PAYMENT_MODES = ["cash", "upi", "bank", "card"] as const;
+export const PAYMENT_MODES = ["cash", "upi", "bank", "card", "other"] as const;
 
 export type CustomerStatus = (typeof CUSTOMER_STATUSES)[number];
+export type CustomerType = (typeof CUSTOMER_TYPES)[number];
 export type CustomerMilkType = (typeof MILK_TYPES)[number];
+export type SalePaymentStatus = (typeof SALE_PAYMENT_STATUSES)[number];
 export type PaymentCycle = (typeof PAYMENT_CYCLES)[number];
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
@@ -25,6 +29,9 @@ export type Customer = {
   mobile: string;
   address: string;
   milkType: CustomerMilkType;
+  customerType: CustomerType;
+  defaultQty: number;
+  defaultRate: number;
   status: CustomerStatus;
   createdAt: string;
   updatedAt: string;
@@ -59,6 +66,11 @@ export type DailyMilkDelivery = {
   status: DeliveryStatus;
   skipReason: string | null;
   notes: string | null;
+  milkType: CustomerMilkType | null;
+  source: "subscription" | "walkin";
+  paymentStatus: SalePaymentStatus | null;
+  paymentMode: PaymentMode | null;
+  paidAmount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -110,17 +122,38 @@ export type CreateCustomerInput = {
   mobile: string;
   address: string;
   milkType: CustomerMilkType;
-  dailyQty: number;
-  rate: number;
-  startDate: string;
-  deliveryTime: string;
-  paymentCycle: PaymentCycle;
-  status: CustomerStatus;
+  customerType?: CustomerType;
+  dailyQty?: number;
+  rate?: number;
+  startDate?: string;
+  deliveryTime?: string;
+  paymentCycle?: PaymentCycle;
+  status?: CustomerStatus;
 };
 
 export type UpdateCustomerInput = Partial<
   Pick<CreateCustomerInput, "name" | "mobile" | "address" | "milkType" | "dailyQty" | "rate" | "deliveryTime" | "paymentCycle" | "status">
 >;
+
+export type WalkInSaleInput = {
+  customerId: string;
+  date: string;
+  milkType: CustomerMilkType;
+  quantity: number;
+  rate: number;
+  paymentStatus: SalePaymentStatus;
+  paymentMode?: PaymentMode;
+  paidAmount?: number;
+  notes?: string;
+};
+
+export type WalkInTotals = {
+  customers: number;
+  qty: number;
+  sales: number;
+  paid: number;
+  pending: number;
+};
 
 export type CustomerRow = Customer & {
   subscription: CustomerSubscription | null;
@@ -135,6 +168,23 @@ export type DeliveryRow = DailyMilkDelivery & {
 
 export type LedgerRow = MilkLedger & {
   customer: Customer;
+  milkType: CustomerMilkType;
+  paymentStatus: SalePaymentStatus | null;
+  outstanding: number;
+};
+
+export type CustomerDashboardStats = {
+  date: string;
+  customers: { total: number; regular: number; walkin: number; active: number };
+  today: {
+    qty: number;
+    sales: number;
+    walkInQty: number;
+    walkInSales: number;
+    regularQty: number;
+    regularSales: number;
+  };
+  pending: { count: number; amount: number };
 };
 
 export type BillRow = MonthlyBill & {

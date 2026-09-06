@@ -32,12 +32,15 @@ export function PageHeader({
 export function Card({
   children,
   className = "",
+  id,
 }: {
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={`rounded-2xl border border-line bg-card shadow-[0_8px_30px_rgba(22,48,36,0.05)] ${className}`}
     >
       {children}

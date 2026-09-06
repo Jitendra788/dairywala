@@ -1,6 +1,6 @@
 "use client";
 
-import type { DeliveryStatus, CustomerStatus } from "@/lib/customers/types";
+import type { CustomerStatus, CustomerType, DeliveryStatus, SalePaymentStatus } from "@/lib/customers/types";
 
 export function CustomerStatusBadge({ status }: { status: CustomerStatus }) {
   const map = {
@@ -11,6 +11,42 @@ export function CustomerStatusBadge({ status }: { status: CustomerStatus }) {
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${map[status]}`}>
       {status}
+    </span>
+  );
+}
+
+export function CustomerTypeBadge({ type }: { type: CustomerType }) {
+  if (type === "walkin") {
+    return (
+      <span className="inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
+        Daily / Walk-in
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-primary">
+      Regular
+    </span>
+  );
+}
+
+export function SalePaymentBadge({ status }: { status: SalePaymentStatus | null }) {
+  if (!status) {
+    return <span className="text-[12px] text-muted">Monthly</span>;
+  }
+  const map: Record<SalePaymentStatus, string> = {
+    paid: "bg-emerald-50 text-primary",
+    pending: "bg-amber-50 text-amber-800",
+    partial: "bg-indigo-50 text-indigo-700",
+  };
+  const labels: Record<SalePaymentStatus, string> = {
+    paid: "Paid",
+    pending: "Pending",
+    partial: "Partial",
+  };
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${map[status]}`}>
+      {labels[status]}
     </span>
   );
 }

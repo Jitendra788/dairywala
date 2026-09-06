@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { Calculator, ChevronDown, Droplets, SlidersHorizontal } from "lucide-react";
 import {
   chartAxes,
@@ -42,10 +43,18 @@ const METHODS: {
 
 export function RateChartsView() {
   const dairy = useDairy();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState<ChartMethod | null>(dairy.settings.cowMethod ?? dairy.settings.rateMethod);
   const [milk, setMilk] = useState<MilkType>("cow");
   const [fatPage, setFatPage] = useState(0);
   const [saved, setSaved] = useState("");
+
+  useEffect(() => {
+    const nextMilk = searchParams.get("milk");
+    if (nextMilk === "cow" || nextMilk === "buffalo") setMilk(nextMilk);
+    const method = searchParams.get("method");
+    if (method === "fat-only" || method === "formula" || method === "grid") setOpen(method);
+  }, [searchParams]);
 
   function chartOf(kind: ChartMethod, milkType: MilkType) {
     return dairy.charts.find((c) => c.kind === kind && milkKey(c.milkType) === milkType);

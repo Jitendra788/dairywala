@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { customerApi } from "@/lib/customers/client";
-import type { CustomerRow, LedgerRow } from "@/lib/customers/types";
+import type { CustomerMilkType, CustomerRow, CustomerType, LedgerRow, SalePaymentStatus } from "@/lib/customers/types";
 import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import { useToast } from "@/components/toast";
-import { Card, Field, inputClass, PageHeader } from "@/components/ui";
-import { DeliveryStatusBadge, EmptyState, LoadingRows } from "@/components/customers/shared";
+import { Card, Field, MilkBadge, inputClass, PageHeader } from "@/components/ui";
+import { CustomerTypeBadge, DeliveryStatusBadge, EmptyState, LoadingRows, SalePaymentBadge } from "@/components/customers/shared";
 
 export function MilkLedgerView() {
   const toast = useToast();
   const [from, setFrom] = useState(addDays(todayISO(), -14));
   const [to, setTo] = useState(todayISO());
   const [customerId, setCustomerId] = useState("");
+  const [customerType, setCustomerType] = useState<"all" | CustomerType>("all");
+  const [milkType, setMilkType] = useState<"all" | CustomerMilkType>("all");
+  const [paymentStatus, setPaymentStatus] = useState<"all" | SalePaymentStatus>("all");
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +26,9 @@ export function MilkLedgerView() {
     try {
       const qs = new URLSearchParams({ from, to });
       if (customerId) qs.set("customerId", customerId);
+      if (customerType !== "all") qs.set("customerType", customerType);
+      if (milkType !== "all") qs.set("milkType", milkType);
+      if (paymentStatus !== "all") qs.set("paymentStatus", paymentStatus);
       const [ledger, list] = await Promise.all([
         customerApi<{ rows: LedgerRow[] }>(`/api/ledger?${qs}`),
         customerApi<{ customers: CustomerRow[] }>("/api/customers"),
@@ -38,16 +44,16 @@ export function MilkLedgerView() {
 
   useEffect(() => {
     void load();
-  }, [from, to, customerId]);
+  }, [from, to, customerId, customerType, milkType, paymentStatus]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
       <PageHeader
         kicker="दूध खाता"
         title="Milk Ledger"
-        hint="Date-wise regular, extra and delivered quantity from the same customer subscription."
+        hint="Regular subscription deliveries and daily / walk-in purchases share the same ledger."
       />
-      <Card className="grid gap-3 p-4 md:grid-cols-3">
+      <Card className="grid gap-3 p-4 md:grid-cols-3 xl:grid-cols-6">
         <Field label="From">
           <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
         </Field>
@@ -64,13 +70,36 @@ export function MilkLedgerView() {
             ))}
           </select>
         </Field>
+        <Field label="Customer type">
+          <select className={inputClass} value={customerType} onChange={(e) => setCustomerType(e.target.value as typeof customerType)}>
+            <option value="all">All types</option>
+            <option value="regular">Regular</option>
+            <option value="walkin">Daily / Walk-in</option>
+          </select>
+        </Field>
+        <Field label="Milk type">
+          <select className={inputClass} value={milkType} onChange={(e) => setMilkType(e.target.value as typeof milkType)}>
+            <option value="all">All milk</option>
+            <option value="cow">Cow</option>
+            <option value="buffalo">Buffalo</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </Field>
+        <Field label="Payment status">
+          <select className={inputClass} value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value as typeof paymentStatus)}>
+            <option value="all">All payments</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="partial">Partial</option>
+          </select>
+        </Field>
       </Card>
       <Card className="overflow-hidden p-0">
         <div className="divide-y divide-line/70 md:hidden">
           {loading ? (
             <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
           ) : rows.length === 0 ? (
-            <EmptyState title="Ledger is empty" hint="Deliver, skip or mark extra milk — each action posts one ledger line." />
+            <EmptyState title="Ledger is empty" hint="Deliver regular milk or save a walk-in sale — each posts one ledger line." />
           ) : (
             rows.map((row) => (
               <div key={row.id} className="px-4 py-3">
@@ -78,39 +107,49 @@ export function MilkLedgerView() {
                   <div className="min-w-0">
                     <p className="font-medium">{row.customer.name}</p>
                     <p className="text-[12px] text-muted">{formatDate(row.date)}</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <CustomerTypeBadge type={row.customer.customerType} />
+                      <MilkBadge type={row.milkType} />
+                    </div>
                   </div>
                   <DeliveryStatusBadge status={row.status} />
                 </div>
                 <p className="mt-2 text-[12px] text-muted">
-                  Regular {formatQty(row.regularQty)} · Extra {formatQty(row.extraQty)} · Delivered {formatQty(row.deliveredQty)}
+                  {formatQty(row.deliveredQty)} · {formatInr(row.rate)}
                 </p>
                 <p className="mt-1 text-[13px] font-semibold">{formatInr(row.amount)}</p>
+                <div className="mt-1 flex items-center justify-between text-[12px]">
+                  <SalePaymentBadge status={row.paymentStatus} />
+                  <span>Bal {formatInr(row.outstanding)}</span>
+                </div>
               </div>
             ))
           )}
         </div>
         <div className="table-scroll hidden md:block">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Date</th>
                 <th className="py-2.5 font-medium">Customer</th>
-                <th className="py-2.5 font-medium">Regular</th>
-                <th className="py-2.5 font-medium">Extra</th>
-                <th className="py-2.5 font-medium">Delivered</th>
+                <th className="py-2.5 font-medium">Customer Type</th>
+                <th className="py-2.5 font-medium">Milk Type</th>
+                <th className="py-2.5 font-medium">Quantity</th>
                 <th className="py-2.5 font-medium">Rate</th>
                 <th className="py-2.5 font-medium">Amount</th>
+                <th className="py-2.5 font-medium">Payment</th>
+                <th className="py-2.5 font-medium">Balance</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
               </tr>
             </thead>
             {loading ? (
-              <LoadingRows cols={8} />
+              <LoadingRows cols={10} />
             ) : (
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
-                      <EmptyState title="Ledger is empty" hint="Deliver, skip or mark extra milk — each action posts one ledger line." />
+                    <td colSpan={10}>
+                      <EmptyState title="Ledger is empty" hint="Deliver regular milk or save a walk-in sale — each posts one ledger line." />
                     </td>
                   </tr>
                 ) : (
@@ -121,11 +160,19 @@ export function MilkLedgerView() {
                         <span className="block font-medium">{row.customer.name}</span>
                         <span className="font-mono text-[11px] text-muted">{row.customer.customerCode}</span>
                       </td>
-                      <td>{formatQty(row.regularQty)}</td>
-                      <td>{formatQty(row.extraQty)}</td>
+                      <td>
+                        <CustomerTypeBadge type={row.customer.customerType} />
+                      </td>
+                      <td>
+                        <MilkBadge type={row.milkType} />
+                      </td>
                       <td className="font-semibold">{formatQty(row.deliveredQty)}</td>
                       <td>{formatInr(row.rate)}</td>
                       <td className="font-semibold">{formatInr(row.amount)}</td>
+                      <td>
+                        <SalePaymentBadge status={row.paymentStatus} />
+                      </td>
+                      <td>{formatInr(row.outstanding)}</td>
                       <td className="px-4">
                         <DeliveryStatusBadge status={row.status} />
                       </td>

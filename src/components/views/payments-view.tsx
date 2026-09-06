@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import { addDays, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
@@ -10,6 +11,7 @@ import { btnGhost, btnPrimary, Card, Field, confirmAction, inputClass, PageHeade
 
 export function PaymentsView() {
   const dairy = useDairy();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<"bills" | "advances">("bills");
   const [fromDate, setFromDate] = useState(addDays(todayISO(), -9));
   const [toDate, setToDate] = useState(todayISO());
@@ -22,6 +24,14 @@ export function PaymentsView() {
     note: "Cattle feed",
     date: todayISO(),
   });
+
+  useEffect(() => {
+    const next = searchParams.get("tab");
+    if (next === "advances") setTab("advances");
+    if (next === "bills" || next === "history") setTab("bills");
+  }, [searchParams]);
+
+  const pendingOnly = searchParams.get("status") === "open";
 
   const unbilled = useMemo(
     () => dairy.entries.filter((e) => !e.billId && e.date >= fromDate && e.date <= toDate),
@@ -89,14 +99,14 @@ export function PaymentsView() {
                 </tr>
               </thead>
               <tbody>
-                {dairy.bills.length === 0 ? (
+                {dairy.bills.filter((bill) => (pendingOnly ? bill.status === "open" : true)).length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-muted">
-                      Abhi koi bill nahi.
+                      {pendingOnly ? "Koi pending bill nahi." : "Abhi koi bill nahi."}
                     </td>
                   </tr>
                 ) : (
-                  dairy.bills.map((bill) => {
+                  dairy.bills.filter((bill) => (pendingOnly ? bill.status === "open" : true)).map((bill) => {
                     const farmer = dairy.farmerById(bill.farmerId);
                     return (
                       <tr key={bill.id} className="border-t border-line/70 hover:bg-[#faf6ee]">

@@ -39,6 +39,14 @@ function dbFile() {
   return path.join(dir, "tony-dairy.db");
 }
 
+function ensureColumn(db: DatabaseSync, table: string, column: string, def: string) {
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  } catch {
+    // already exists
+  }
+}
+
 function migrate(db: DatabaseSync) {
   const journal = isServerless() ? "DELETE" : "WAL";
   db.exec(`
@@ -59,6 +67,9 @@ function migrate(db: DatabaseSync) {
       mobile TEXT NOT NULL,
       address TEXT NOT NULL,
       milkType TEXT NOT NULL,
+      customerType TEXT NOT NULL DEFAULT 'regular',
+      defaultQty REAL NOT NULL DEFAULT 0,
+      defaultRate REAL NOT NULL DEFAULT 0,
       status TEXT NOT NULL,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
@@ -96,6 +107,11 @@ function migrate(db: DatabaseSync) {
       status TEXT NOT NULL,
       skipReason TEXT,
       notes TEXT,
+      milkType TEXT,
+      source TEXT NOT NULL DEFAULT 'subscription',
+      paymentStatus TEXT,
+      paymentMode TEXT,
+      paidAmount REAL NOT NULL DEFAULT 0,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
       UNIQUE (dairyId, customerId, date),
@@ -153,6 +169,20 @@ function migrate(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_delivery_dairy_date ON DailyMilkDelivery(dairyId, date);
     CREATE INDEX IF NOT EXISTS idx_ledger_dairy_date ON MilkLedger(dairyId, date);
     CREATE INDEX IF NOT EXISTS idx_payment_dairy_customer ON CustomerPayment(dairyId, customerId);
+  `);
+
+  ensureColumn(db, "Customer", "customerType", "TEXT NOT NULL DEFAULT 'regular'");
+  ensureColumn(db, "Customer", "defaultQty", "REAL NOT NULL DEFAULT 0");
+  ensureColumn(db, "Customer", "defaultRate", "REAL NOT NULL DEFAULT 0");
+  ensureColumn(db, "DailyMilkDelivery", "milkType", "TEXT");
+  ensureColumn(db, "DailyMilkDelivery", "source", "TEXT NOT NULL DEFAULT 'subscription'");
+  ensureColumn(db, "DailyMilkDelivery", "paymentStatus", "TEXT");
+  ensureColumn(db, "DailyMilkDelivery", "paymentMode", "TEXT");
+  ensureColumn(db, "DailyMilkDelivery", "paidAmount", "REAL NOT NULL DEFAULT 0");
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_customer_dairy_type ON Customer(dairyId, customerType);
+    CREATE INDEX IF NOT EXISTS idx_delivery_dairy_source ON DailyMilkDelivery(dairyId, source, date);
   `);
 
   const now = new Date().toISOString();

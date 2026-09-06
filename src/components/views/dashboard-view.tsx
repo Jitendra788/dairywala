@@ -1,10 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Droplets, FileSpreadsheet, TrendingUp, Users, Wallet } from "lucide-react";
 import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
+import { customerApi } from "@/lib/customers/client";
+import type { CustomerDashboardStats } from "@/lib/customers/types";
+import { todayISO } from "@/lib/dates";
 import { btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
 
 export function DashboardView() {
@@ -12,6 +16,13 @@ export function DashboardView() {
   const today = dairy.todayStats();
   const recent = dairy.entries.slice(0, 7);
   const totalShift = today.morning + today.evening || 1;
+  const [customerStats, setCustomerStats] = useState<CustomerDashboardStats | null>(null);
+
+  useEffect(() => {
+    customerApi<CustomerDashboardStats>(`/api/customer-stats?date=${todayISO()}`)
+      .then(setCustomerStats)
+      .catch(() => setCustomerStats(null));
+  }, []);
 
   return (
     <div className="mx-auto flex min-h-0 max-w-6xl flex-col gap-4">
@@ -46,6 +57,27 @@ export function DashboardView() {
         <Stat icon={<Users size={16} />} label="Evening" value={formatQty(today.evening)} hint={`${Math.round((today.evening / totalShift) * 100)}% of day`} />
         <Stat icon={<Wallet size={16} />} label="Payable" value={formatInr(dairy.payableTotal())} hint="After advances" />
       </div>
+
+      {customerStats ? (
+        <Card className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">Customer milk</p>
+              <h2 className="font-display text-lg">Today from the database</h2>
+            </div>
+            <Link href="/customers/walk-in" className="text-xs font-semibold text-primary">
+              Walk-in desk →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <MiniStat label="Milk sales" value={formatInr(customerStats.today.sales)} hint={`${formatQty(customerStats.today.qty)} sold`} />
+            <MiniStat label="Walk-in" value={formatInr(customerStats.today.walkInSales)} hint={`${formatQty(customerStats.today.walkInQty)}`} />
+            <MiniStat label="Regular" value={formatInr(customerStats.today.regularSales)} hint={`${formatQty(customerStats.today.regularQty)}`} />
+            <MiniStat label="Pending" value={formatInr(customerStats.pending.amount)} hint={`${customerStats.pending.count} customers`} />
+            <MiniStat label="Customers" value={String(customerStats.customers.total)} hint={`${customerStats.customers.walkin} walk-in · ${customerStats.customers.regular} regular`} />
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-3">
         {[
@@ -138,6 +170,16 @@ export function DashboardView() {
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-2xl bg-[#f7f1e6] px-3 py-2.5">
+      <p className="text-[10px] text-muted">{label}</p>
+      <p className="font-display text-[20px] leading-none">{value}</p>
+      <p className="mt-1 text-[10px] text-muted">{hint}</p>
     </div>
   );
 }
