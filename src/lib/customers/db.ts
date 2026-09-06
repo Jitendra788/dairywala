@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { DEFAULT_DAIRY_ID, DEFAULT_DAIRY_NAME } from "@/lib/customers/context";
 
@@ -14,21 +15,34 @@ type DatabaseSync = {
   close: () => void;
 };
 
-const { DatabaseSync } = process.getBuiltinModule("node:sqlite") as {
-  DatabaseSync: new (location: string) => DatabaseSync;
-};
-
 const globalForDb = globalThis as unknown as { tonyCustomerDb?: DatabaseSync };
 
+function isServerless() {
+  return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+}
+
+function loadSqlite() {
+  const getBuiltin = process.getBuiltinModule?.bind(process);
+  if (!getBuiltin) {
+    throw new Error("SQLite is not available on this Node runtime");
+  }
+  const sqlite = getBuiltin("node:sqlite") as { DatabaseSync?: new (location: string) => DatabaseSync } | undefined;
+  if (!sqlite?.DatabaseSync) {
+    throw new Error("node:sqlite is not available on this host");
+  }
+  return sqlite.DatabaseSync;
+}
+
 function dbFile() {
-  const dir = path.join(process.cwd(), "data");
+  const dir = isServerless() ? os.tmpdir() : path.join(process.cwd(), "data");
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "tony-dairy.db");
 }
 
 function migrate(db: DatabaseSync) {
+  const journal = isServerless() ? "DELETE" : "WAL";
   db.exec(`
-    PRAGMA journal_mode = WAL;
+    PRAGMA journal_mode = ${journal};
     PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS Dairy (
@@ -149,6 +163,7 @@ function migrate(db: DatabaseSync) {
 
 export function getDb() {
   if (!globalForDb.tonyCustomerDb) {
+    const DatabaseSync = loadSqlite();
     const db = new DatabaseSync(dbFile());
     migrate(db);
     globalForDb.tonyCustomerDb = db;
