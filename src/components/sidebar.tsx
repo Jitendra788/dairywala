@@ -449,38 +449,31 @@ function Branch({
 }) {
   return (
     <div className="shrink-0">
-      <div
-        className={`flex items-center rounded-xl ${
+      <button
+        type="button"
+        title={label}
+        aria-expanded={open}
+        onClick={onToggle}
+        className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-[6px] text-left text-[13px] ${
+          collapsed ? "lg:justify-center lg:px-0" : ""
+        } ${
           active
             ? open
               ? "bg-white/8 text-white"
               : "bg-primary text-white shadow-[0_6px_16px_rgba(24,122,72,0.35)]"
-            : ""
+            : "text-white/85 hover:bg-white/8 hover:text-white"
         }`}
       >
-        <Link
-          href={href}
-          onClick={onNavigate}
-          title={label}
-          className={`flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-[6px] text-[13px] ${
-            collapsed ? "lg:justify-center lg:px-0" : ""
-          } ${active ? "text-white" : "text-white/85 hover:text-white"}`}
-        >
-          {icon}
-          <span className={`flex-1 ${collapsed ? "lg:hidden" : ""}`}>{label}</span>
-          {badge && badge > 0 ? (
-            <span className={`rounded-full bg-white/15 px-1.5 text-[10px] ${collapsed ? "lg:hidden" : ""}`}>{badge}</span>
-          ) : null}
-        </Link>
-        <button
-          type="button"
-          className={`px-2 py-[6px] text-white/60 hover:text-white ${collapsed ? "lg:hidden" : ""}`}
-          onClick={onToggle}
-          aria-label={`${open ? "Collapse" : "Expand"} ${label}`}
-        >
-          <ChevronDown size={13} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-        </button>
-      </div>
+        {icon}
+        <span className={`flex-1 ${collapsed ? "lg:hidden" : ""}`}>{label}</span>
+        {badge && badge > 0 ? (
+          <span className={`rounded-full bg-white/15 px-1.5 text-[10px] ${collapsed ? "lg:hidden" : ""}`}>{badge}</span>
+        ) : null}
+        <ChevronDown
+          size={13}
+          className={`shrink-0 text-white/60 transition-transform duration-200 ${open ? "rotate-180" : ""} ${collapsed ? "lg:hidden" : ""}`}
+        />
+      </button>
       <div
         className={`grid transition-[grid-template-rows] duration-200 ${
           open && !collapsed ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
