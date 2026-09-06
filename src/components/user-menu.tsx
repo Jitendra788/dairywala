@@ -40,7 +40,7 @@ export function UserMenu() {
         </span>
       </button>
       {open ? (
-        <div className="absolute top-11 right-0 z-50 w-[min(16rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-card p-2 shadow-[0_16px_40px_rgba(18,40,30,0.16)]">
+        <div className="absolute top-full right-0 z-[60] mt-2 w-[min(16rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-card p-2 shadow-[0_16px_40px_rgba(18,40,30,0.16)]">
           <div className="flex items-center gap-2 rounded-xl bg-[#f7f1e6] px-3 py-2">
             <UserRound size={16} className="shrink-0 text-primary" />
             <div className="min-w-0">

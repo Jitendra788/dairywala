@@ -18,7 +18,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-dvh overflow-hidden">
       <Sidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-card/75 px-3 backdrop-blur-md sm:gap-3 sm:px-4 pt-[max(0px,env(safe-area-inset-top))]">
+        <header className="relative z-30 flex min-h-14 shrink-0 items-center gap-2 border-b border-line bg-card px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:gap-3 sm:px-4">
           <button
             type="button"
             className="rounded-lg p-1.5 text-foreground lg:hidden"

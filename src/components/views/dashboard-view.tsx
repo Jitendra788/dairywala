@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Droplets, FileSpreadsheet, TrendingUp, Users, Wallet } from "lucide-react";
 import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
-import { btnPrimary, Card, Initials, MilkBadge } from "@/components/ui";
+import { btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
 
 export function DashboardView() {
   const dairy = useDairy();
@@ -14,7 +14,7 @@ export function DashboardView() {
   const totalShift = today.morning + today.evening || 1;
 
   return (
-    <div className="mx-auto flex min-h-0 max-w-6xl flex-col gap-4 lg:h-[calc(100dvh-6rem)]">
+    <div className="mx-auto flex min-h-0 max-w-6xl flex-col gap-4">
       <section className="relative overflow-hidden rounded-3xl bg-primary px-4 py-4 text-white shadow-[0_16px_40px_rgba(24,122,72,0.28)] sm:px-5 sm:py-5">
         <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute right-16 -bottom-12 h-32 w-32 rounded-full bg-gold/20" />
@@ -24,12 +24,12 @@ export function DashboardView() {
             <h1 className="mt-1 font-display text-[28px] leading-tight sm:text-[34px] sm:leading-none">{dairy.settings.dairyName}</h1>
             <p className="mt-2 text-sm text-white/75">Aaj ka collection live desk par.</p>
           </div>
-          <div className="sm:text-right">
+          <div className="min-w-0 sm:text-right">
             <p className="text-[11px] text-white/65">Today</p>
             <p className="font-display text-3xl leading-none sm:text-4xl">{formatQty(today.qty)}</p>
-            <Link href="/collection" className={`${btnPrimary} mt-3 w-full bg-white text-primary shadow-none hover:bg-emerald-50 sm:w-auto`}>
+            <Link href="/collection" className={`${btnInverse} relative z-10 mt-3 w-full sm:w-auto`}>
               Start collection
-              <ArrowRight size={15} className="ml-1.5" />
+              <ArrowRight size={15} />
             </Link>
           </div>
         </div>
