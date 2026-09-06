@@ -349,28 +349,29 @@ function ManualEditor({
   const fats = useMemo(() => (chart ? chartAxes(chart).fats : []), [chart]);
   const snfs = useMemo(() => (chart ? chartAxes(chart).snfs : []), [chart]);
   if (!chart) return null;
+  const current = chart;
 
   const pages = Math.max(1, Math.ceil(fats.length / pageSize));
   const page = Math.min(fatPage, pages - 1);
   const visibleFats = fats.slice(page * pageSize, page * pageSize + pageSize);
-  const rateAt = (fat: number, snf: number) => chart.cells.find((c) => c.fat === fat && c.snf === snf)?.rate ?? 0;
+  const rateAt = (fat: number, snf: number) => current.cells.find((c) => c.fat === fat && c.snf === snf)?.rate ?? 0;
 
   function setCell(fat: number, snf: number, rate: number) {
-    const others = chart.cells.filter((c) => !(c.fat === fat && c.snf === snf));
-    onPatch(chart.id, { cells: [...others, { fat, snf, rate }] });
+    const others = current.cells.filter((c) => !(c.fat === fat && c.snf === snf));
+    onPatch(current.id, { cells: [...others, { fat, snf, rate }] });
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row">
         <button type="button" className={btnGhost} onClick={onGenerateBlank}>
-          Create blank {chart.milkType} grid
+          Create blank {current.milkType} grid
         </button>
         <button type="button" className={btnGhost} onClick={onCopyFormula}>
           Copy from formula
         </button>
       </div>
-      {!chart.cells.length ? (
+      {!current.cells.length ? (
         <p className="text-sm text-muted">Not set. Create a blank grid or copy the formula chart, then type rates.</p>
       ) : (
         <>
@@ -379,7 +380,7 @@ function ManualEditor({
               Prev FAT
             </button>
             <span>
-              FAT {visibleFats[0]?.toFixed(1)} – {visibleFats.at(-1)?.toFixed(1)} · {chart.cells.length} cells
+              FAT {visibleFats[0]?.toFixed(1)} – {visibleFats.at(-1)?.toFixed(1)} · {current.cells.length} cells
             </span>
             <button type="button" className={btnGhost} disabled={page >= pages - 1} onClick={() => onFatPage(page + 1)}>
               Next FAT

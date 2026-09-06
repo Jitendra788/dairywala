@@ -220,13 +220,6 @@ export function saveCharts(charts: RateChart[]) {
 
 export function addChart(input: Omit<RateChart, "id" | "cells">) {
   const chart: RateChart = {
-    fatRate: 10,
-    fatMin: 3,
-    fatMax: 6.5,
-    fatStep: 0.1,
-    snfMin: 8,
-    snfMax: 10,
-    snfStep: 0.1,
     ...input,
     id: uid("chart"),
     cells: [],
