@@ -252,10 +252,13 @@ export function isPausedOn(sub: CustomerSubscription, date: string) {
 }
 
 function getCustomer(dairyId: string, customerId: string) {
+  const key = customerId.trim();
   const row = asRecord(
     getDb()
-      .prepare(`SELECT * FROM Customer WHERE dairyId = ? AND id = ?`)
-      .get(dairyId, customerId),
+      .prepare(
+        `SELECT * FROM Customer WHERE dairyId = ? AND (id = ? OR customerCode = ?) LIMIT 1`,
+      )
+      .get(dairyId, key, key),
   );
   if (!row) throw new CustomerError("Customer not found", 404);
   return mapCustomer(row);

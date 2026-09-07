@@ -304,7 +304,7 @@ export function WalkInView() {
       </div>
 
       <Card className="p-4">
-        <div className="grid gap-3 md:grid-cols-[160px_1fr_auto]">
+        <div className="grid gap-3 md:grid-cols-[160px_1fr]">
           <Field label="Date">
             <input type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
@@ -324,11 +324,6 @@ export function WalkInView() {
               }}
             />
           </Field>
-          <div className="flex items-end">
-            <button type="button" className={btnGhost} onClick={() => setShowNew((v) => !v)}>
-              {showNew ? "Close" : "+ New only if not in list"}
-            </button>
-          </div>
         </div>
         <div className="mt-3 divide-y divide-line/70 overflow-hidden rounded-2xl border border-line">
           {searching ? (
