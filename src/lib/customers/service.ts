@@ -635,7 +635,11 @@ export function getCustomerRow(dairyId: string, customerId: string): CustomerRow
 
 export function listCustomers(dairyId: string): CustomerRow[] {
   requireDairy(dairyId);
-  ensureDeliveriesForDate(dairyId, todayISO());
+  try {
+    ensureDeliveriesForDate(dairyId, todayISO());
+  } catch {
+    // still return the customer master list
+  }
   const rows = getDb()
     .prepare(`SELECT * FROM Customer WHERE dairyId = ? ORDER BY customerCode ASC`)
     .all(dairyId);
@@ -678,20 +682,28 @@ export function ensureDeliveriesForDate(dairyId: string, date: string) {
     const milkType = MILK_TYPES.includes(str(raw.customerMilkType) as CustomerMilkType)
       ? str(raw.customerMilkType)
       : "cow";
-    getDb()
-      .prepare(
-        `INSERT INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, 0, 0, ?, 0, 'pending', NULL, NULL, ?, 'subscription', ?, ?)`,
-      )
-      .run(randomUUID(), dairyId, sub.customerId, date, sub.dailyQty, sub.rate, milkType, ts, ts);
-    created += 1;
+    try {
+      getDb()
+        .prepare(
+          `INSERT OR IGNORE INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, 0, 0, ?, 0, 'pending', NULL, NULL, ?, 'subscription', ?, ?)`,
+        )
+        .run(randomUUID(), dairyId, sub.customerId, date, sub.dailyQty, sub.rate, milkType, ts, ts);
+      created += 1;
+    } catch {
+      // another request already created today's row
+    }
   }
   return created;
 }
 
 export function listDeliveries(dairyId: string, date: string): DeliveryRow[] {
   requireDairy(dairyId);
-  ensureDeliveriesForDate(dairyId, date);
+  try {
+    ensureDeliveriesForDate(dairyId, date);
+  } catch {
+    // still return any rows already saved for this date
+  }
   const rows = getDb()
     .prepare(
       `SELECT d.* FROM DailyMilkDelivery d
@@ -984,11 +996,15 @@ export function seedTestCustomer(dairyId: string) {
       .get(dairyId, "9876502001"),
   );
   if (existing) {
-    getDb()
-      .prepare(
-        `UPDATE CustomerSubscription SET startDate = ? WHERE dairyId = ? AND customerId = ? AND startDate > ?`,
-      )
-      .run(startDate, dairyId, str(existing.id), startDate);
+    try {
+      getDb()
+        .prepare(
+          `UPDATE CustomerSubscription SET startDate = ? WHERE dairyId = ? AND customerId = ? AND startDate > ?`,
+        )
+        .run(startDate, dairyId, str(existing.id), startDate);
+    } catch {
+      // walk-in or missing subscription — keep the master record
+    }
     return getCustomerRow(dairyId, str(existing.id));
   }
   return createCustomer(dairyId, {
@@ -1085,12 +1101,22 @@ export function createWalkInSale(dairyId: string, raw: WalkInSaleInput): Deliver
   }
 
   const id = randomUUID();
-  getDb()
-    .prepare(
-      `INSERT INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, paymentStatus, paymentMode, paidAmount, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'delivered', NULL, ?, ?, 'walkin', ?, ?, ?, ?, ?)`,
-    )
-    .run(id, dairyId, customer.id, raw.date, qty, qty, rate, amount, notes, raw.milkType, raw.paymentStatus, mode, paidAmount, ts, ts);
+  try {
+    getDb()
+      .prepare(
+        `INSERT INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, paymentStatus, paymentMode, paidAmount, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'delivered', NULL, ?, ?, 'walkin', ?, ?, ?, ?, ?)`,
+      )
+      .run(id, dairyId, customer.id, raw.date, qty, qty, rate, amount, notes, raw.milkType, raw.paymentStatus, mode, paidAmount, ts, ts);
+  } catch (error) {
+    const existingNow = asRecord(
+      getDb()
+        .prepare(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`)
+        .get(dairyId, customer.id, raw.date),
+    );
+    if (existingNow) return updateWalkInSale(dairyId, str(existingNow.id), raw);
+    throw error;
+  }
 
   rememberWalkInDefaults(dairyId, customer.id, raw.milkType, qty, rate);
   const saved = getOwnedDelivery(dairyId, id);

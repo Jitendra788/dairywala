@@ -192,13 +192,31 @@ function migrate(db: DatabaseSync) {
 }
 
 export function getDb() {
-  if (!globalForDb.tonyCustomerDb) {
-    const DatabaseSync = loadSqlite();
-    const db = new DatabaseSync(dbFile());
+  if (globalForDb.tonyCustomerDb) return globalForDb.tonyCustomerDb;
+  const DatabaseSync = loadSqlite();
+  const db = new DatabaseSync(dbFile());
+  try {
     migrate(db);
-    globalForDb.tonyCustomerDb = db;
+  } catch (error) {
+    try {
+      ensureColumn(db, "Customer", "customerType", "TEXT NOT NULL DEFAULT 'regular'");
+      ensureColumn(db, "Customer", "defaultQty", "REAL NOT NULL DEFAULT 0");
+      ensureColumn(db, "Customer", "defaultRate", "REAL NOT NULL DEFAULT 0");
+      ensureColumn(db, "DailyMilkDelivery", "milkType", "TEXT");
+      ensureColumn(db, "DailyMilkDelivery", "source", "TEXT NOT NULL DEFAULT 'subscription'");
+      ensureColumn(db, "DailyMilkDelivery", "paymentStatus", "TEXT");
+      ensureColumn(db, "DailyMilkDelivery", "paymentMode", "TEXT");
+      ensureColumn(db, "DailyMilkDelivery", "paidAmount", "REAL NOT NULL DEFAULT 0");
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_customer_dairy_type ON Customer(dairyId, customerType);
+        CREATE INDEX IF NOT EXISTS idx_delivery_dairy_source ON DailyMilkDelivery(dairyId, source, date);
+      `);
+    } catch {
+      throw error;
+    }
   }
-  return globalForDb.tonyCustomerDb;
+  globalForDb.tonyCustomerDb = db;
+  return db;
 }
 
 export function assertDairy(dairyId: string) {

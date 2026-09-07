@@ -23,7 +23,11 @@ export async function GET(request: Request) {
   const typeParam = url.searchParams.get("type") || "";
   const type = CUSTOMER_TYPES.includes(typeParam as CustomerType) ? (typeParam as CustomerType) : undefined;
   return withDairy(request, (dairyId) => {
-    seedTestCustomer(dairyId);
+    try {
+      seedTestCustomer(dairyId);
+    } catch {
+      // listing customers must still work if demo seed cannot run
+    }
     return {
       nextCode: peekNextCustomerCode(dairyId),
       customers: q || type ? searchCustomers(dairyId, q, type) : listCustomers(dairyId),

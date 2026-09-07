@@ -24,6 +24,22 @@ export async function withDairy<T>(
     if (error instanceof SyntaxError) {
       return jsonError(new CustomerError("Invalid JSON"));
     }
+    const message = error instanceof Error ? error.message : "";
+    if (request.method === "GET" && /UNIQUE constraint|SQLITE_BUSY|database is locked/i.test(message)) {
+      try {
+        const dairyId = getRequestDairyId(request);
+        const data = await handler(dairyId, {});
+        return Response.json(data);
+      } catch {
+        return jsonError(new CustomerError("Please refresh and try again"));
+      }
+    }
+    if (/UNIQUE constraint|already exists/i.test(message)) {
+      return jsonError(new CustomerError("This record already exists"));
+    }
+    if (/SQLITE_BUSY|database is locked/i.test(message)) {
+      return jsonError(new CustomerError("Database is busy, try again"));
+    }
     return jsonError(error);
   }
 }
