@@ -103,8 +103,11 @@ function inBound(value: number, min: number | null, max: number | null) {
 }
 
 export function matchQualityRule(rules: QualityRule[] | undefined, fat: number, snf: number) {
+  const hasSnf = snf > 0;
   for (const rule of rules ?? []) {
     if (!inBound(fat, rule.fatMin, rule.fatMax)) continue;
+    const snfBound = rule.snfMin != null || rule.snfMax != null;
+    if (snfBound && !hasSnf) continue;
     if (!inBound(snf, rule.snfMin, rule.snfMax)) continue;
     return rule;
   }
@@ -127,8 +130,9 @@ export function quoteRate(chart: RateChart | undefined, fat: number, snf: number
   if (!chart || !fat) {
     return { base: 0, rate: 0, payPercent: 0, rule: null, rejected: true };
   }
-  const base = baseRate(chart, fat, snf || chart.goodSnfMin || 0);
-  const rule = matchQualityRule(chart.rules, fat, snf || 0);
+  const usedSnf = snf > 0 ? snf : chart.goodSnfMin || 0;
+  const base = baseRate(chart, fat, usedSnf);
+  const rule = matchQualityRule(chart.rules, fat, snf);
   const payPercent = rule?.payPercent ?? 100;
   return {
     base,

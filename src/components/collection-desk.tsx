@@ -42,8 +42,8 @@ export function CollectionDesk() {
     if (!prev) return;
     setMilkType(prev.milkType);
     setFat(String(prev.fat));
-    setSnf(String(prev.snf));
-    setClr(String(prev.clr));
+    setSnf(prev.snf ? String(prev.snf) : "");
+    setClr(prev.clr ? String(prev.clr) : "");
   }, [farmer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = useMemo(
@@ -83,8 +83,8 @@ export function CollectionDesk() {
     setCode(f.code);
     setQty(String(row.qty));
     setFat(String(row.fat));
-    setSnf(String(row.snf));
-    setClr(String(row.clr));
+    setSnf(row.snf ? String(row.snf) : "");
+    setClr(row.clr ? String(row.clr) : "");
     setError("");
   }
 
@@ -94,8 +94,8 @@ export function CollectionDesk() {
       setError("Farmer code nahi mila. Pehle farmer add karo.");
       return;
     }
-    if (!Number(qty) || !Number(fat) || !Number(snf)) {
-      setError("Qty, FAT aur SNF zaroori hain.");
+    if (!Number(qty) || !Number(fat)) {
+      setError("Qty aur FAT zaroori hain. SNF optional hai.");
       return;
     }
     const payload = {
@@ -105,7 +105,7 @@ export function CollectionDesk() {
       milkType,
       qty: Number(qty),
       fat: Number(fat),
-      snf: Number(snf),
+      snf: Number(snf) || 0,
       clr: Number(clr) || 0,
     };
     try {
@@ -191,8 +191,14 @@ export function CollectionDesk() {
           <Field label="FAT %">
             <input inputMode="decimal" className={inputClass} value={fat} onChange={(e) => setFat(e.target.value)} />
           </Field>
-          <Field label="SNF %">
-            <input inputMode="decimal" className={inputClass} value={snf} onChange={(e) => setSnf(e.target.value)} />
+          <Field label="SNF % (optional)">
+            <input
+              inputMode="decimal"
+              className={inputClass}
+              value={snf}
+              onChange={(e) => setSnf(e.target.value)}
+              placeholder="Optional"
+            />
           </Field>
         </div>
 
@@ -264,7 +270,7 @@ export function CollectionDesk() {
                       <Initials name={f?.name ?? "F"} />
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{f?.name}</span>
-                        <span className="text-[11px] text-muted">{row.qty} L · FAT {row.fat} · SNF {row.snf}</span>
+                        <span className="text-[11px] text-muted">{row.qty} L · FAT {row.fat} · SNF {row.snf || "—"}</span>
                       </span>
                     </Link>
                     <div className="shrink-0 text-right">
@@ -335,7 +341,7 @@ export function CollectionDesk() {
                       </td>
                       <td>{row.qty}</td>
                       <td>{row.fat}</td>
-                      <td>{row.snf}</td>
+                      <td>{row.snf || "—"}</td>
                       <td className="font-semibold">{formatInr(row.amount)}</td>
                       <td className="px-3 text-right">
                         <button
