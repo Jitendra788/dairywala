@@ -76,6 +76,26 @@ function nearestCell(cells: RateCell[], fat: number, snf: number, useSnf: boolea
   return best;
 }
 
+export const TYPICAL_KG_FAT: Record<MilkType, number> = {
+  buffalo: 900,
+  cow: 700,
+};
+
+export function resolvedKgFatRate(chart: Pick<RateChart, "kgFatRate" | "fatRate">) {
+  return chart.kgFatRate || chart.fatRate * 100 || 0;
+}
+
+/** ₹100 / kg Fat pays only ₹6 / L at 6% FAT — almost always a typing mistake. */
+export function isLowKgFatRate(kg: number) {
+  return kg > 0 && kg < 300;
+}
+
+function cellsLookLikeFatEqualsRate(cells: RateCell[]) {
+  if (cells.length < 3) return false;
+  const hits = cells.filter((c) => Math.abs(c.rate - c.fat) < 0.051).length;
+  return hits / cells.length > 0.8;
+}
+
 export function kgFatLitreRate(chart: RateChart, fat: number) {
   const perPoint = (chart.kgFatRate || chart.fatRate * 100 || 0) / 100;
   return round2(fat * perPoint + (chart.base || 0));
@@ -235,8 +255,9 @@ export function normalizeChart(chart: Partial<RateChart> & Pick<RateChart, "id">
   const kind: ChartMethod = chart.kind === "grid" ? "grid" : chart.kind === "fat-only" ? "fat-only" : "formula";
   const milk = milkKey(chart.milkType ?? "cow");
   const base = defaultChart(kind, milk);
-  const kgFatRate = chart.kgFatRate ?? (chart.fatRate ? chart.fatRate * 100 : base.kgFatRate);
-  return {
+  const rawKg = chart.kgFatRate ?? (chart.fatRate ? chart.fatRate * 100 : base.kgFatRate);
+  const kgFatRate = kind === "fat-only" && milk === "buffalo" && isLowKgFatRate(rawKg) ? TYPICAL_KG_FAT.buffalo : rawKg;
+  const next: RateChart = {
     ...base,
     ...chart,
     kind,
@@ -244,6 +265,7 @@ export function normalizeChart(chart: Partial<RateChart> & Pick<RateChart, "id">
     cells: chart.cells ?? [],
     rules: chart.rules?.length ? chart.rules : base.rules,
     kgFatRate,
+    fatRate: kind === "fat-only" ? kgFatRate / 100 : (chart.fatRate ?? base.fatRate),
     efuRate: chart.efuRate ?? base.efuRate,
     snfEfuFactor: chart.snfEfuFactor ?? base.snfEfuFactor,
     goodSnfMin: chart.goodSnfMin ?? base.goodSnfMin,
@@ -254,6 +276,10 @@ export function normalizeChart(chart: Partial<RateChart> & Pick<RateChart, "id">
     snfMax: chart.snfMax ?? base.snfMax,
     snfStep: chart.snfStep ?? base.snfStep,
   };
+  if (kind === "fat-only" && milk === "buffalo" && (!next.cells.length || cellsLookLikeFatEqualsRate(next.cells))) {
+    next.cells = generateFatOnlyCells(next);
+  }
+  return next;
 }
 
 export function ensureMethodCharts(charts: RateChart[]) {

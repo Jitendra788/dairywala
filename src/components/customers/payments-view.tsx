@@ -28,7 +28,7 @@ export function CustomerPaymentsView() {
     try {
       const [list, pay] = await Promise.all([
         customerApi<{ customers: CustomerRow[] }>("/api/customers"),
-        customerApi<{ payments: PaymentRow[] }>("/api/customer-payments"),
+        customerApi<{ payments: PaymentRow[] }>("/api/customers/payments"),
       ]);
       setCustomers(list.customers);
       setPayments(pay.payments);
@@ -49,7 +49,7 @@ export function CustomerPaymentsView() {
   async function save() {
     setBusy(true);
     try {
-      await customerApi("/api/customer-payments", {
+      await customerApi("/api/customers/payments", {
         method: "POST",
         body: JSON.stringify({
           ...form,

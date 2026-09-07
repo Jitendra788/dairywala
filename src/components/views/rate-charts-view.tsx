@@ -9,10 +9,13 @@ import {
   generateBlankGrid,
   generateFatOnlyCells,
   generateFormulaCells,
+  isLowKgFatRate,
   kgFatLitreRate,
   METHOD_LABEL,
   methodRowCount,
   milkKey,
+  resolvedKgFatRate,
+  TYPICAL_KG_FAT,
 } from "@/lib/rate";
 import { formatInr, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
@@ -27,7 +30,7 @@ const METHODS: {
   {
     kind: "fat-only",
     icon: <Droplets size={18} />,
-    hint: "Buffalo Excel sheet: ₹ / kg Fat. Rate/L = FAT% × (₹/kg Fat ÷ 100). SNF deductions apply on top.",
+    hint: "Buffalo: Rate/L = FAT% × (₹/kg Fat ÷ 100). Typical ₹900/kg Fat → 6% FAT = ₹54/L. SNF collection pe optional.",
   },
   {
     kind: "formula",
@@ -95,7 +98,7 @@ export function RateChartsView() {
       <PageHeader
         kicker="रेट चार्ट"
         title="Create rate chart"
-        hint="Buffalo ₹/kg Fat se chalta hai. Cow mein har FAT ka rate Add / Update se set karo — collection wahi table use karegi."
+        hint="Buffalo typical ₹900 / kg Fat (6% FAT ≈ ₹54 / L). Cow mein har FAT ka rate Add / Update se set karo."
       />
 
       {saved ? <p className="text-sm font-medium text-primary">{saved}</p> : null}
@@ -237,6 +240,9 @@ export function RateChartsView() {
   );
 }
 
+const KG_FAT_PRESETS = [800, 900, 1000, 1100, 1200];
+const PREVIEW_FATS = [5.5, 6, 7, 8];
+
 function FatOnlyEditor({
   chart,
   onPatch,
@@ -245,8 +251,27 @@ function FatOnlyEditor({
   onPatch: (id: string, next: Partial<RateChart>) => void;
 }) {
   if (!chart) return null;
-  const kg = chart.kgFatRate || chart.fatRate * 100 || 0;
-  const example = kgFatLitreRate({ ...chart, kgFatRate: kg }, 6);
+  const current = chart;
+  const kg = resolvedKgFatRate(current);
+  const typical = TYPICAL_KG_FAT[milkKey(current.milkType)];
+  const perPoint = kg / 100;
+  const draft: RateChart = { ...current, kgFatRate: kg, fatRate: perPoint };
+  const low = isLowKgFatRate(kg);
+  const samples = PREVIEW_FATS.map((fat) => ({ fat, rate: kgFatLitreRate(draft, fat) }));
+
+  function applyKg(nextKg: number, regenerate: boolean) {
+    const next: RateChart = { ...current, kgFatRate: nextKg, fatRate: nextKg / 100 };
+    onPatch(current.id, {
+      kgFatRate: nextKg,
+      fatRate: nextKg / 100,
+      cells: regenerate ? generateFatOnlyCells(next) : current.cells,
+    });
+  }
+
+  function generate() {
+    onPatch(current.id, { cells: generateFatOnlyCells(draft) });
+  }
+
   return (
     <div className="min-w-0 space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -255,10 +280,7 @@ function FatOnlyEditor({
             className={inputClass}
             inputMode="decimal"
             value={kg || ""}
-            onChange={(e) => {
-              const kgFatRate = Number(e.target.value);
-              onPatch(chart.id, { kgFatRate, fatRate: kgFatRate / 100, cells: [] });
-            }}
+            onChange={(e) => applyKg(Number(e.target.value), false)}
           />
         </Field>
         <Field label="Good SNF min">
@@ -266,20 +288,56 @@ function FatOnlyEditor({
             className={inputClass}
             inputMode="decimal"
             value={chart.goodSnfMin}
-            onChange={(e) => onPatch(chart.id, { goodSnfMin: Number(e.target.value), cells: [] })}
+            onChange={(e) => onPatch(chart.id, { goodSnfMin: Number(e.target.value) })}
           />
         </Field>
         <Field label="FAT from">
-          <input className={inputClass} inputMode="decimal" value={chart.fatMin} onChange={(e) => onPatch(chart.id, { fatMin: Number(e.target.value), cells: [] })} />
+          <input className={inputClass} inputMode="decimal" value={chart.fatMin} onChange={(e) => onPatch(chart.id, { fatMin: Number(e.target.value) })} />
         </Field>
         <Field label="FAT to">
-          <input className={inputClass} inputMode="decimal" value={chart.fatMax} onChange={(e) => onPatch(chart.id, { fatMax: Number(e.target.value), cells: [] })} />
+          <input className={inputClass} inputMode="decimal" value={chart.fatMax} onChange={(e) => onPatch(chart.id, { fatMax: Number(e.target.value) })} />
         </Field>
       </div>
-      <p className="text-sm text-muted">
-        Rate / L = FAT% × {(kg / 100).toFixed(2)}. Example 6.0% FAT = {formatInr(example)}. Good milk needs SNF {chart.goodSnfMin}+.
-      </p>
-      <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => onPatch(chart.id, { cells: generateFatOnlyCells({ ...chart, kgFatRate: kg, fatRate: kg / 100 }) })}>
+
+      <div className="flex flex-wrap gap-1.5">
+        {KG_FAT_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
+              kg === preset ? "bg-primary text-white" : "bg-[#f4ead6] text-ink hover:bg-[#efe4cc]"
+            }`}
+            onClick={() => applyKg(preset, true)}
+          >
+            ₹{preset}
+          </button>
+        ))}
+      </div>
+
+      {low ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-950">
+          ₹{kg} / kg Fat se 6% FAT sirf {formatInr(kgFatLitreRate(draft, 6))} / L padega — ye dairy rate nahi hai.
+          <button type="button" className="ml-2 font-semibold text-primary underline" onClick={() => applyKg(typical, true)}>
+            Typical ₹{typical} use karo
+          </button>
+        </div>
+      ) : (
+        <p className="text-[13px] text-muted">
+          1% FAT = {formatInr(perPoint)} / L. Collection: FAT% × {formatInr(perPoint)}. SNF optional — deduction tabhi jab SNF daali ho.
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {samples.map((row) => (
+          <div key={row.fat} className="rounded-xl border border-line bg-[#fbf7ef] px-3 py-2">
+            <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">{row.fat.toFixed(1)}% FAT</p>
+            <p className="font-display text-lg leading-tight">{formatInr(row.rate)}</p>
+            <p className="text-[11px] text-muted">per litre</p>
+          </div>
+        ))}
+      </div>
+
+      <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={generate}>
         Generate {chart.milkType} FAT chart
       </button>
       {chart.cells.length ? (
@@ -294,17 +352,20 @@ function FatOnlyEditor({
             <tbody>
               {chart.cells.map((cell, i) => (
                 <tr key={`${cell.fat}-${i}`} className="border-t border-line/70">
-                  <td className="px-3 py-1.5">{cell.fat.toFixed(1)}</td>
+                  <td className="px-3 py-1.5 font-medium">{cell.fat.toFixed(1)}</td>
                   <td className="px-3 py-1.5">
-                    <input
-                      className="w-full min-w-0 max-w-36 rounded-lg border border-line bg-[#fbf7ef] px-2 py-2 text-base sm:py-1 sm:text-sm"
-                      inputMode="decimal"
-                      value={cell.rate}
-                      onChange={(e) => {
-                        const cells = chart.cells.map((row, idx) => (idx === i ? { ...row, rate: Number(e.target.value) } : row));
-                        onPatch(chart.id, { cells });
-                      }}
-                    />
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 text-muted">₹</span>
+                      <input
+                        className="w-full min-w-0 max-w-36 rounded-lg border border-line bg-[#fbf7ef] px-2 py-2 text-base sm:py-1 sm:text-sm"
+                        inputMode="decimal"
+                        value={cell.rate}
+                        onChange={(e) => {
+                          const cells = chart.cells.map((row, idx) => (idx === i ? { ...row, rate: Number(e.target.value) } : row));
+                          onPatch(chart.id, { cells });
+                        }}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -510,7 +571,7 @@ function RulesEditor({
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="font-display text-lg leading-none">Quality deductions</p>
-          <p className="mt-1 text-[12px] text-muted">First matching rule wins. 100 = full rate, 0 = reject / no payment.</p>
+          <p className="mt-1 text-[12px] text-muted">First matching rule wins. 100 = full rate, 0 = reject. SNF rule tabhi lagegi jab collection pe SNF daali ho.</p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={() => onPatch(chart.id, { rules: defaultRules(milk) })}>

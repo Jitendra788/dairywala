@@ -29,7 +29,7 @@ export function DeliveryView() {
   async function load(nextDate = date) {
     setLoading(true);
     try {
-      const data = await customerApi<{ deliveries: DeliveryRow[] }>(`/api/deliveries?date=${nextDate}`);
+      const data = await customerApi<{ deliveries: DeliveryRow[] }>(`/api/customers/deliveries?date=${nextDate}`);
       setRows(data.deliveries);
     } catch (e) {
       toast.push(e instanceof Error ? e.message : "Could not load deliveries", "err");
@@ -47,7 +47,7 @@ export function DeliveryView() {
   async function act(body: Record<string, unknown>, id: string) {
     setBusy(true);
     try {
-      await customerApi(`/api/deliveries/${id}`, { method: "POST", body: JSON.stringify(body) });
+      await customerApi(`/api/customers/deliveries/${id}`, { method: "POST", body: JSON.stringify(body) });
       toast.push("Delivery updated");
       setDialog(null);
       setReason("");

@@ -42,25 +42,26 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     ),
   );
 
-  let duplicateBlocked = false;
-  try {
-    createCustomer(dairyId, {
-      name: "Ramesh Duplicate",
-      mobile: "9876502001",
-      address: "Should not save",
-      milkType: "buffalo",
-      customerType: "regular",
-      dailyQty: 2,
-      rate: 60,
-      startDate: today,
-      deliveryTime: "06:30",
-      paymentCycle: "monthly",
-      status: "active",
-    });
-  } catch (error) {
-    duplicateBlocked = error instanceof Error && /already has a customer/i.test(error.message);
-  }
-  checks.push(check("Duplicate mobile rejected", duplicateBlocked, "Same mobile cannot create another customer"));
+  const reused = createCustomer(dairyId, {
+    name: "Ramesh Duplicate",
+    mobile: "9876502001",
+    address: "Should not save",
+    milkType: "buffalo",
+    customerType: "regular",
+    dailyQty: 2,
+    rate: 60,
+    startDate: today,
+    deliveryTime: "06:30",
+    paymentCycle: "monthly",
+    status: "active",
+  });
+  checks.push(
+    check(
+      "Duplicate mobile reuses same customer",
+      reused.id === first.id && listCustomers(dairyId).filter((row) => row.mobile === "9876502001").length === 1,
+      `${reused.customerCode} id=${reused.id}`,
+    ),
+  );
 
   const sub = first.subscription;
   checks.push(

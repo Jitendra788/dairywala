@@ -19,7 +19,7 @@ export function DashboardView() {
   const [customerStats, setCustomerStats] = useState<CustomerDashboardStats | null>(null);
 
   useEffect(() => {
-    customerApi<CustomerDashboardStats>(`/api/customer-stats?date=${todayISO()}`)
+    customerApi<CustomerDashboardStats>(`/api/customers/stats?date=${todayISO()}`)
       .then(setCustomerStats)
       .catch(() => setCustomerStats(null));
   }, []);

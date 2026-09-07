@@ -20,7 +20,7 @@ export function MonthlyBillsView() {
   async function load() {
     setLoading(true);
     try {
-      const data = await customerApi<{ bills: BillRow[] }>(`/api/customer-bills?year=${year}&month=${month}`);
+      const data = await customerApi<{ bills: BillRow[] }>(`/api/customers/bills?year=${year}&month=${month}`);
       setBills(data.bills);
     } catch (e) {
       toast.push(e instanceof Error ? e.message : "Could not load bills", "err");

@@ -30,7 +30,7 @@ export function MilkLedgerView() {
       if (milkType !== "all") qs.set("milkType", milkType);
       if (paymentStatus !== "all") qs.set("paymentStatus", paymentStatus);
       const [ledger, list] = await Promise.all([
-        customerApi<{ rows: LedgerRow[] }>(`/api/ledger?${qs}`),
+        customerApi<{ rows: LedgerRow[] }>(`/api/customers/ledger?${qs}`),
         customerApi<{ customers: CustomerRow[] }>("/api/customers"),
       ]);
       setRows(ledger.rows);

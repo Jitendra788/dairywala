@@ -76,7 +76,7 @@ export function WalkInView() {
     setLoading(true);
     try {
       const data = await customerApi<{ sales: DeliveryRow[]; totals: WalkInTotals }>(
-        `/api/walk-in-sales?date=${forDate}`,
+        `/api/customers/sales?date=${forDate}`,
       );
       setSales(data.sales);
       setTotals(data.totals);
@@ -99,7 +99,7 @@ export function WalkInView() {
     }
     const t = window.setTimeout(() => {
       setSearching(true);
-      customerApi<{ customers: CustomerRow[] }>(`/api/customers?type=walkin&q=${encodeURIComponent(q)}`)
+      customerApi<{ customers: CustomerRow[] }>(`/api/customers?q=${encodeURIComponent(q)}`)
         .then((data) => setMatches(data.customers))
         .catch(() => setMatches([]))
         .finally(() => setSearching(false));
@@ -112,7 +112,7 @@ export function WalkInView() {
     if (!preset) return;
     customerApi<{ customer: CustomerRow }>(`/api/customers/${preset}`)
       .then((data) => {
-        if (data.customer.customerType === "walkin") selectCustomer(data.customer);
+        selectCustomer(data.customer);
       })
       .catch(() => undefined);
   }, [searchParams]);
@@ -169,6 +169,10 @@ export function WalkInView() {
       toast.push("Select a customer first", "err");
       return;
     }
+    if (selected.customerType === "regular") {
+      toast.push("Regular customer ki sale Daily Milk Delivery se hoti hai", "err");
+      return;
+    }
     setBusy(true);
     try {
       const payload = {
@@ -183,13 +187,13 @@ export function WalkInView() {
         notes: form.notes,
       };
       if (editingId) {
-        await customerApi(`/api/walk-in-sales/${editingId}`, {
+        await customerApi(`/api/customers/sales/${editingId}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
         toast.push("Sale updated");
       } else {
-        await customerApi("/api/walk-in-sales", {
+        await customerApi("/api/customers/sales", {
           method: "POST",
           body: JSON.stringify(payload),
         });
@@ -228,7 +232,7 @@ export function WalkInView() {
     if (!deleting) return;
     setBusy(true);
     try {
-      await customerApi(`/api/walk-in-sales/${deleting.id}`, { method: "DELETE" });
+      await customerApi(`/api/customers/sales/${deleting.id}`, { method: "DELETE" });
       toast.push("Sale deleted");
       if (editingId === deleting.id) resetSale();
       setDeleting(null);
@@ -289,7 +293,7 @@ export function WalkInView() {
               <p className="px-4 py-3 text-sm text-muted">Searching…</p>
             ) : matches.length === 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-                <p className="text-sm text-muted">No walk-in customer found.</p>
+                <p className="text-sm text-muted">Is mobile / name ka customer nahi mila.</p>
                 <button type="button" className={btnGhost} onClick={() => setShowNew(true)}>
                   Add New Daily Customer
                 </button>
@@ -306,7 +310,7 @@ export function WalkInView() {
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium">{row.name}</span>
                     <span className="font-mono text-[11px] text-muted">
-                      {row.customerCode} · {row.mobile}
+                      {row.customerCode} · {row.mobile} · {row.customerType === "walkin" ? "Walk-in" : "Regular"}
                     </span>
                   </span>
                   <MilkBadge type={row.milkType} />
@@ -350,6 +354,7 @@ export function WalkInView() {
           {selected ? (
             <p className="text-[12px] text-muted">
               {selected.customerCode} · {selected.name}
+              {selected.customerType === "regular" ? " · Regular — Daily Milk Delivery use karo" : ""}
             </p>
           ) : null}
         </div>
@@ -427,7 +432,7 @@ export function WalkInView() {
             <input className={inputClass} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </Field>
           <div className="flex items-end gap-2 md:col-span-3">
-            <button type="submit" className={btnPrimary} disabled={busy || !selected}>
+            <button type="submit" className={btnPrimary} disabled={busy || !selected || selected.customerType === "regular"}>
               {busy ? "Saving…" : editingId ? "Update sale" : "Save Today's Sale"}
             </button>
             <button type="button" className={btnGhost} onClick={resetSale}>

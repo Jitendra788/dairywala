@@ -184,7 +184,25 @@ function cleanName(value: string) {
 }
 
 function cleanMobile(value: string) {
-  return value.replace(/\D/g, "");
+  const digits = value.replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
+export function findCustomerByMobile(dairyId: string, mobile: string) {
+  const normalized = cleanMobile(mobile);
+  if (!normalized) return null;
+  const row = asRecord(
+    getDb()
+      .prepare(
+        `SELECT * FROM Customer
+         WHERE dairyId = ?
+           AND (mobile = ? OR substr(replace(mobile, ' ', ''), -10) = ?)
+         ORDER BY CASE WHEN IFNULL(customerType, 'regular') = 'regular' THEN 0 ELSE 1 END, createdAt ASC
+         LIMIT 1`,
+      )
+      .get(dairyId, normalized, normalized),
+  );
+  return row ? mapCustomer(row) : null;
 }
 
 function validateDate(value: string, label: string) {
@@ -435,16 +453,81 @@ function validateCreate(input: CreateCustomerInput) {
   };
 }
 
+function insertSubscription(
+  dairyId: string,
+  customerId: string,
+  input: {
+    dailyQty: number;
+    rate: number;
+    startDate: string;
+    deliveryTime: string;
+    paymentCycle: PaymentCycle;
+    status: CustomerStatus;
+  },
+  ts: string,
+) {
+  getDb()
+    .prepare(
+      `INSERT INTO CustomerSubscription (id, dairyId, customerId, dailyQty, rate, startDate, deliveryTime, paymentCycle, pauseFrom, resumeDate, status, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
+    )
+    .run(
+      randomUUID(),
+      dairyId,
+      customerId,
+      input.dailyQty,
+      input.rate,
+      input.startDate,
+      input.deliveryTime,
+      input.paymentCycle,
+      input.status,
+      ts,
+      ts,
+    );
+}
+
+function reuseOrPromoteCustomer(
+  dairyId: string,
+  existingId: string,
+  input: ReturnType<typeof validateCreate>,
+) {
+  const existing = getCustomer(dairyId, existingId);
+  if (input.customerType === "walkin" || existing.customerType === "regular") {
+    return getCustomerRow(dairyId, existing.id);
+  }
+
+  const ts = nowISO();
+  getDb()
+    .prepare(
+      `UPDATE Customer
+       SET name = ?, mobile = ?, address = ?, milkType = ?, customerType = 'regular', defaultQty = ?, defaultRate = ?, status = ?, updatedAt = ?
+       WHERE dairyId = ? AND id = ?`,
+    )
+    .run(
+      input.name || existing.name,
+      input.mobile,
+      input.address || existing.address,
+      input.milkType,
+      input.dailyQty,
+      input.rate,
+      input.status,
+      ts,
+      dairyId,
+      existing.id,
+    );
+  if (!getSubscription(dairyId, existing.id)) {
+    insertSubscription(dairyId, existing.id, input, ts);
+  }
+  ensureDeliveriesForDate(dairyId, todayISO());
+  return getCustomerRow(dairyId, existing.id);
+}
+
 export function createCustomer(dairyId: string, raw: CreateCustomerInput) {
   requireDairy(dairyId);
   const input = validateCreate(raw);
-  const existing = asRecord(
-    getDb()
-      .prepare(`SELECT id FROM Customer WHERE dairyId = ? AND mobile = ?`)
-      .get(dairyId, input.mobile),
-  );
+  const existing = findCustomerByMobile(dairyId, input.mobile);
   if (existing) {
-    throw new CustomerError("This mobile already has a customer. Do not create the same customer again.");
+    return reuseOrPromoteCustomer(dairyId, existing.id, input);
   }
 
   const id = randomUUID();
@@ -472,24 +555,7 @@ export function createCustomer(dairyId: string, raw: CreateCustomerInput) {
     );
 
   if (input.customerType === "regular") {
-    getDb()
-      .prepare(
-        `INSERT INTO CustomerSubscription (id, dairyId, customerId, dailyQty, rate, startDate, deliveryTime, paymentCycle, pauseFrom, resumeDate, status, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
-      )
-      .run(
-        randomUUID(),
-        dairyId,
-        id,
-        input.dailyQty,
-        input.rate,
-        input.startDate,
-        input.deliveryTime,
-        input.paymentCycle,
-        input.status,
-        ts,
-        ts,
-      );
+    insertSubscription(dairyId, id, input, ts);
     ensureDeliveriesForDate(dairyId, todayISO());
   }
   return getCustomerRow(dairyId, id);
@@ -523,12 +589,8 @@ export function updateCustomer(dairyId: string, customerId: string, raw: UpdateC
   if (customer.customerType === "regular" && !PAYMENT_CYCLES.includes(paymentCycle)) throw new CustomerError("Choose a payment cycle");
   if (!CUSTOMER_STATUSES.includes(status)) throw new CustomerError("Choose a status");
 
-  const clash = asRecord(
-    getDb()
-      .prepare(`SELECT id FROM Customer WHERE dairyId = ? AND mobile = ? AND id != ?`)
-      .get(dairyId, mobile, customerId),
-  );
-  if (clash) throw new CustomerError("Another customer already uses this mobile");
+  const clash = findCustomerByMobile(dairyId, mobile);
+  if (clash && clash.id !== customerId) throw new CustomerError("Another customer already uses this mobile");
 
   const ts = nowISO();
   const defaultQty = raw.dailyQty != null ? dailyQty : customer.defaultQty || dailyQty;
@@ -990,22 +1052,18 @@ export function listPayments(dairyId: string, customerId?: string): PaymentRow[]
 export function seedTestCustomer(dairyId: string) {
   requireDairy(dairyId);
   const startDate = addDays(todayISO(), -7);
-  const existing = asRecord(
-    getDb()
-      .prepare(`SELECT id FROM Customer WHERE dairyId = ? AND mobile = ?`)
-      .get(dairyId, "9876502001"),
-  );
+  const existing = findCustomerByMobile(dairyId, "9876502001");
   if (existing) {
     try {
       getDb()
         .prepare(
           `UPDATE CustomerSubscription SET startDate = ? WHERE dairyId = ? AND customerId = ? AND startDate > ?`,
         )
-        .run(startDate, dairyId, str(existing.id), startDate);
+        .run(startDate, dairyId, existing.id, startDate);
     } catch {
       // walk-in or missing subscription — keep the master record
     }
-    return getCustomerRow(dairyId, str(existing.id));
+    return getCustomerRow(dairyId, existing.id);
   }
   return createCustomer(dairyId, {
     name: "Ramesh",
