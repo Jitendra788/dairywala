@@ -6,7 +6,7 @@ import type { CustomerMilkType, CustomerRow, CustomerType, LedgerRow, SalePaymen
 import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import { useToast } from "@/components/toast";
-import { Card, Field, MilkBadge, inputClass, PageHeader } from "@/components/ui";
+import { Card, Field, MilkBadge, inputClass, PageHeader, Select } from "@/components/ui";
 import { CustomerTypeBadge, DeliveryStatusBadge, EmptyState, LoadingRows, SalePaymentBadge } from "@/components/customers/shared";
 
 export function MilkLedgerView() {
@@ -61,37 +61,37 @@ export function MilkLedgerView() {
           <input type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
         </Field>
         <Field label="Customer">
-          <select className={inputClass} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+          <Select className={inputClass} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
             <option value="">All customers</option>
             {customers.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.customerCode} · {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Customer type">
-          <select className={inputClass} value={customerType} onChange={(e) => setCustomerType(e.target.value as typeof customerType)}>
+          <Select className={inputClass} value={customerType} onChange={(e) => setCustomerType(e.target.value as typeof customerType)}>
             <option value="all">All types</option>
             <option value="regular">Regular</option>
             <option value="walkin">Daily / Walk-in</option>
-          </select>
+          </Select>
         </Field>
         <Field label="Milk type">
-          <select className={inputClass} value={milkType} onChange={(e) => setMilkType(e.target.value as typeof milkType)}>
+          <Select className={inputClass} value={milkType} onChange={(e) => setMilkType(e.target.value as typeof milkType)}>
             <option value="all">All milk</option>
             <option value="cow">Cow</option>
             <option value="buffalo">Buffalo</option>
             <option value="mixed">Mixed</option>
-          </select>
+          </Select>
         </Field>
         <Field label="Payment status">
-          <select className={inputClass} value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value as typeof paymentStatus)}>
+          <Select className={inputClass} value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value as typeof paymentStatus)}>
             <option value="all">All payments</option>
             <option value="paid">Paid</option>
             <option value="pending">Pending</option>
             <option value="partial">Partial</option>
-          </select>
+          </Select>
         </Field>
       </Card>
       <Card className="overflow-hidden p-0">

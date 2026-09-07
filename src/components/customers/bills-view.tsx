@@ -6,7 +6,7 @@ import type { BillRow } from "@/lib/customers/types";
 import { todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import { useToast } from "@/components/toast";
-import { Card, Field, inputClass, PageHeader } from "@/components/ui";
+import { Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows } from "@/components/customers/shared";
 
 export function MonthlyBillsView() {
@@ -45,13 +45,13 @@ export function MonthlyBillsView() {
           <input className={inputClass} type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} />
         </Field>
         <Field label="Month">
-          <select className={inputClass} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+          <Select className={inputClass} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
             {Array.from({ length: 12 }, (_, i) => (
               <option key={i + 1} value={i + 1}>
                 {new Date(2026, i, 1).toLocaleString("en-IN", { month: "long" })}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </Card>
       <Card className="overflow-hidden p-0">

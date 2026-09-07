@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Settings2, UserRound } from "lucide-react";
@@ -13,20 +14,31 @@ export function UserMenu() {
   const dairy = useDairy();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ top: 0, right: 0 });
   const letters = (username || "TD").slice(0, 2).toUpperCase();
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setBox({ top: r.bottom + 8, right: window.innerWidth - r.right });
+  }, [open]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <button
+        ref={btnRef}
         type="button"
         className="flex items-center gap-2 rounded-full"
         onClick={() => setOpen((v) => !v)}
@@ -39,8 +51,13 @@ export function UserMenu() {
           {letters}
         </span>
       </button>
-      {open ? (
-        <div className="absolute top-full right-0 z-[60] mt-2 w-[min(16rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-card p-2 shadow-[0_16px_40px_rgba(18,40,30,0.16)]">
+      {open
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="fixed z-[80] w-[min(16rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-card p-2 shadow-[0_16px_40px_rgba(18,40,30,0.16)]"
+              style={{ top: box.top, right: box.right }}
+            >
           <div className="flex items-center gap-2 rounded-xl bg-[#f7f1e6] px-3 py-2">
             <UserRound size={16} className="shrink-0 text-primary" />
             <div className="min-w-0">
@@ -66,8 +83,10 @@ export function UserMenu() {
           >
             <LogOut size={15} /> Logout
           </button>
-        </div>
-      ) : null}
+        </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

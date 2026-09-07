@@ -7,7 +7,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { addDays, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
-import { btnGhost, btnPrimary, Card, Field, confirmAction, inputClass, PageHeader } from "@/components/ui";
+import { btnGhost, btnPrimary, Card, Field, confirmAction, inputClass, PageHeader, Select } from "@/components/ui";
 
 export function PaymentsView() {
   const dairy = useDairy();
@@ -156,13 +156,13 @@ export function PaymentsView() {
             <h2 className="mb-3 font-display text-lg">{editingId ? "Update advance" : "Give advance"}</h2>
             <div className="grid gap-3 md:grid-cols-5">
               <Field label="Farmer">
-                <select className={inputClass} value={adv.farmerId} onChange={(e) => setAdv({ ...adv, farmerId: e.target.value })}>
+                <Select className={inputClass} value={adv.farmerId} onChange={(e) => setAdv({ ...adv, farmerId: e.target.value })}>
                   {dairy.farmers.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.code} · {f.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
               <Field label="Amount">
                 <input className={inputClass} inputMode="decimal" value={adv.amount} onChange={(e) => setAdv({ ...adv, amount: e.target.value })} />

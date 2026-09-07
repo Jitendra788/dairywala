@@ -59,7 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <UserMenu />
             </div>
           </header>
-          <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[max(12px,env(safe-area-inset-bottom))]">
+          <main className="relative z-0 min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[max(12px,env(safe-area-inset-bottom))]">
             {children}
           </main>
         </div>

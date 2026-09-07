@@ -14,6 +14,7 @@ import { round2 } from "@/lib/money";
 import { calcAmount, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
 import { BuffaloIcon, CowIcon, MilkCans } from "@/components/hamari/icons";
+import { Select } from "@/components/ui";
 import type { MilkType, Shift } from "@/lib/types";
 
 export function BuyMilkScreen() {
@@ -137,7 +138,7 @@ export function BuyMilkScreen() {
           <button type="button" className="rounded-lg border border-line p-2 text-slate-500" aria-label="Sync">
             <CloudUpload size={16} />
           </button>
-          <select
+          <Select
             className="h-9 rounded-lg bg-primary px-2 text-sm text-white"
             value={filter}
             onChange={(e) => setFilter(e.target.value as typeof filter)}
@@ -145,7 +146,7 @@ export function BuyMilkScreen() {
             <option value="all">Show</option>
             <option value="cow">Cow</option>
             <option value="buffalo">Buffalo</option>
-          </select>
+          </Select>
           <button
             type="button"
             className="h-9 rounded-lg bg-primary px-4 text-sm font-medium text-white"

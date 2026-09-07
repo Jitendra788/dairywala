@@ -16,7 +16,7 @@ import { formatTime, todayISO } from "@/lib/dates";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { btnGhost, btnPrimary, Card, Field, Initials, MilkBadge, inputClass, PageHeader } from "@/components/ui";
+import { btnGhost, btnPrimary, Card, Field, Initials, MilkBadge, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows, SalePaymentBadge } from "@/components/customers/shared";
 
 type SaleForm = {
@@ -377,11 +377,11 @@ export function WalkInView() {
                 <input className={inputClass} value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
               </Field>
               <Field label="Default milk type">
-                <select className={inputClass} value={newCustomer.milkType} onChange={(e) => setNewCustomer({ ...newCustomer, milkType: e.target.value as CustomerMilkType })}>
+                <Select className={inputClass} value={newCustomer.milkType} onChange={(e) => setNewCustomer({ ...newCustomer, milkType: e.target.value as CustomerMilkType })}>
                   <option value="cow">Cow</option>
                   <option value="buffalo">Buffalo</option>
                   <option value="mixed">Mixed</option>
-                </select>
+                </Select>
               </Field>
             </div>
             <button type="button" className={`${btnPrimary} mt-4`} disabled={busy} onClick={() => void createDailyCustomer()}>
@@ -403,7 +403,7 @@ export function WalkInView() {
         </div>
         <form onSubmit={(e) => void saveSale(e)} className="grid gap-3 md:grid-cols-3">
           <Field label="Customer">
-            <select
+            <Select
               className={inputClass}
               value={selected?.id ?? ""}
               onChange={(e) => {
@@ -417,14 +417,14 @@ export function WalkInView() {
                   {row.customerCode} · {row.name}{row.mobile ? ` · ${row.mobile}` : ""}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Milk type">
-            <select className={inputClass} value={form.milkType} onChange={(e) => setForm({ ...form, milkType: e.target.value as CustomerMilkType })}>
+            <Select className={inputClass} value={form.milkType} onChange={(e) => setForm({ ...form, milkType: e.target.value as CustomerMilkType })}>
               <option value="cow">Cow</option>
               <option value="buffalo">Buffalo</option>
               <option value="mixed">Mixed</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Quantity (L)">
             <input
@@ -454,7 +454,7 @@ export function WalkInView() {
             <input className={inputClass} readOnly value={amount ? formatInr(amount) : "Qty × Rate"} />
           </Field>
           <Field label="Payment status">
-            <select
+            <Select
               className={inputClass}
               value={form.paymentStatus}
               onChange={(e) => setForm({ ...form, paymentStatus: e.target.value as SalePaymentStatus })}
@@ -462,16 +462,16 @@ export function WalkInView() {
               <option value="paid">Paid</option>
               <option value="pending">Pending</option>
               <option value="partial">Partial</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Payment mode">
-            <select className={inputClass} value={form.paymentMode} onChange={(e) => setForm({ ...form, paymentMode: e.target.value as PaymentMode })}>
+            <Select className={inputClass} value={form.paymentMode} onChange={(e) => setForm({ ...form, paymentMode: e.target.value as PaymentMode })}>
               <option value="cash">Cash</option>
               <option value="upi">UPI</option>
               <option value="card">Card</option>
               <option value="bank">Bank Transfer</option>
               <option value="other">Other</option>
-            </select>
+            </Select>
           </Field>
           {form.paymentStatus === "partial" ? (
             <Field label="Paid amount">

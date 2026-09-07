@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+export { Select } from "@/components/ui-select";
+
 export function PageHeader({
   kicker,
   title,

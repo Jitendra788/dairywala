@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { customerApi } from "@/lib/customers/client";
 import { todayISO } from "@/lib/dates";
 import { useToast } from "@/components/toast";
-import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader } from "@/components/ui";
+import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
 import type { CustomerMilkType, CustomerStatus, CustomerType, PaymentCycle } from "@/lib/customers/types";
 
 const empty = {
@@ -108,11 +108,11 @@ export function AddCustomerView() {
             <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="House / street / village" />
           </Field>
           <Field label="Milk type">
-            <select className={inputClass} value={form.milkType} onChange={(e) => setForm({ ...form, milkType: e.target.value as CustomerMilkType })}>
+            <Select className={inputClass} value={form.milkType} onChange={(e) => setForm({ ...form, milkType: e.target.value as CustomerMilkType })}>
               <option value="cow">Cow</option>
               <option value="buffalo">Buffalo</option>
               <option value="mixed">Mixed</option>
-            </select>
+            </Select>
           </Field>
           {walkin ? (
             <>
@@ -138,19 +138,19 @@ export function AddCustomerView() {
                 <input className={inputClass} type="time" value={form.deliveryTime} onChange={(e) => setForm({ ...form, deliveryTime: e.target.value })} />
               </Field>
               <Field label="Payment cycle">
-                <select className={inputClass} value={form.paymentCycle} onChange={(e) => setForm({ ...form, paymentCycle: e.target.value as PaymentCycle })}>
+                <Select className={inputClass} value={form.paymentCycle} onChange={(e) => setForm({ ...form, paymentCycle: e.target.value as PaymentCycle })}>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="10-day">10-day</option>
                   <option value="monthly">Monthly</option>
-                </select>
+                </Select>
               </Field>
               <Field label="Status">
-                <select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CustomerStatus })}>
+                <Select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CustomerStatus })}>
                   <option value="active">Active</option>
                   <option value="paused">Paused</option>
                   <option value="stopped">Stopped</option>
-                </select>
+                </Select>
               </Field>
             </>
           )}

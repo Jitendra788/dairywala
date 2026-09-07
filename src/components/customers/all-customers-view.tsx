@@ -19,6 +19,7 @@ import {
   MilkBadge,
   inputClass,
   PageHeader,
+  Select,
 } from "@/components/ui";
 import { CustomerStatusBadge, CustomerTypeBadge, EmptyState, LoadingRows } from "@/components/customers/shared";
 
@@ -190,11 +191,11 @@ export function AllCustomersView() {
               <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </Field>
             <Field label="Milk type">
-              <select className={inputClass} value={form.milkType} onChange={(e) => setForm({ ...form, milkType: e.target.value as typeof form.milkType })}>
+              <Select className={inputClass} value={form.milkType} onChange={(e) => setForm({ ...form, milkType: e.target.value as typeof form.milkType })}>
                 <option value="cow">Cow</option>
                 <option value="buffalo">Buffalo</option>
                 <option value="mixed">Mixed</option>
-              </select>
+              </Select>
             </Field>
             {editing.customerType === "regular" ? (
               <>
@@ -219,11 +220,11 @@ export function AllCustomersView() {
               </>
             )}
             <Field label="Status">
-              <select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CustomerStatus })}>
+              <Select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CustomerStatus })}>
                 <option value="active">Active</option>
                 <option value="paused">Paused</option>
                 <option value="stopped">Stopped</option>
-              </select>
+              </Select>
             </Field>
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -240,27 +241,27 @@ export function AllCustomersView() {
       <Card className="overflow-hidden p-0">
         <div className="grid gap-3 border-b border-line p-4 md:grid-cols-5">
           <input className={inputClass} placeholder="Search ID, name, mobile, address" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className={inputClass} value={type} onChange={(e) => setType(e.target.value as typeof type)}>
+          <Select className={inputClass} value={type} onChange={(e) => setType(e.target.value as typeof type)}>
             <option value="all">All customer types</option>
             <option value="regular">Regular</option>
             <option value="walkin">Daily / Walk-in</option>
-          </select>
-          <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
+          </Select>
+          <Select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
             <option value="all">Active / Inactive</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
-          </select>
-          <select className={inputClass} value={milk} onChange={(e) => setMilk(e.target.value as typeof milk)}>
+          </Select>
+          <Select className={inputClass} value={milk} onChange={(e) => setMilk(e.target.value as typeof milk)}>
             <option value="all">All milk types</option>
             <option value="cow">Cow</option>
             <option value="buffalo">Buffalo</option>
             <option value="mixed">Mixed</option>
-          </select>
-          <select className={inputClass} value={payment} onChange={(e) => setPayment(e.target.value as typeof payment)}>
+          </Select>
+          <Select className={inputClass} value={payment} onChange={(e) => setPayment(e.target.value as typeof payment)}>
             <option value="all">All payment status</option>
             <option value="pending">Outstanding</option>
             <option value="clear">Clear</option>
-          </select>
+          </Select>
         </div>
         <div className="divide-y divide-line/70 md:hidden">
           {loading ? (

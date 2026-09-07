@@ -6,7 +6,7 @@ import type { CustomerRow, PaymentMode, PaymentRow } from "@/lib/customers/types
 import { formatDate, todayISO } from "@/lib/dates";
 import { formatInr } from "@/lib/money";
 import { useToast } from "@/components/toast";
-import { btnPrimary, Card, Field, inputClass, PageHeader } from "@/components/ui";
+import { btnPrimary, Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows } from "@/components/customers/shared";
 
 export function CustomerPaymentsView() {
@@ -76,13 +76,13 @@ export function CustomerPaymentsView() {
       <Card className="p-5">
         <div className="grid gap-3 md:grid-cols-5">
           <Field label="Customer">
-            <select className={inputClass} value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
+            <Select className={inputClass} value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.customerCode} · {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Payment date">
             <input type="date" className={inputClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
@@ -91,12 +91,12 @@ export function CustomerPaymentsView() {
             <input type="number" min="1" className={inputClass} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </Field>
           <Field label="Payment mode">
-            <select className={inputClass} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value as PaymentMode })}>
+            <Select className={inputClass} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value as PaymentMode })}>
               <option value="cash">Cash</option>
               <option value="upi">UPI</option>
               <option value="bank">Bank</option>
               <option value="card">Card</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Reference">
             <input className={inputClass} value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} placeholder="UPI / slip no." />

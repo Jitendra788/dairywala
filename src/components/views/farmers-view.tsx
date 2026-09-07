@@ -17,6 +17,7 @@ import {
   confirmAction,
   inputClass,
   PageHeader,
+  Select,
 } from "@/components/ui";
 import type { Farmer, MilkType } from "@/lib/types";
 
@@ -125,7 +126,7 @@ export function FarmersView() {
               <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </Field>
             <Field label="Milk">
-              <select
+              <Select
                 className={inputClass}
                 value={form.milkType}
                 onChange={(e) => setForm({ ...form, milkType: e.target.value as Farmer["milkType"] })}
@@ -133,7 +134,7 @@ export function FarmersView() {
                 <option value="buffalo">Buffalo</option>
                 <option value="cow">Cow</option>
                 <option value="mixed">Mixed</option>
-              </select>
+              </Select>
             </Field>
             <Field label="Bank">
               <input className={inputClass} value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} />
@@ -323,7 +324,7 @@ export function FarmerProfile() {
             <input className={inputClass} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </Field>
           <Field label="Milk">
-            <select
+            <Select
               className={inputClass}
               value={form.milkType}
               onChange={(e) => setForm({ ...form, milkType: e.target.value as Farmer["milkType"] })}
@@ -331,7 +332,7 @@ export function FarmerProfile() {
               <option value="buffalo">Buffalo</option>
               <option value="cow">Cow</option>
               <option value="mixed">Mixed</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Bank">
             <input className={inputClass} value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} />
