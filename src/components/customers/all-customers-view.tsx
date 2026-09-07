@@ -183,8 +183,8 @@ export function AllCustomersView() {
             <Field label="Customer name">
               <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
-            <Field label="Mobile">
-              <input className={inputClass} value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+            <Field label="Mobile (optional)">
+              <input className={inputClass} value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="Optional" inputMode="numeric" />
             </Field>
             <Field label="Address">
               <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
@@ -278,7 +278,7 @@ export function AllCustomersView() {
                       <CustomerTypeBadge type={row.customerType} />
                       <CustomerStatusBadge status={row.status} />
                     </div>
-                    <p className="font-mono text-[11px] text-muted">{row.customerCode} · {row.mobile}</p>
+                    <p className="font-mono text-[11px] text-muted">{row.customerCode} · {row.mobile || "—"}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
                       <MilkBadge type={row.milkType} />
                       <span>{formatQty(row.subscription?.dailyQty ?? row.defaultQty)}</span>
@@ -352,7 +352,7 @@ export function AllCustomersView() {
                           <span className="font-medium">{row.name}</span>
                         </span>
                       </td>
-                      <td>{row.mobile}</td>
+                      <td>{row.mobile || "—"}</td>
                       <td>
                         <CustomerTypeBadge type={row.customerType} />
                       </td>

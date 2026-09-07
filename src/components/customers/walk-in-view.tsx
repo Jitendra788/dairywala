@@ -358,7 +358,7 @@ export function WalkInView() {
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{row.name}</span>
                   <span className="font-mono text-[11px] text-muted">
-                    {row.customerCode} · {row.mobile}
+                    {row.customerCode} · {row.mobile || "—"}
                     {row.customerType === "regular" ? " · Regular" : ""}
                   </span>
                 </span>
@@ -375,8 +375,8 @@ export function WalkInView() {
               <Field label="Name">
                 <input className={inputClass} value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} placeholder="Ramesh" />
               </Field>
-              <Field label="Mobile">
-                <input className={inputClass} value={newCustomer.mobile} onChange={(e) => setNewCustomer({ ...newCustomer, mobile: e.target.value })} placeholder="9876502012" inputMode="numeric" />
+              <Field label="Mobile (optional)">
+                <input className={inputClass} value={newCustomer.mobile} onChange={(e) => setNewCustomer({ ...newCustomer, mobile: e.target.value })} placeholder="Optional" inputMode="numeric" />
               </Field>
               <Field label="Address (optional)">
                 <input className={inputClass} value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
@@ -419,7 +419,7 @@ export function WalkInView() {
               <option value="">Select saved customer</option>
               {(saved.length ? saved : visibleCustomers).map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.customerCode} · {row.name} · {row.mobile}
+                  {row.customerCode} · {row.name}{row.mobile ? ` · ${row.mobile}` : ""}
                 </option>
               ))}
             </select>

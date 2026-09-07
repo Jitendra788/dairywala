@@ -64,7 +64,7 @@ function migrate(db: DatabaseSync) {
       dairyId TEXT NOT NULL,
       customerCode TEXT NOT NULL,
       name TEXT NOT NULL,
-      mobile TEXT NOT NULL,
+      mobile TEXT,
       address TEXT NOT NULL,
       milkType TEXT NOT NULL,
       customerType TEXT NOT NULL DEFAULT 'regular',

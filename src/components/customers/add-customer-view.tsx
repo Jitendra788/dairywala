@@ -101,8 +101,8 @@ export function AddCustomerView() {
           <Field label="Customer name">
             <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ramesh" />
           </Field>
-          <Field label="Mobile">
-            <input className={inputClass} value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="9876502001" />
+          <Field label="Mobile (optional)">
+            <input className={inputClass} value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="9876502001" inputMode="numeric" />
           </Field>
           <Field label={walkin ? "Address (optional)" : "Address"}>
             <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="House / street / village" />

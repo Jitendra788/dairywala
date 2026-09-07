@@ -67,7 +67,7 @@ function mapCustomer(row: Record<string, unknown>): Customer {
     dairyId: str(row.dairyId),
     customerCode: str(row.customerCode),
     name: str(row.name),
-    mobile: str(row.mobile),
+    mobile: storedMobile(row.mobile),
     address: str(row.address),
     milkType: str(row.milkType) as CustomerMilkType,
     customerType: (str(row.customerType) === "walkin" ? "walkin" : "regular") as CustomerType,
@@ -186,6 +186,24 @@ function cleanName(value: string) {
 function cleanMobile(value: string) {
   const digits = value.replace(/\D/g, "");
   return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
+function optionalMobile(value: string) {
+  const mobile = cleanMobile(value);
+  if (!mobile) return "";
+  if (!MOBILE_RE.test(mobile)) throw new CustomerError("Enter a valid 10-digit mobile, or leave it blank");
+  return mobile;
+}
+
+const BLANK_MOBILE = "__blank:";
+
+function storedMobile(value: unknown) {
+  const mobile = str(value);
+  return !mobile || mobile.startsWith(BLANK_MOBILE) ? "" : mobile;
+}
+
+function mobileDb(mobile: string) {
+  return mobile || `${BLANK_MOBILE}${randomUUID()}`;
 }
 
 export function findCustomerByMobile(dairyId: string, mobile: string) {
@@ -403,12 +421,11 @@ function getMonthlyBill(dairyId: string, id: string) {
 
 function validateCreate(input: CreateCustomerInput) {
   const name = cleanName(input.name || "");
-  const mobile = cleanMobile(input.mobile || "");
+  const mobile = optionalMobile(input.mobile || "");
   const address = cleanName(input.address || "");
   const customerType: CustomerType = input.customerType === "walkin" ? "walkin" : "regular";
   const status = input.status && CUSTOMER_STATUSES.includes(input.status) ? input.status : "active";
   if (name.length < 2) throw new CustomerError("Customer name is required");
-  if (!MOBILE_RE.test(mobile)) throw new CustomerError("Enter a valid 10-digit mobile");
   if (customerType === "regular" && address.length < 3) throw new CustomerError("Address is required");
   if (!MILK_TYPES.includes(input.milkType)) throw new CustomerError("Choose a milk type");
   if (!CUSTOMER_TYPES.includes(customerType)) throw new CustomerError("Choose a customer type");
@@ -505,7 +522,7 @@ function reuseOrPromoteCustomer(
     )
     .run(
       input.name || existing.name,
-      input.mobile,
+      mobileDb(input.mobile),
       input.address || existing.address,
       input.milkType,
       input.dailyQty,
@@ -525,7 +542,7 @@ function reuseOrPromoteCustomer(
 export function createCustomer(dairyId: string, raw: CreateCustomerInput) {
   requireDairy(dairyId);
   const input = validateCreate(raw);
-  const existing = findCustomerByMobile(dairyId, input.mobile);
+  const existing = input.mobile ? findCustomerByMobile(dairyId, input.mobile) : null;
   if (existing) {
     return reuseOrPromoteCustomer(dairyId, existing.id, input);
   }
@@ -543,7 +560,7 @@ export function createCustomer(dairyId: string, raw: CreateCustomerInput) {
       dairyId,
       code,
       input.name,
-      input.mobile,
+      mobileDb(input.mobile),
       input.address,
       input.milkType,
       input.customerType,
@@ -570,7 +587,7 @@ export function updateCustomer(dairyId: string, customerId: string, raw: UpdateC
   }
 
   const name = raw.name != null ? cleanName(raw.name) : customer.name;
-  const mobile = raw.mobile != null ? cleanMobile(raw.mobile) : customer.mobile;
+  const mobile = raw.mobile != null ? optionalMobile(raw.mobile) : customer.mobile;
   const address = raw.address != null ? cleanName(raw.address) : customer.address;
   const milkType = raw.milkType ?? customer.milkType;
   const dailyQty = raw.dailyQty != null ? round2(raw.dailyQty) : sub?.dailyQty ?? 0;
@@ -580,7 +597,6 @@ export function updateCustomer(dairyId: string, customerId: string, raw: UpdateC
   const status = raw.status ?? customer.status;
 
   if (name.length < 2) throw new CustomerError("Customer name is required");
-  if (!MOBILE_RE.test(mobile)) throw new CustomerError("Enter a valid 10-digit mobile");
   if (customer.customerType === "regular" && address.length < 3) throw new CustomerError("Address is required");
   if (!MILK_TYPES.includes(milkType)) throw new CustomerError("Choose a milk type");
   if (customer.customerType === "regular" && dailyQty <= 0) throw new CustomerError("Daily quantity must be greater than 0");
@@ -589,7 +605,7 @@ export function updateCustomer(dairyId: string, customerId: string, raw: UpdateC
   if (customer.customerType === "regular" && !PAYMENT_CYCLES.includes(paymentCycle)) throw new CustomerError("Choose a payment cycle");
   if (!CUSTOMER_STATUSES.includes(status)) throw new CustomerError("Choose a status");
 
-  const clash = findCustomerByMobile(dairyId, mobile);
+  const clash = mobile ? findCustomerByMobile(dairyId, mobile) : null;
   if (clash && clash.id !== customerId) throw new CustomerError("Another customer already uses this mobile");
 
   const ts = nowISO();
@@ -599,7 +615,7 @@ export function updateCustomer(dairyId: string, customerId: string, raw: UpdateC
     .prepare(
       `UPDATE Customer SET name = ?, mobile = ?, address = ?, milkType = ?, defaultQty = ?, defaultRate = ?, status = ?, updatedAt = ? WHERE dairyId = ? AND id = ?`,
     )
-    .run(name, mobile, address, milkType, defaultQty, defaultRate, status, ts, dairyId, customerId);
+    .run(name, mobileDb(mobile), address, milkType, defaultQty, defaultRate, status, ts, dairyId, customerId);
 
   if (customer.customerType === "walkin") {
     return getCustomerRow(dairyId, customerId);
