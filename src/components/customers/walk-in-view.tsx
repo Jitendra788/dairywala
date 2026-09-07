@@ -46,6 +46,7 @@ export function WalkInView() {
   const searchRef = useRef<HTMLInputElement>(null);
   const [date, setDate] = useState(todayISO());
   const [query, setQuery] = useState("");
+  const [saved, setSaved] = useState<CustomerRow[]>([]);
   const [matches, setMatches] = useState<CustomerRow[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<CustomerRow | null>(null);
@@ -87,6 +88,37 @@ export function WalkInView() {
     }
   }
 
+  async function loadSaved() {
+    try {
+      const data = await customerApi<{ customers: CustomerRow[] }>("/api/customers");
+      const rows = [...data.customers].sort((a, b) => {
+        if (a.customerType !== b.customerType) return a.customerType === "walkin" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      setSaved(rows);
+    } catch {
+      setSaved([]);
+    }
+  }
+
+  const visibleCustomers = useMemo(() => {
+    const s = query.trim().toLowerCase();
+    const fromSaved = s
+      ? saved.filter(
+          (row) =>
+            row.name.toLowerCase().includes(s) ||
+            row.mobile.includes(s) ||
+            row.customerCode.toLowerCase().includes(s),
+        )
+      : saved;
+    if (!s || fromSaved.length) return fromSaved;
+    return matches.filter((row) => !saved.some((savedRow) => savedRow.id === row.id));
+  }, [query, saved, matches]);
+
+  useEffect(() => {
+    void loadSaved();
+  }, []);
+
   useEffect(() => {
     void loadSales(date);
   }, [date]);
@@ -94,6 +126,16 @@ export function WalkInView() {
   useEffect(() => {
     const q = query.trim();
     if (q.length < 2) {
+      setMatches([]);
+      return;
+    }
+    const localHit = saved.some(
+      (row) =>
+        row.name.toLowerCase().includes(q.toLowerCase()) ||
+        row.mobile.includes(q) ||
+        row.customerCode.toLowerCase().includes(q.toLowerCase()),
+    );
+    if (localHit) {
       setMatches([]);
       return;
     }
@@ -105,7 +147,7 @@ export function WalkInView() {
         .finally(() => setSearching(false));
     }, 180);
     return () => window.clearTimeout(t);
-  }, [query]);
+  }, [query, saved]);
 
   useEffect(() => {
     const preset = searchParams.get("customerId");
@@ -218,8 +260,9 @@ export function WalkInView() {
           customerType: "walkin",
         }),
       });
-      toast.push(`${data.customer.customerCode} created`);
+      toast.push(`${data.customer.customerCode} ready`);
       setNewCustomer({ name: "", mobile: "", address: "", milkType: "cow" });
+      setSaved((prev) => (prev.some((row) => row.id === data.customer.id) ? prev : [...prev, data.customer]));
       selectCustomer(data.customer);
     } catch (err) {
       toast.push(err instanceof Error ? err.message : "Could not add customer", "err");
@@ -249,7 +292,7 @@ export function WalkInView() {
       <PageHeader
         kicker="दैनिक बिक्री"
         title="Daily / Walk-in Milk Sales"
-        hint="Sell milk only when the customer is here. Same mobile keeps one customer record."
+        hint="Jo customer pehle add ho chuka hai, list se choose karo. Naya customer sirf naya mobile aaye tab."
       />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -265,60 +308,65 @@ export function WalkInView() {
           <Field label="Date">
             <input type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label="Search existing customer">
+          <Field label="Find saved customer">
             <input
               ref={searchRef}
               className={inputClass}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Name, mobile or CUS-0012"
+              placeholder="Name, mobile or CUS code"
               autoComplete="off"
               onKeyDown={(e) => {
-                if (e.key === "Enter" && matches.length === 1) {
+                if (e.key === "Enter" && visibleCustomers.length === 1) {
                   e.preventDefault();
-                  selectCustomer(matches[0]);
+                  selectCustomer(visibleCustomers[0]);
                 }
               }}
             />
           </Field>
           <div className="flex items-end">
-            <button type="button" className={btnPrimary} onClick={() => setShowNew((v) => !v)}>
-              {showNew ? "Close" : "+ New Customer"}
+            <button type="button" className={btnGhost} onClick={() => setShowNew((v) => !v)}>
+              {showNew ? "Close" : "+ New only if not in list"}
             </button>
           </div>
         </div>
-        {query.trim().length >= 2 ? (
-          <div className="mt-3 divide-y divide-line/70 overflow-hidden rounded-2xl border border-line">
-            {searching ? (
-              <p className="px-4 py-3 text-sm text-muted">Searching…</p>
-            ) : matches.length === 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-                <p className="text-sm text-muted">Is mobile / name ka customer nahi mila.</p>
-                <button type="button" className={btnGhost} onClick={() => setShowNew(true)}>
-                  Add New Daily Customer
-                </button>
-              </div>
-            ) : (
-              matches.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#faf6ee]"
-                  onClick={() => selectCustomer(row)}
-                >
-                  <Initials name={row.name} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{row.name}</span>
-                    <span className="font-mono text-[11px] text-muted">
-                      {row.customerCode} · {row.mobile} · {row.customerType === "walkin" ? "Walk-in" : "Regular"}
-                    </span>
+        <div className="mt-3 divide-y divide-line/70 overflow-hidden rounded-2xl border border-line">
+          {searching ? (
+            <p className="px-4 py-3 text-sm text-muted">Searching…</p>
+          ) : visibleCustomers.length === 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+              <p className="text-sm text-muted">
+                {saved.length === 0
+                  ? "Abhi koi daily customer save nahi hai."
+                  : "Is name / mobile se koi saved customer nahi mila."}
+              </p>
+              <button type="button" className={btnPrimary} onClick={() => setShowNew(true)}>
+                Add New Daily Customer
+              </button>
+            </div>
+          ) : (
+            visibleCustomers.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-[#faf6ee] ${
+                  selected?.id === row.id ? "bg-emerald-50" : ""
+                }`}
+                onClick={() => selectCustomer(row)}
+              >
+                <Initials name={row.name} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{row.name}</span>
+                  <span className="font-mono text-[11px] text-muted">
+                    {row.customerCode} · {row.mobile}
+                    {row.customerType === "regular" ? " · Regular" : ""}
                   </span>
-                  <MilkBadge type={row.milkType} />
-                </button>
-              ))
-            )}
-          </div>
-        ) : null}
+                </span>
+                <MilkBadge type={row.milkType} />
+              </button>
+            ))
+          )}
+        </div>
 
         {showNew ? (
           <div className="mt-4 rounded-2xl bg-[#f7f1e6] p-4">
@@ -360,7 +408,21 @@ export function WalkInView() {
         </div>
         <form onSubmit={(e) => void saveSale(e)} className="grid gap-3 md:grid-cols-3">
           <Field label="Customer">
-            <input className={inputClass} readOnly value={selected ? `${selected.name} · ${selected.mobile}` : "Search or add a customer"} />
+            <select
+              className={inputClass}
+              value={selected?.id ?? ""}
+              onChange={(e) => {
+                const row = saved.find((item) => item.id === e.target.value) ?? visibleCustomers.find((item) => item.id === e.target.value);
+                if (row) selectCustomer(row);
+              }}
+            >
+              <option value="">Select saved customer</option>
+              {(saved.length ? saved : visibleCustomers).map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.customerCode} · {row.name} · {row.mobile}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Milk type">
             <select className={inputClass} value={form.milkType} onChange={(e) => setForm({ ...form, milkType: e.target.value as CustomerMilkType })}>
@@ -450,7 +512,7 @@ export function WalkInView() {
           {loading ? (
             <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
           ) : sales.length === 0 ? (
-            <EmptyState title="No walk-in sales yet" hint="Search a customer and save today’s sale." />
+            <EmptyState title="No walk-in sales yet" hint="Upar se saved customer choose karo, phir sale save karo." />
           ) : (
             sales.map((row) => (
               <div key={row.id} className="px-4 py-3">
@@ -495,7 +557,7 @@ export function WalkInView() {
                 {sales.length === 0 ? (
                   <tr>
                     <td colSpan={8}>
-                      <EmptyState title="No walk-in sales yet" hint="Search a customer and save today’s sale." />
+                      <EmptyState title="No walk-in sales yet" hint="Upar se saved customer choose karo, phir sale save karo." />
                     </td>
                   </tr>
                 ) : (
