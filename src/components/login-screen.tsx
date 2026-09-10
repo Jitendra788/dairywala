@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, UserRound } from "lucide-react";
-import { getAuthRecord, login } from "@/lib/auth";
+import { fetchAuthRecord, login } from "@/lib/auth";
 import { btnPrimary, Card, Field, inputClass } from "@/components/ui";
 
 export function LoginScreen() {
@@ -17,7 +17,7 @@ export function LoginScreen() {
   const [isDefault, setIsDefault] = useState(true);
 
   useEffect(() => {
-    setIsDefault(getAuthRecord()?.isDefault !== false);
+    void fetchAuthRecord().then((auth) => setIsDefault(auth.isDefault !== false));
   }, []);
 
   async function onSubmit(e: React.FormEvent) {

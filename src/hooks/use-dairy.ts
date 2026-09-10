@@ -35,7 +35,7 @@ export function useDairy() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    hydrateDairy();
+    void hydrateDairy();
   }, []);
 
   return {

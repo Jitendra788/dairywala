@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { changePassword, changeUsername, getAuthRecord } from "@/lib/auth";
+import { changePassword, changeUsername, fetchAuthRecord, getAuthRecord } from "@/lib/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader } from "@/components/ui";
@@ -19,7 +19,7 @@ export function SettingsView() {
 
   useEffect(() => {
     if (username) setUser(username);
-    setIsDefault(Boolean(getAuthRecord()?.isDefault));
+    void fetchAuthRecord().then((auth) => setIsDefault(auth.isDefault));
   }, [username]);
 
   useEffect(() => {
@@ -91,14 +91,14 @@ export function SettingsView() {
       <Card id="data" className="p-5">
         <h2 className="font-display text-xl">Backup & demo data</h2>
         <p className="mt-1 text-sm text-muted">
-          Collection data is saved in this browser. Reset restores seed farmers and recent slips.
+          Collection, farmers, bills aur rate charts Neon database mein save hote hain — har device pe same data.
         </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
             className={btnGhost}
             onClick={() => {
-              if (confirm("Saara local data reset ho jayega. Continue?")) dairy.resetDemo();
+              if (confirm("Saara dairy data Neon se reset ho jayega. Continue?")) void dairy.resetDemo();
             }}
           >
             Reset demo dairy

@@ -52,12 +52,46 @@ const CAMEL_FIELDS = [
   "regularSales",
   "customerMilkType",
   "customerStatus",
+  "farmerId",
+  "billId",
+  "fromDate",
+  "toDate",
+  "avgFat",
+  "avgSnf",
+  "paidAt",
+  "dairyName",
+  "centerName",
+  "profileComplete",
+  "rateMethod",
+  "cowMethod",
+  "buffaloMethod",
+  "bankName",
+  "accountNo",
+  "passwordHash",
+  "isDefault",
+  "fatCoeff",
+  "snfCoeff",
+  "fatRate",
+  "kgFatRate",
+  "efuRate",
+  "snfEfuFactor",
+  "goodSnfMin",
+  "fatMin",
+  "fatMax",
+  "fatStep",
+  "snfMin",
+  "snfMax",
+  "snfStep",
 ];
+
+const SCHEMA_VERSION = 3;
 
 const globalForDb = globalThis as unknown as {
   tonyCustomerDb?: DatabaseSync;
   tonyNeonSql?: NeonQueryFunction<false, false>;
   tonyDbReady?: Promise<void>;
+  tonySchemaVersion?: number;
+  tonyDbMode?: string;
 };
 
 export function postgresUrl() {
@@ -235,6 +269,111 @@ CREATE INDEX IF NOT EXISTS idx_ledger_dairy_date ON MilkLedger(dairyId, date);
 CREATE INDEX IF NOT EXISTS idx_payment_dairy_customer ON CustomerPayment(dairyId, customerId);
 CREATE INDEX IF NOT EXISTS idx_customer_dairy_type ON Customer(dairyId, customerType);
 CREATE INDEX IF NOT EXISTS idx_delivery_dairy_source ON DailyMilkDelivery(dairyId, source, date);
+CREATE TABLE IF NOT EXISTS DairySettings (
+  dairyId TEXT PRIMARY KEY,
+  dairyName TEXT NOT NULL,
+  centerName TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  address TEXT NOT NULL,
+  logo TEXT NOT NULL,
+  profileComplete INTEGER NOT NULL DEFAULT 1,
+  rateMethod TEXT NOT NULL,
+  cowMethod TEXT NOT NULL,
+  buffaloMethod TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS Farmer (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  milkType TEXT NOT NULL,
+  bankName TEXT NOT NULL,
+  accountNo TEXT NOT NULL,
+  ifsc TEXT NOT NULL,
+  upi TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  UNIQUE (dairyId, code)
+);
+CREATE TABLE IF NOT EXISTS CollectionEntry (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  farmerId TEXT NOT NULL,
+  date TEXT NOT NULL,
+  shift TEXT NOT NULL,
+  milkType TEXT NOT NULL,
+  qty DOUBLE PRECISION NOT NULL,
+  fat DOUBLE PRECISION NOT NULL,
+  snf DOUBLE PRECISION NOT NULL,
+  clr DOUBLE PRECISION NOT NULL,
+  rate DOUBLE PRECISION NOT NULL,
+  amount DOUBLE PRECISION NOT NULL,
+  billId TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS RateChart (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  milkType TEXT NOT NULL,
+  fatCoeff DOUBLE PRECISION NOT NULL,
+  snfCoeff DOUBLE PRECISION NOT NULL,
+  base DOUBLE PRECISION NOT NULL,
+  fatRate DOUBLE PRECISION NOT NULL,
+  kgFatRate DOUBLE PRECISION NOT NULL,
+  efuRate DOUBLE PRECISION NOT NULL,
+  snfEfuFactor DOUBLE PRECISION NOT NULL,
+  goodSnfMin DOUBLE PRECISION NOT NULL,
+  fatMin DOUBLE PRECISION NOT NULL,
+  fatMax DOUBLE PRECISION NOT NULL,
+  fatStep DOUBLE PRECISION NOT NULL,
+  snfMin DOUBLE PRECISION NOT NULL,
+  snfMax DOUBLE PRECISION NOT NULL,
+  snfStep DOUBLE PRECISION NOT NULL,
+  cells TEXT NOT NULL,
+  rules TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS FarmerAdvance (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  farmerId TEXT NOT NULL,
+  amount DOUBLE PRECISION NOT NULL,
+  note TEXT NOT NULL,
+  date TEXT NOT NULL,
+  recovered INTEGER NOT NULL DEFAULT 0,
+  billId TEXT
+);
+CREATE TABLE IF NOT EXISTS FarmerBill (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  farmerId TEXT NOT NULL,
+  fromDate TEXT NOT NULL,
+  toDate TEXT NOT NULL,
+  qty DOUBLE PRECISION NOT NULL,
+  avgFat DOUBLE PRECISION NOT NULL,
+  avgSnf DOUBLE PRECISION NOT NULL,
+  gross DOUBLE PRECISION NOT NULL,
+  advance DOUBLE PRECISION NOT NULL,
+  net DOUBLE PRECISION NOT NULL,
+  status TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  paidAt TEXT
+);
+CREATE TABLE IF NOT EXISTS DairyAuth (
+  dairyId TEXT PRIMARY KEY,
+  username TEXT NOT NULL,
+  passwordHash TEXT NOT NULL,
+  isDefault INTEGER NOT NULL DEFAULT 1,
+  updatedAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_farmer_dairy_code ON Farmer(dairyId, code);
+CREATE INDEX IF NOT EXISTS idx_collection_dairy_date ON CollectionEntry(dairyId, date);
+CREATE INDEX IF NOT EXISTS idx_collection_farmer ON CollectionEntry(dairyId, farmerId);
+CREATE INDEX IF NOT EXISTS idx_advance_farmer ON FarmerAdvance(dairyId, farmerId);
+CREATE INDEX IF NOT EXISTS idx_bill_farmer ON FarmerBill(dairyId, farmerId);
 `;
 
 async function migratePostgres() {
@@ -288,10 +427,19 @@ function sqliteDb() {
 }
 
 export async function ensureDb() {
+  const mode = isPostgres() ? "pg" : "sqlite";
+  if (globalForDb.tonySchemaVersion !== SCHEMA_VERSION || globalForDb.tonyDbMode !== mode) {
+    globalForDb.tonyDbReady = undefined;
+    globalForDb.tonySchemaVersion = SCHEMA_VERSION;
+    globalForDb.tonyDbMode = mode;
+  }
   if (globalForDb.tonyDbReady) return globalForDb.tonyDbReady;
   globalForDb.tonyDbReady = (async () => {
     if (isPostgres()) await migratePostgres();
-    else sqliteDb();
+    else {
+      const db = sqliteDb();
+      migrateSqlite(db);
+    }
   })();
   return globalForDb.tonyDbReady;
 }

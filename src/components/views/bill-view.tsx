@@ -31,15 +31,15 @@ export function BillView() {
         </button>
         {bill.status === "open" ? (
           <>
-            <button type="button" className={btnPrimary} onClick={() => dairy.markBillPaid(bill.id)}>
+            <button type="button" className={btnPrimary} onClick={() => void dairy.markBillPaid(bill.id)}>
               Mark paid
             </button>
             <button
               type="button"
               className={btnDanger}
-              onClick={() => {
+              onClick={async () => {
                 if (!confirmAction("Bill delete karein?")) return;
-                dairy.deleteBill(bill.id);
+                await dairy.deleteBill(bill.id);
                 router.push("/payments");
               }}
             >

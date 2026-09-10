@@ -73,8 +73,8 @@ export function PaymentsView() {
                 <button
                   type="button"
                   className={`${btnPrimary} w-full`}
-                  onClick={() => {
-                    const created = dairy.generateBills(fromDate, toDate);
+                  onClick={async () => {
+                    const created = await dairy.generateBills(fromDate, toDate);
                     setMessage(created.length ? `${created.length} bills ban gaye.` : "Is period mein unbilled milk nahi.");
                   }}
                 >
@@ -126,10 +126,10 @@ export function PaymentsView() {
                             <button
                               type="button"
                               className="rounded-lg p-1.5 text-muted hover:bg-red-50 hover:text-danger"
-                              onClick={() => {
+                              onClick={async () => {
                                 if (!confirmAction("Unpaid bill delete karein? Slips unbilled ho jayengi.")) return;
                                 try {
-                                  dairy.deleteBill(bill.id);
+                                  await dairy.deleteBill(bill.id);
                                 } catch (e) {
                                   setError(e instanceof Error ? e.message : "Delete fail");
                                 }
@@ -178,11 +178,11 @@ export function PaymentsView() {
                   type="button"
                   className={`${btnPrimary} w-full`}
                   disabled={!adv.farmerId || !Number(adv.amount)}
-                  onClick={() => {
+                  onClick={async () => {
                     setError("");
                     try {
                       if (editingId) {
-                        dairy.updateAdvance(editingId, {
+                        await dairy.updateAdvance(editingId, {
                           farmerId: adv.farmerId,
                           amount: Number(adv.amount),
                           note: adv.note,
@@ -191,7 +191,7 @@ export function PaymentsView() {
                         setEditingId(null);
                         setMessage("Advance update ho gaya.");
                       } else {
-                        dairy.addAdvance({
+                        await dairy.addAdvance({
                           farmerId: adv.farmerId,
                           amount: Number(adv.amount),
                           note: adv.note,
@@ -256,10 +256,10 @@ export function PaymentsView() {
                           type="button"
                           className="rounded-lg p-1.5 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
                           disabled={a.recovered}
-                          onClick={() => {
+                          onClick={async () => {
                             if (!confirmAction("Advance delete karein?")) return;
                             try {
-                              dairy.deleteAdvance(a.id);
+                              await dairy.deleteAdvance(a.id);
                               if (editingId === a.id) setEditingId(null);
                             } catch (e) {
                               setError(e instanceof Error ? e.message : "Delete fail");

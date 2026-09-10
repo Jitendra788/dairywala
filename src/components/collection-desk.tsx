@@ -88,7 +88,7 @@ export function CollectionDesk() {
     setError("");
   }
 
-  function onSave() {
+  async function onSave() {
     setError("");
     if (!farmer) {
       setError("Farmer code nahi mila. Pehle farmer add karo.");
@@ -110,10 +110,10 @@ export function CollectionDesk() {
     };
     try {
       if (editingId) {
-        dairy.updateCollection(editingId, payload);
+        await dairy.updateCollection(editingId, payload);
         setLastId(editingId);
       } else {
-        const entry = dairy.addCollection(payload);
+        const entry = await dairy.addCollection(payload);
         setLastId(entry.id);
       }
       resetLine();
@@ -289,10 +289,10 @@ export function CollectionDesk() {
                           type="button"
                           className="rounded-lg p-1 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
                           disabled={Boolean(row.billId)}
-                          onClick={() => {
+                          onClick={async () => {
                             if (!confirm("Is slip ko delete karein?")) return;
                             try {
-                              dairy.deleteCollection(row.id);
+                              await dairy.deleteCollection(row.id);
                               if (editingId === row.id) resetLine();
                             } catch (e) {
                               setError(e instanceof Error ? e.message : "Delete nahi hua");
@@ -363,10 +363,10 @@ export function CollectionDesk() {
                           type="button"
                           className="rounded-lg p-1 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
                           disabled={Boolean(row.billId)}
-                          onClick={() => {
+                          onClick={async () => {
                             if (!confirm("Is slip ko delete karein?")) return;
                             try {
-                              dairy.deleteCollection(row.id);
+                              await dairy.deleteCollection(row.id);
                               if (editingId === row.id) resetLine();
                             } catch (e) {
                               setError(e instanceof Error ? e.message : "Delete nahi hua");

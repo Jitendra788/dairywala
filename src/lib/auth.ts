@@ -1,6 +1,7 @@
+import { customerApi } from "@/lib/customers/client";
+
 export type AuthRecord = {
   username: string;
-  passwordHash: string;
   isDefault: boolean;
   updatedAt: string;
 };
@@ -11,13 +12,14 @@ export type AuthSession = {
   remember: boolean;
 };
 
-const AUTH_KEY = "tony-dairy-auth";
 const SESSION_KEY = "tony-dairy-session";
-const AUTH_RESET_KEY = "tony-dairy-auth-admin-reset";
+const SESSION_COOKIE = "td_session";
+const OLD_KEYS = ["tony-dairy-auth", "tony-dairy-session", "tony-dairy-auth-admin-reset"];
 
 const listeners = new Set<() => void>();
 let cachedRaw: string | null = null;
 let cachedSession: AuthSession | null = null;
+let cachedAuth: AuthRecord | null = null;
 
 function emit() {
   listeners.forEach((fn) => fn());
@@ -28,44 +30,33 @@ export function subscribeAuth(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export function getSessionSnapshot(): AuthSession | null {
-  if (typeof window === "undefined") return null;
-  return readSession();
+function clearLegacyStorage() {
+  if (typeof window === "undefined") return;
+  for (const key of OLD_KEYS) localStorage.removeItem(key);
 }
 
-export function getAuthServerSnapshot(): AuthSession | null {
-  return null;
-}
-
-async function sha256(text: string) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function readAuth(): AuthRecord | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(AUTH_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AuthRecord;
-  } catch {
-    return null;
+function readCookie(name: string) {
+  if (typeof document === "undefined") return "";
+  const parts = document.cookie.split(";");
+  for (const part of parts) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(rest.join("="));
   }
+  return "";
 }
 
-function writeAuth(record: AuthRecord) {
-  localStorage.setItem(AUTH_KEY, JSON.stringify(record));
+function writeCookie(name: string, value: string, days: number) {
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; samesite=lax`;
 }
 
-function sessionStore(remember: boolean) {
-  return remember ? localStorage : sessionStorage;
+function clearCookie(name: string) {
+  document.cookie = `${name}=; path=/; max-age=0; samesite=lax`;
 }
 
 function readSession(): AuthSession | null {
   if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY);
+  const raw = sessionStorage.getItem(SESSION_KEY) || readCookie(SESSION_COOKIE);
   if (raw === cachedRaw) return cachedSession;
   cachedRaw = raw;
   if (!raw) {
@@ -82,30 +73,33 @@ function readSession(): AuthSession | null {
 }
 
 function writeSession(session: AuthSession) {
-  localStorage.removeItem(SESSION_KEY);
-  sessionStorage.removeItem(SESSION_KEY);
   const raw = JSON.stringify(session);
-  sessionStore(session.remember).setItem(SESSION_KEY, raw);
+  sessionStorage.removeItem(SESSION_KEY);
+  clearCookie(SESSION_COOKIE);
+  if (session.remember) writeCookie(SESSION_COOKIE, raw, 30);
+  else sessionStorage.setItem(SESSION_KEY, raw);
   cachedRaw = raw;
   cachedSession = session;
   emit();
 }
 
-export async function ensureDefaultAuth() {
-  if (typeof window === "undefined") return;
-  const force = !localStorage.getItem(AUTH_RESET_KEY);
-  if (readAuth() && !force) return;
-  writeAuth({
-    username: "admin",
-    passwordHash: await sha256("admin"),
-    isDefault: true,
-    updatedAt: new Date().toISOString(),
-  });
-  localStorage.setItem(AUTH_RESET_KEY, "1");
+export function getSessionSnapshot(): AuthSession | null {
+  if (typeof window === "undefined") return null;
+  return readSession();
+}
+
+export function getAuthServerSnapshot(): AuthSession | null {
+  return null;
+}
+
+export async function fetchAuthRecord() {
+  clearLegacyStorage();
+  cachedAuth = await customerApi<AuthRecord>("/api/auth");
+  return cachedAuth;
 }
 
 export function getAuthRecord() {
-  return readAuth();
+  return cachedAuth;
 }
 
 export function currentSession() {
@@ -116,14 +110,20 @@ export function isLoggedIn() {
   return Boolean(readSession());
 }
 
+export async function ensureDefaultAuth() {
+  await fetchAuthRecord();
+}
+
 export async function login(username: string, password: string, remember: boolean) {
-  await ensureDefaultAuth();
-  const auth = readAuth();
-  if (!auth) throw new Error("Login setup fail hua");
-  const hash = await sha256(password);
-  if (auth.username.toLowerCase() !== username.trim().toLowerCase() || auth.passwordHash !== hash) {
-    throw new Error("Username ya password galat hai");
-  }
+  const auth = await customerApi<AuthRecord & { username: string }>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "login", username, password }),
+  });
+  cachedAuth = {
+    username: auth.username,
+    isDefault: auth.isDefault,
+    updatedAt: auth.updatedAt ?? new Date().toISOString(),
+  };
   writeSession({
     username: auth.username,
     loggedInAt: new Date().toISOString(),
@@ -132,43 +132,28 @@ export async function login(username: string, password: string, remember: boolea
 }
 
 export function logout() {
-  localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
+  clearCookie(SESSION_COOKIE);
+  localStorage.removeItem(SESSION_KEY);
   cachedRaw = null;
   cachedSession = null;
   emit();
 }
 
 export async function changePassword(current: string, next: string) {
-  const auth = readAuth();
-  const session = readSession();
-  if (!auth || !session) throw new Error("Pehle login karo");
-  if ((await sha256(current)) !== auth.passwordHash) {
-    throw new Error("Current password galat hai");
-  }
-  if (next.trim().length < 4) throw new Error("Naya password kam se kam 4 letters ka ho");
-  if (current === next) throw new Error("Naya password purane se alag hona chahiye");
-  writeAuth({
-    ...auth,
-    passwordHash: await sha256(next.trim()),
-    isDefault: false,
-    updatedAt: new Date().toISOString(),
+  if (!readSession()) throw new Error("Pehle login karo");
+  cachedAuth = await customerApi<AuthRecord>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "changePassword", current, next }),
   });
 }
 
 export async function changeUsername(currentPassword: string, nextUsername: string) {
-  const auth = readAuth();
   const session = readSession();
-  if (!auth || !session) throw new Error("Pehle login karo");
-  if ((await sha256(currentPassword)) !== auth.passwordHash) {
-    throw new Error("Password galat hai");
-  }
-  const username = nextUsername.trim();
-  if (username.length < 3) throw new Error("Username kam se kam 3 letters ka ho");
-  writeAuth({
-    ...auth,
-    username,
-    updatedAt: new Date().toISOString(),
+  if (!session) throw new Error("Pehle login karo");
+  cachedAuth = await customerApi<AuthRecord>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "changeUsername", current: currentPassword, username: nextUsername }),
   });
-  writeSession({ ...session, username });
+  writeSession({ ...session, username: cachedAuth.username });
 }

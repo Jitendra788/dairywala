@@ -68,11 +68,11 @@ export function FarmersView() {
     setOpen(true);
   }
 
-  function save() {
+  async function save() {
     setError("");
     try {
-      if (editingId) dairy.updateFarmer(editingId, form);
-      else dairy.addFarmer(form);
+      if (editingId) await dairy.updateFarmer(editingId, form);
+      else await dairy.addFarmer(form);
       setForm(empty);
       setEditingId(null);
       setOpen(false);
@@ -81,10 +81,10 @@ export function FarmersView() {
     }
   }
 
-  function remove(id: string, name: string) {
+  async function remove(id: string, name: string) {
     if (!confirmAction(`${name} delete karein? Unbilled slips bhi hatengi.`)) return;
     try {
-      dairy.deleteFarmer(id);
+      await dairy.deleteFarmer(id);
       if (editingId === id) {
         setOpen(false);
         setEditingId(null);
@@ -294,10 +294,10 @@ export function FarmerProfile() {
             <button
               type="button"
               className={btnDanger}
-              onClick={() => {
+              onClick={async () => {
                 if (!confirmAction(`${farmer.name} delete karein?`)) return;
                 try {
-                  dairy.deleteFarmer(farmer.id);
+                  await dairy.deleteFarmer(farmer.id);
                   router.push("/farmers");
                 } catch (e) {
                   setError(e instanceof Error ? e.message : "Cannot delete");
@@ -350,10 +350,10 @@ export function FarmerProfile() {
         <button
           type="button"
           className={`${btnPrimary} mt-4`}
-          onClick={() => {
+          onClick={async () => {
             setError("");
             try {
-              dairy.updateFarmer(farmer.id, form);
+              await dairy.updateFarmer(farmer.id, form);
             } catch (e) {
               setError(e instanceof Error ? e.message : "Update fail");
             }

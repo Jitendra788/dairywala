@@ -75,10 +75,10 @@ export function BuyMilkScreen() {
     codeRef.current?.focus();
   }
 
-  function save() {
+  async function save() {
     if (!farmer || !Number(weight) || !Number(fat)) return;
     const usedSnf = Number(snf) || (milkType === "cow" ? 8.5 : 9.0);
-    const entry = dairy.addCollection({
+    const entry = await dairy.addCollection({
       farmerId: farmer.id,
       date,
       shift,
@@ -379,7 +379,7 @@ export function BuyMilkScreen() {
                               className="block w-full px-3 py-1.5 text-left text-danger hover:bg-slate-50 disabled:opacity-40"
                               disabled={Boolean(row.billId)}
                               onClick={() => {
-                                dairy.deleteCollection(row.id);
+                                void dairy.deleteCollection(row.id);
                                 setMenuId(null);
                               }}
                             >

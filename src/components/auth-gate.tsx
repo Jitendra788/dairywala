@@ -18,8 +18,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const needsProfile = loggedIn && !isProfileReady(dairy.settings);
 
   useEffect(() => {
-    hydrateDairy();
-    setReady(true);
+    void hydrateDairy()
+      .catch(() => undefined)
+      .finally(() => setReady(true));
   }, []);
 
   useEffect(() => {

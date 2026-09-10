@@ -70,7 +70,7 @@ export function RateChartsView() {
   }
 
   function patch(id: string, next: Partial<RateChart>) {
-    dairy.saveCharts(dairy.charts.map((c) => (c.id === id ? { ...c, ...next } : c)));
+    void dairy.saveCharts(dairy.charts.map((c) => (c.id === id ? { ...c, ...next } : c)));
     setSaved("");
   }
 
@@ -86,7 +86,7 @@ export function RateChartsView() {
   function useFor(kind: ChartMethod, milkType: MilkType) {
     const patchSettings: Partial<Settings> =
       milkType === "cow" ? { cowMethod: kind, rateMethod: kind } : { buffaloMethod: kind };
-    dairy.updateSettings(patchSettings);
+    void dairy.updateSettings(patchSettings);
     setOpen(kind);
     setMilk(milkType);
     setSaved(`${METHOD_LABEL[kind]} ab ${milkType} collection pe lagega.`);

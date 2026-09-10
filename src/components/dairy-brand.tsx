@@ -102,14 +102,14 @@ export function ProfileForm({
     }
   }
 
-  function save() {
+  async function save() {
     setError("");
     setSaved("");
     if (!dairyName.trim()) {
       setError("Pehle dairy name daalo.");
       return;
     }
-    dairy.updateSettings({
+    await dairy.updateSettings({
       dairyName: dairyName.trim(),
       centerName: centerName.trim(),
       phone: phone.trim(),
