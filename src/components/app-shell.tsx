@@ -12,10 +12,13 @@ import { DairyLogo } from "@/components/dairy-brand";
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [clock, setClock] = useState<{ date: string; morning: boolean } | null>(null);
   const { settings } = useDairy();
-  const morning = currentShift() === "morning";
+  const morning = clock?.morning ?? false;
+  const dateLabel = clock ? formatDate(clock.date) : "—";
 
   useEffect(() => {
+    setClock({ date: todayISO(), morning: currentShift() === "morning" });
     const mq = window.matchMedia("(max-width: 1279px) and (min-width: 1024px)");
     if (mq.matches) setCollapsed(true);
   }, []);
@@ -43,17 +46,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DairyLogo settings={settings} size={28} className="rounded-xl" />
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium">{settings.dairyName || "Dairy desk"}</p>
-                <p className="text-[10px] text-muted">{formatDate(todayISO())}</p>
+                <p className="text-[10px] text-muted">{dateLabel}</p>
               </div>
             </div>
             <div className="hidden items-center gap-2 lg:flex">
               <span className="rounded-full bg-[#f4ead6] px-2.5 py-1 text-[12px] text-foreground/80">
-                {formatDate(todayISO())}
+                {dateLabel}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-primary">
-                {morning ? <Sun size={12} /> : <Moon size={12} />}
-                {morning ? "Morning" : "Evening"} shift
-              </span>
+              {clock ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-primary">
+                  {morning ? <Sun size={12} /> : <Moon size={12} />}
+                  {morning ? "Morning" : "Evening"} shift
+                </span>
+              ) : null}
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
               <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-primary uppercase sm:inline-flex sm:px-2.5">
