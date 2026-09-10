@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Calculator, Check, ChevronDown, Droplets, Search, Shield, SlidersHorizontal, Sparkles } from "lucide-react";
 import {
@@ -186,42 +186,38 @@ export function RateChartsView() {
             <p className="font-display text-[17px] leading-none sm:text-lg">{active.title}</p>
             <p className="mt-1 hidden text-[12px] text-muted sm:block">{active.hint}</p>
           </div>
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex w-full rounded-xl bg-[#f4ead6] p-0.5 sm:w-auto">
-              {(["buffalo", "cow"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={`min-h-10 flex-1 rounded-[10px] px-3 text-[13px] font-semibold capitalize sm:min-h-9 sm:flex-none sm:px-3.5 ${
-                    milk === m
-                      ? m === "buffalo"
-                        ? "bg-amber-700 text-white"
-                        : "bg-sky-700 text-white"
-                      : "text-muted"
-                  }`}
-                  onClick={() => {
-                    setMilk(m);
-                    setFatPage(0);
-                  }}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              <button type="button" className={`${cowActive ? btnGhost : btnPrimary} w-full px-3 sm:w-auto`} onClick={() => useFor(active.kind, "cow")}>
-                <span className="sm:hidden">{cowActive ? "Cow ✓" : "Cow"}</span>
-                <span className="hidden sm:inline">{cowActive ? "Cow live" : "Use for Cow"}</span>
-              </button>
-              <button
-                type="button"
-                className={`${buffaloActive ? btnGhost : btnPrimary} w-full px-3 sm:w-auto`}
-                onClick={() => useFor(active.kind, "buffalo")}
-              >
-                <span className="sm:hidden">{buffaloActive ? "Buffalo ✓" : "Buffalo"}</span>
-                <span className="hidden sm:inline">{buffaloActive ? "Buffalo live" : "Use for Buffalo"}</span>
-              </button>
-            </div>
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-start">
+            {(["buffalo", "cow"] as const).map((m) => {
+              const selected = milk === m;
+              const live = m === "cow" ? cowActive : buffaloActive;
+              return (
+                <div key={m} className="flex min-w-0 flex-col gap-1.5">
+                  <button
+                    type="button"
+                    className={`min-h-11 w-full rounded-xl px-3 text-[13px] font-semibold capitalize sm:min-h-9 sm:w-auto sm:px-3.5 ${
+                      selected
+                        ? m === "buffalo"
+                          ? "bg-amber-700 text-white"
+                          : "bg-sky-700 text-white"
+                        : "bg-[#f4ead6] text-muted"
+                    }`}
+                    onClick={() => {
+                      setMilk(m);
+                      setFatPage(0);
+                    }}
+                  >
+                    {m}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${live ? btnGhost : btnPrimary} min-h-11 w-full px-3 text-[12px] sm:min-h-9 sm:w-auto`}
+                    onClick={() => useFor(active.kind, m)}
+                  >
+                    {live ? `${m === "cow" ? "Cow" : "Buffalo"} live` : `Use for ${m === "cow" ? "Cow" : "Buffalo"}`}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -230,7 +226,7 @@ export function RateChartsView() {
             milk === "cow" ? (
               <FatRowEditor chart={chartOf("fat-only", milk)} onPatch={patch} />
             ) : (
-              <FatOnlyEditor chart={chartOf("fat-only", milk)} onPatch={patch} />
+              <FatOnlyEditor chart={chartOf("fat-only", milk)} onPatch={patch} onDone={setSaved} />
             )
           ) : null}
           {active.kind === "formula" ? <FatRowEditor chart={chartOf("formula", milk)} onPatch={patch} /> : null}
@@ -286,12 +282,15 @@ function HeroStat({ label, value, hint }: { label: string; value: string; hint: 
 function FatOnlyEditor({
   chart,
   onPatch,
+  onDone,
 }: {
   chart?: RateChart;
   onPatch: (id: string, next: Partial<RateChart>) => void;
+  onDone?: (message: string) => void;
 }) {
   const [trial, setTrial] = useState("6.0");
   const [query, setQuery] = useState("");
+  const tableRef = useRef<HTMLDivElement>(null);
 
   if (!chart) return null;
   const current = chart;
@@ -318,8 +317,12 @@ function FatOnlyEditor({
     });
   }
 
-  function generate() {
-    onPatch(current.id, { cells: generateFatOnlyCells(draft) });
+  function generate(e?: { preventDefault(): void }) {
+    e?.preventDefault();
+    const cells = generateFatOnlyCells(draft);
+    onPatch(current.id, { cells });
+    onDone?.(`Buffalo FAT chart ready · ${cells.length} rows`);
+    window.setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
 
   function patchRange(next: Partial<RateChart>) {
@@ -382,6 +385,16 @@ function FatOnlyEditor({
               SNF optional.
             </p>
           )}
+          <button
+            type="button"
+            className={`${btnPrimary} mt-3 min-h-12 w-full touch-manipulation sm:min-h-10`}
+            onMouseDown={(e) => e.preventDefault()}
+            onTouchEnd={generate}
+            onClick={generate}
+          >
+            <Sparkles size={15} />
+            Refresh chart
+          </button>
         </div>
 
         <div className="rounded-2xl bg-[#12281e] px-3.5 py-3.5 text-white shadow-[0_12px_28px_rgba(18,40,30,0.18)] sm:px-4 sm:py-4">
@@ -430,19 +443,13 @@ function FatOnlyEditor({
             placeholder="FAT dhoondo — 6.5"
           />
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <p className="text-[12px] text-muted">
-            {rows.length} / {chart.cells.length} rows · {chart.fatMin.toFixed(1)}–{chart.fatMax.toFixed(1)}%
-          </p>
-          <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={generate}>
-            <Sparkles size={15} />
-            Refresh chart
-          </button>
-        </div>
+        <p className="text-[12px] text-muted">
+          {rows.length} / {chart.cells.length} rows · {chart.fatMin.toFixed(1)}–{chart.fatMax.toFixed(1)}%
+        </p>
       </div>
 
       {chart.cells.length ? (
-        <div className="table-scroll max-h-[min(420px,55vh)] overflow-auto rounded-2xl border border-line">
+        <div ref={tableRef} className="table-scroll max-h-[min(420px,55vh)] overflow-auto rounded-2xl border border-line">
           <table className="w-full min-w-[280px] text-left text-sm">
             <thead className="table-head sticky top-0 z-[1] text-[10px] tracking-wider text-muted uppercase">
               <tr>
