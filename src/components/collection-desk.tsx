@@ -237,7 +237,7 @@ export function CollectionDesk() {
         {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
 
         <div className="mt-3 flex gap-2">
-          <button type="button" className={`${btnPrimary} flex-1 py-2.5`} onClick={onSave}>
+          <button type="button" className={`${btnPrimary} min-h-12 flex-1 py-3 sm:min-h-0 sm:py-2.5`} onClick={() => void onSave()}>
             {editingId ? "Update slip" : "Save slip"}
           </button>
           {editingId ? (

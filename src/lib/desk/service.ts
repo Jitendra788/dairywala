@@ -244,6 +244,15 @@ async function pricedRate(dairyId: string, milkType: MilkType, fat: number, snf:
 
 export async function addFarmer(dairyId: string, input: Omit<Farmer, "id" | "createdAt">) {
   if (await farmerByCode(dairyId, input.code)) throw new CustomerError("Farmer code already exists");
+  const phone = input.phone.replace(/\D/g, "").slice(-10);
+  if (phone.length === 10) {
+    const samePhone = await qget(
+      `SELECT id FROM Farmer WHERE dairyId = ? AND REPLACE(phone, ' ', '') LIKE ?`,
+      dairyId,
+      `%${phone}`,
+    );
+    if (samePhone) throw new CustomerError("Is phone pe farmer pehle se hai");
+  }
   const farmer: Farmer = {
     ...input,
     id: uid("f"),
@@ -273,6 +282,16 @@ export async function updateFarmer(dairyId: string, id: string, patch: Partial<F
   if (patch.code) {
     const clash = await qget(`SELECT id FROM Farmer WHERE dairyId = ? AND code = ? AND id != ?`, dairyId, patch.code, id);
     if (clash) throw new CustomerError("Farmer code already exists");
+  }
+  const phone = (patch.phone ?? "").replace(/\D/g, "").slice(-10);
+  if (phone.length === 10) {
+    const samePhone = await qget(
+      `SELECT id FROM Farmer WHERE dairyId = ? AND id != ? AND REPLACE(phone, ' ', '') LIKE ?`,
+      dairyId,
+      id,
+      `%${phone}`,
+    );
+    if (samePhone) throw new CustomerError("Is phone pe farmer pehle se hai");
   }
   const next = { ...mapFarmer(existing), ...patch };
   await qrun(

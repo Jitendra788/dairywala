@@ -66,10 +66,21 @@ body {
   overscroll-behavior-x: contain;
 }
 
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
 @media (max-width: 639px) {
   input[type="date"],
   input[type="time"],
-  select {
+  select,
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="search"],
+  input:not([type]) {
     min-height: 44px;
   }
 }

@@ -115,7 +115,7 @@ export function FarmersView() {
               Close
             </button>
           </div>
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Field label="Code">
               <input className={inputClass} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
             </Field>
@@ -313,7 +313,7 @@ export function FarmerProfile() {
 
       <Card className="p-5">
         <h2 className="font-display text-lg">Update details</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
           <Field label="Code">
             <input className={inputClass} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
           </Field>

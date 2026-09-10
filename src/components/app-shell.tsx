@@ -56,9 +56,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-primary uppercase sm:px-2.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                Offline desk
+              <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold tracking-wide text-primary uppercase sm:inline-flex sm:px-2.5">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                Live
               </span>
               <UserMenu />
             </div>

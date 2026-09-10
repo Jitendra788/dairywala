@@ -27,32 +27,32 @@ export function DashboardView() {
 
   return (
     <div className="mx-auto flex min-h-0 max-w-6xl flex-col gap-4">
-      <section className="relative overflow-hidden rounded-3xl bg-primary px-4 py-4 text-white shadow-[0_16px_40px_rgba(24,122,72,0.28)] sm:px-5 sm:py-5">
+      <section className="relative overflow-hidden rounded-[28px] bg-primary px-3.5 py-3.5 text-white shadow-[0_16px_40px_rgba(24,122,72,0.28)] sm:px-5 sm:py-5">
         <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute right-16 -bottom-12 h-32 w-32 rounded-full bg-gold/20" />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3">
             <DairyLogo
               settings={dairy.settings}
-              size={56}
-              className="rounded-2xl bg-white object-contain p-1"
+              size={48}
+              className="rounded-2xl bg-white object-contain p-1 sm:h-14 sm:w-14"
             />
             <div className="min-w-0">
-              <p className="text-[11px] tracking-[0.18em] text-white/70 uppercase">{dairy.settings.centerName || "Collection"}</p>
-              <h1 className="mt-1 font-display text-[28px] leading-tight sm:text-[34px] sm:leading-none">{dairy.settings.dairyName}</h1>
-              <p className="mt-2 text-sm text-white/75">Aaj ka collection live desk par.</p>
+              <p className="text-[10px] tracking-[0.16em] text-white/70 uppercase sm:text-[11px] sm:tracking-[0.18em]">{dairy.settings.centerName || "Collection"}</p>
+              <h1 className="mt-0.5 font-display text-[26px] leading-tight sm:mt-1 sm:text-[34px] sm:leading-none">{dairy.settings.dairyName}</h1>
+              <p className="mt-1 text-[13px] text-white/75 sm:mt-2 sm:text-sm">Aaj ka collection live desk par.</p>
             </div>
           </div>
           <div className="min-w-0 sm:text-right">
             <p className="text-[11px] text-white/65">Today</p>
-            <p className="font-display text-3xl leading-none sm:text-4xl">{formatQty(today.qty)}</p>
-            <Link href="/collection" className={`${btnInverse} relative z-10 mt-3 w-full sm:w-auto`}>
+            <p className="font-display text-[30px] leading-none sm:text-4xl">{formatQty(today.qty)}</p>
+            <Link href="/collection" className={`${btnInverse} relative z-10 mt-2.5 min-h-11 w-full sm:mt-3 sm:w-auto`}>
               Start collection
               <ArrowRight size={15} />
             </Link>
           </div>
         </div>
-        <div className="relative mt-5 grid grid-cols-3 gap-2 text-sm sm:gap-3">
+        <div className="relative mt-4 grid grid-cols-3 gap-1.5 text-sm sm:mt-5 sm:gap-3">
           <HeroMini label="Value" value={formatInr(today.amount)} />
           <HeroMini label="FAT / SNF" value={`${today.avgFat} / ${today.avgSnf}`} />
           <HeroMini label="Payable" value={formatInr(dairy.payableTotal())} />
@@ -77,7 +77,7 @@ export function DashboardView() {
               Walk-in desk →
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             <MiniStat label="Milk sales" value={formatInr(customerStats.today.sales)} hint={`${formatQty(customerStats.today.qty)} sold`} />
             <MiniStat label="Walk-in" value={formatInr(customerStats.today.walkInSales)} hint={`${formatQty(customerStats.today.walkInQty)}`} />
             <MiniStat label="Regular" value={formatInr(customerStats.today.regularSales)} hint={`${formatQty(customerStats.today.regularQty)}`} />
@@ -196,7 +196,7 @@ function HeroMini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-white/10 px-2 py-2 sm:px-3">
       <p className="text-[10px] text-white/65">{label}</p>
-      <p className="break-words text-[12px] font-semibold sm:text-sm">{value}</p>
+      <p className="truncate text-[12px] font-semibold sm:text-sm">{value}</p>
     </div>
   );
 }

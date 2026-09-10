@@ -295,7 +295,7 @@ export function WalkInView() {
         hint="Jo customer pehle add ho chuka hai, list se choose karo. Naya customer sirf naya mobile aaye tab."
       />
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <MiniStat label="Customers" value={String(totals.customers)} />
         <MiniStat label="Milk sold" value={formatQty(totals.qty)} />
         <MiniStat label="Sales" value={formatInr(totals.sales)} />

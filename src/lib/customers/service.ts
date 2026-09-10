@@ -612,9 +612,57 @@ export async function getCustomerRow(dairyId: string, customerId: string): Promi
   };
 }
 
+async function dedupeCustomersByMobile(dairyId: string) {
+  const rows = await qall(`SELECT id, mobile, customerType, createdAt FROM Customer WHERE dairyId = ?`, dairyId);
+  const groups = new Map<string, Record<string, unknown>[]>();
+  for (const row of rows) {
+    const mobile = cleanMobile(storedMobile(row.mobile));
+    if (!mobile) continue;
+    const list = groups.get(mobile) ?? [];
+    list.push(row);
+    groups.set(mobile, list);
+  }
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => {
+      const ar = str(a.customerType) === "regular" ? 0 : 1;
+      const br = str(b.customerType) === "regular" ? 0 : 1;
+      if (ar !== br) return ar - br;
+      return str(a.createdAt).localeCompare(str(b.createdAt));
+    });
+    const keep = str(list[0].id);
+    for (const extra of list.slice(1)) {
+      const id = str(extra.id);
+      const clash = await qall(
+        `SELECT e.date FROM DailyMilkDelivery e
+         JOIN DailyMilkDelivery k ON k.dairyId = e.dairyId AND k.date = e.date AND k.customerId = ?
+         WHERE e.dairyId = ? AND e.customerId = ?`,
+        keep,
+        dairyId,
+        id,
+      );
+      for (const row of clash) {
+        await qrun(
+          `DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`,
+          dairyId,
+          id,
+          str(row.date),
+        );
+      }
+      await qrun(`UPDATE DailyMilkDelivery SET customerId = ? WHERE dairyId = ? AND customerId = ?`, keep, dairyId, id);
+      await qrun(`UPDATE MilkLedger SET customerId = ? WHERE dairyId = ? AND customerId = ?`, keep, dairyId, id);
+      await qrun(`UPDATE CustomerPayment SET customerId = ? WHERE dairyId = ? AND customerId = ?`, keep, dairyId, id);
+      await qrun(`DELETE FROM MonthlyBill WHERE dairyId = ? AND customerId = ?`, dairyId, id);
+      await qrun(`DELETE FROM CustomerSubscription WHERE dairyId = ? AND customerId = ?`, dairyId, id);
+      await qrun(`DELETE FROM Customer WHERE dairyId = ? AND id = ?`, dairyId, id);
+    }
+  }
+}
+
 export async function listCustomers(dairyId: string): Promise<CustomerRow[]> {
   await requireDairy(dairyId);
   try {
+    await dedupeCustomersByMobile(dairyId);
     await ensureDeliveriesForDate(dairyId, todayISO());
   } catch {
     // still return the customer master list
@@ -816,26 +864,30 @@ export async function listLedger(
   validateDate(from, "From date");
   validateDate(to, "To date");
   if (to < from) throw new CustomerError("To date must be on or after from date");
-  const rows = await qall(`SELECT l.*, IFNULL(d.milkType, c.milkType) AS rowMilkType, d.paymentStatus AS salePaymentStatus
+  let sql = `SELECT l.*, IFNULL(d.milkType, c.milkType) AS rowMilkType, d.paymentStatus AS salePaymentStatus
        FROM MilkLedger l
        JOIN Customer c ON c.id = l.customerId
        LEFT JOIN DailyMilkDelivery d ON d.id = l.deliveryId
-       WHERE l.dairyId = ? AND l.date >= ? AND l.date <= ?
-         AND (? IS NULL OR l.customerId = ?)
-         AND (? IS NULL OR IFNULL(c.customerType, 'regular') = ?)
-         AND (? IS NULL OR IFNULL(d.milkType, c.milkType) = ?)
-         AND (? IS NULL OR IFNULL(d.paymentStatus, '') = ?)
-       ORDER BY l.date DESC, l.createdAt DESC`, dairyId,
-      from,
-      to,
-      customerId ?? null,
-      customerId ?? null,
-      filters?.customerType ?? null,
-      filters?.customerType ?? null,
-      filters?.milkType ?? null,
-      filters?.milkType ?? null,
-      filters?.paymentStatus ?? null,
-      filters?.paymentStatus ?? null,);
+       WHERE l.dairyId = ? AND l.date >= ? AND l.date <= ?`;
+  const params: unknown[] = [dairyId, from, to];
+  if (customerId) {
+    sql += ` AND l.customerId = ?`;
+    params.push(customerId);
+  }
+  if (filters?.customerType) {
+    sql += ` AND IFNULL(c.customerType, 'regular') = ?`;
+    params.push(filters.customerType);
+  }
+  if (filters?.milkType) {
+    sql += ` AND IFNULL(d.milkType, c.milkType) = ?`;
+    params.push(filters.milkType);
+  }
+  if (filters?.paymentStatus) {
+    sql += ` AND IFNULL(d.paymentStatus, '') = ?`;
+    params.push(filters.paymentStatus);
+  }
+  sql += ` ORDER BY l.date DESC, l.createdAt DESC`;
+  const rows = await qall(sql, ...params);
   const outstandingByCustomer = new Map<string, number>();
   return Promise.all(
     rows.map(async (row) => {
@@ -1128,23 +1180,18 @@ export async function searchCustomers(dairyId: string, query: string, type?: Cus
   await requireDairy(dairyId);
   const q = query.trim();
   if (!q && !type) return [];
-  const rows = await qall(`SELECT * FROM Customer
-       WHERE dairyId = ?
-         AND (? IS NULL OR IFNULL(customerType, 'regular') = ?)
-         AND (
-           ? = ''
-           OR lower(name) LIKE ?
-           OR mobile LIKE ?
-           OR lower(customerCode) LIKE ?
-         )
-       ORDER BY name ASC
-       LIMIT 40`, dairyId,
-      type ?? null,
-      type ?? null,
-      q,
-      `%${q.toLowerCase()}%`,
-      `%${q}%`,
-      `%${q.toLowerCase()}%`,);
+  let sql = `SELECT * FROM Customer WHERE dairyId = ?`;
+  const params: unknown[] = [dairyId];
+  if (type) {
+    sql += ` AND IFNULL(customerType, 'regular') = ?`;
+    params.push(type);
+  }
+  if (q) {
+    sql += ` AND (lower(name) LIKE ? OR mobile LIKE ? OR lower(customerCode) LIKE ?)`;
+    params.push(`%${q.toLowerCase()}%`, `%${q}%`, `%${q.toLowerCase()}%`);
+  }
+  sql += ` ORDER BY name ASC LIMIT 40`;
+  const rows = await qall(sql, ...params);
   return Promise.all(rows.map((row) => getCustomerRow(dairyId, str(row.id))));
 }
 
