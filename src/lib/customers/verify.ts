@@ -28,12 +28,12 @@ function check(name: string, ok: boolean, detail: string): Check {
   return { name, ok, detail };
 }
 
-export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
+export async function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
   const today = todayISO();
   const checks: Check[] = [];
 
-  const first = seedTestCustomer(dairyId);
-  const second = seedTestCustomer(dairyId);
+  const first = await seedTestCustomer(dairyId);
+  const second = await seedTestCustomer(dairyId);
   checks.push(
     check(
       "Customer created once",
@@ -42,7 +42,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     ),
   );
 
-  const reused = createCustomer(dairyId, {
+  const reused = await createCustomer(dairyId, {
     name: "Ramesh Duplicate",
     mobile: "9876502001",
     address: "Should not save",
@@ -58,7 +58,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
   checks.push(
     check(
       "Duplicate mobile reuses same customer",
-      reused.id === first.id && listCustomers(dairyId).filter((row) => row.mobile === "9876502001").length === 1,
+      reused.id === first.id && (await listCustomers(dairyId)).filter((row) => row.mobile === "9876502001").length === 1,
       `${reused.customerCode} id=${reused.id}`,
     ),
   );
@@ -72,7 +72,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     ),
   );
 
-  const todayList = listDeliveries(dairyId, today);
+  const todayList = await listDeliveries(dairyId, today);
   const todayRow = todayList.find((row) => row.customerId === first.id);
   checks.push(
     check(
@@ -83,9 +83,9 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
   );
 
   if (todayRow && todayRow.status === "pending") {
-    markDelivered(dairyId, todayRow.id);
+    await markDelivered(dairyId, todayRow.id);
   }
-  const afterDeliver = listDeliveries(dairyId, today).find((row) => row.customerId === first.id);
+  const afterDeliver = (await listDeliveries(dairyId, today)).find((row) => row.customerId === first.id);
   checks.push(
     check(
       "Delivered",
@@ -94,7 +94,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     ),
   );
 
-  const ledger = listLedger(dairyId, today, today, first.id);
+  const ledger = await listLedger(dairyId, today, today, first.id);
   checks.push(
     check(
       "Ledger updated",
@@ -105,7 +105,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
 
   const month = Number(today.slice(5, 7));
   const year = Number(today.slice(0, 4));
-  const bills = listMonthlyBills(dairyId, year, month);
+  const bills = await listMonthlyBills(dairyId, year, month);
   const bill = bills.find((row) => row.customerId === first.id);
   checks.push(
     check(
@@ -115,9 +115,9 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     ),
   );
 
-  const beforePay = getOutstanding(dairyId, first.id);
-  if (beforePay > 0 && listPayments(dairyId, first.id).length === 0) {
-    recordPayment(dairyId, {
+  const beforePay = await getOutstanding(dairyId, first.id);
+  if (beforePay > 0 && (await listPayments(dairyId, first.id)).length === 0) {
+    await recordPayment(dairyId, {
       customerId: first.id,
       date: today,
       amount: 50,
@@ -125,8 +125,8 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
       reference: "TEST-CASH-50",
     });
   }
-  const payments = listPayments(dairyId, first.id);
-  const outstanding = getOutstanding(dairyId, first.id);
+  const payments = await listPayments(dairyId, first.id);
+  const outstanding = await getOutstanding(dairyId, first.id);
   checks.push(
     check(
       "Payment recorded and balance calculated",
@@ -136,12 +136,12 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
   );
 
   const skipDate = addDays(today, -1);
-  ensureDeliveriesForDate(dairyId, skipDate);
-  const skipRow = listDeliveries(dairyId, skipDate).find((row) => row.customerId === first.id);
+  await ensureDeliveriesForDate(dairyId, skipDate);
+  const skipRow = (await listDeliveries(dairyId, skipDate)).find((row) => row.customerId === first.id);
   if (skipRow && skipRow.status === "pending") {
-    skipToday(dairyId, skipRow.id, "Out of town");
+    await skipToday(dairyId, skipRow.id, "Out of town");
   }
-  const skipped = listDeliveries(dairyId, skipDate).find((row) => row.customerId === first.id);
+  const skipped = (await listDeliveries(dairyId, skipDate)).find((row) => row.customerId === first.id);
   checks.push(
     check(
       "Skip today",
@@ -151,12 +151,12 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
   );
 
   const extraDate = addDays(today, -2);
-  ensureDeliveriesForDate(dairyId, extraDate);
-  const extraRow = listDeliveries(dairyId, extraDate).find((row) => row.customerId === first.id);
+  await ensureDeliveriesForDate(dairyId, extraDate);
+  const extraRow = (await listDeliveries(dairyId, extraDate)).find((row) => row.customerId === first.id);
   if (extraRow && extraRow.status === "pending") {
-    markExtra(dairyId, extraRow.id, 0.5, "Guest at home");
+    await markExtra(dairyId, extraRow.id, 0.5, "Guest at home");
   }
-  const extra = listDeliveries(dairyId, extraDate).find((row) => row.customerId === first.id);
+  const extra = (await listDeliveries(dairyId, extraDate)).find((row) => row.customerId === first.id);
   checks.push(
     check(
       "Extra milk",
@@ -166,12 +166,12 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
   );
 
   const partialDate = addDays(today, -3);
-  ensureDeliveriesForDate(dairyId, partialDate);
-  const partialRow = listDeliveries(dairyId, partialDate).find((row) => row.customerId === first.id);
+  await ensureDeliveriesForDate(dairyId, partialDate);
+  const partialRow = (await listDeliveries(dairyId, partialDate)).find((row) => row.customerId === first.id);
   if (partialRow && partialRow.status === "pending") {
-    markPartial(dairyId, partialRow.id, 1, "Half litre only");
+    await markPartial(dairyId, partialRow.id, 1, "Half litre only");
   }
-  const partial = listDeliveries(dairyId, partialDate).find((row) => row.customerId === first.id);
+  const partial = (await listDeliveries(dairyId, partialDate)).find((row) => row.customerId === first.id);
   checks.push(
     check(
       "Partial delivery",
@@ -182,14 +182,14 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
 
   const pauseFrom = addDays(today, 1);
   const resumeOn = addDays(today, 4);
-  pauseCustomer(dairyId, first.id, pauseFrom, resumeOn);
-  ensureDeliveriesForDate(dairyId, pauseFrom);
-  const pausedList = listDeliveries(dairyId, pauseFrom).filter((row) => row.customerId === first.id && row.status === "pending");
+  await pauseCustomer(dairyId, first.id, pauseFrom, resumeOn);
+  await ensureDeliveriesForDate(dairyId, pauseFrom);
+  const pausedList = (await listDeliveries(dairyId, pauseFrom)).filter((row) => row.customerId === first.id && row.status === "pending");
   checks.push(check("Pause hides pending delivery", pausedList.length === 0, `${pauseFrom} pending=${pausedList.length}`));
 
-  resumeCustomer(dairyId, first.id);
-  const resumed = getCustomerRow(dairyId, first.id);
-  const resumedList = listDeliveries(dairyId, today).find((row) => row.customerId === first.id);
+  await resumeCustomer(dairyId, first.id);
+  const resumed = await getCustomerRow(dairyId, first.id);
+  const resumedList = (await listDeliveries(dairyId, today)).find((row) => row.customerId === first.id);
   checks.push(
     check(
       "Resume",
@@ -199,10 +199,10 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
   );
 
   const walkinMobile = "9876502012";
-  const existingWalkin = listCustomers(dairyId).find((row) => row.mobile === walkinMobile);
+  const existingWalkin = (await listCustomers(dairyId)).find((row) => row.mobile === walkinMobile);
   const walkin =
     existingWalkin ??
-    createCustomer(dairyId, {
+    await createCustomer(dairyId, {
       name: "Walk-in Ramesh",
       mobile: walkinMobile,
       address: "",
@@ -210,12 +210,12 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
       customerType: "walkin",
       status: "active",
     });
-  const beforeCount = listCustomers(dairyId).filter((row) => row.mobile === walkinMobile).length;
+  const beforeCount = (await listCustomers(dairyId)).filter((row) => row.mobile === walkinMobile).length;
   const monthPrefix = today.slice(0, 8);
   const dayA = `${monthPrefix}01`;
   const dayB = `${monthPrefix}03`;
   const dayC = `${monthPrefix}02`;
-  createWalkInSale(dairyId, {
+  await createWalkInSale(dairyId, {
     customerId: walkin.id,
     date: dayA,
     milkType: "cow",
@@ -224,7 +224,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     paymentStatus: "paid",
     paymentMode: "cash",
   });
-  createWalkInSale(dairyId, {
+  await createWalkInSale(dairyId, {
     customerId: walkin.id,
     date: dayB,
     milkType: "cow",
@@ -233,13 +233,13 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     paymentStatus: "pending",
     paymentMode: "cash",
   });
-  const afterCount = listCustomers(dairyId).filter((row) => row.mobile === walkinMobile).length;
-  const walkinLedger = listLedger(dairyId, dayA, dayB, walkin.id);
-  const quietLedger = listLedger(dairyId, dayC, dayC, walkin.id);
-  const autoOnDesk = listDeliveries(dairyId, today).some((row) => row.customerId === walkin.id);
-  const walkinBills = listMonthlyBills(dairyId, Number(dayA.slice(0, 4)), Number(dayA.slice(5, 7)));
+  const afterCount = (await listCustomers(dairyId)).filter((row) => row.mobile === walkinMobile).length;
+  const walkinLedger = await listLedger(dairyId, dayA, dayB, walkin.id);
+  const quietLedger = await listLedger(dairyId, dayC, dayC, walkin.id);
+  const autoOnDesk = (await listDeliveries(dairyId, today)).some((row) => row.customerId === walkin.id);
+  const walkinBills = await listMonthlyBills(dairyId, Number(dayA.slice(0, 4)), Number(dayA.slice(5, 7)));
   const walkinBill = walkinBills.find((row) => row.customerId === walkin.id);
-  const walkinOutstanding = getOutstanding(dairyId, walkin.id);
+  const walkinOutstanding = await getOutstanding(dairyId, walkin.id);
   checks.push(check("Walk-in stays one customer master", beforeCount === 1 && afterCount === 1, `${walkin.customerCode} records=${afterCount}`));
   checks.push(
     check(
@@ -260,11 +260,11 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     ),
   );
   checks.push(check("Pending walk-in sale increases outstanding", walkinOutstanding >= 300, `outstanding ₹${walkinOutstanding}`));
-  checks.push(check("Walk-in sales list for sale date", listWalkInSales(dairyId, dayA).some((row) => row.customerId === walkin.id), dayA));
+  checks.push(check("Walk-in sales list for sale date", (await listWalkInSales(dairyId, dayA)).some((row) => row.customerId === walkin.id), dayA));
 
   let pauseBlocked = false;
   try {
-    pauseCustomer(dairyId, walkin.id, today, addDays(today, 2));
+    await pauseCustomer(dairyId, walkin.id, today, addDays(today, 2));
   } catch (error) {
     pauseBlocked = error instanceof Error && /no daily subscription/i.test(error.message);
   }
@@ -275,7 +275,7 @@ export function runCustomerFlowTest(dairyId = DEFAULT_DAIRY_ID) {
     ok: checks.every((c) => c.ok),
     passed,
     total: checks.length,
-    customer: getCustomerRow(dairyId, first.id),
+    customer: await getCustomerRow(dairyId, first.id),
     checks,
   };
 }

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { addDays, todayISO } from "@/lib/dates";
 import { round2 } from "@/lib/money";
-import { assertDairy, getDb } from "@/lib/customers/db";
+import { assertDairy, qall, qget, qrun } from "@/lib/customers/db";
 import { CustomerError } from "@/lib/customers/errors";
 import type {
   BillRow,
@@ -175,8 +175,8 @@ function mapBill(row: Record<string, unknown>): MonthlyBill {
   };
 }
 
-function requireDairy(dairyId: string) {
-  assertDairy(dairyId);
+async function requireDairy(dairyId: string) {
+  await assertDairy(dairyId);
 }
 
 function cleanName(value: string) {
@@ -206,19 +206,15 @@ function mobileDb(mobile: string) {
   return mobile || `${BLANK_MOBILE}${randomUUID()}`;
 }
 
-export function findCustomerByMobile(dairyId: string, mobile: string) {
+export async function findCustomerByMobile(dairyId: string, mobile: string) {
   const normalized = cleanMobile(mobile);
   if (!normalized) return null;
   const row = asRecord(
-    getDb()
-      .prepare(
-        `SELECT * FROM Customer
+    await qget(`SELECT * FROM Customer
          WHERE dairyId = ?
            AND (mobile = ? OR substr(replace(mobile, ' ', ''), -10) = ?)
          ORDER BY CASE WHEN IFNULL(customerType, 'regular') = 'regular' THEN 0 ELSE 1 END, createdAt ASC
-         LIMIT 1`,
-      )
-      .get(dairyId, normalized, normalized),
+         LIMIT 1`, dairyId, normalized, normalized),
   );
   return row ? mapCustomer(row) : null;
 }
@@ -227,20 +223,16 @@ function validateDate(value: string, label: string) {
   if (!DATE_RE.test(value)) throw new CustomerError(`${label} is invalid`);
 }
 
-function nextCustomerCode(dairyId: string) {
-  const row = getDb()
-    .prepare(
-      `SELECT customerCode FROM Customer WHERE dairyId = ? ORDER BY customerCode DESC LIMIT 1`,
-    )
-    .get(dairyId);
+async function nextCustomerCode(dairyId: string) {
+  const row = await qget(`SELECT customerCode FROM Customer WHERE dairyId = ? ORDER BY customerCode DESC LIMIT 1`, dairyId);
   const last = row ? str(row.customerCode) : "";
   const n = last.match(/^CUS-(\d+)$/) ? Number(RegExp.$1) + 1 : 1001;
   return `CUS-${String(n).padStart(4, "0")}`;
 }
 
-export function peekNextCustomerCode(dairyId: string) {
-  requireDairy(dairyId);
-  return nextCustomerCode(dairyId);
+export async function peekNextCustomerCode(dairyId: string) {
+  await requireDairy(dairyId);
+  return await nextCustomerCode(dairyId);
 }
 
 export function isPausedOn(sub: CustomerSubscription, date: string) {
@@ -251,55 +243,38 @@ export function isPausedOn(sub: CustomerSubscription, date: string) {
   return true;
 }
 
-function getCustomer(dairyId: string, customerId: string) {
+async function getCustomer(dairyId: string, customerId: string) {
   const key = customerId.trim();
   const row = asRecord(
-    getDb()
-      .prepare(
-        `SELECT * FROM Customer WHERE dairyId = ? AND (id = ? OR customerCode = ?) LIMIT 1`,
-      )
-      .get(dairyId, key, key),
+    await qget(`SELECT * FROM Customer WHERE dairyId = ? AND (id = ? OR customerCode = ?) LIMIT 1`, dairyId, key, key),
   );
   if (!row) throw new CustomerError("Customer not found", 404);
   return mapCustomer(row);
 }
 
-function getSubscription(dairyId: string, customerId: string) {
+async function getSubscription(dairyId: string, customerId: string) {
   const row = asRecord(
-    getDb()
-      .prepare(`SELECT * FROM CustomerSubscription WHERE dairyId = ? AND customerId = ?`)
-      .get(dairyId, customerId),
+    await qget(`SELECT * FROM CustomerSubscription WHERE dairyId = ? AND customerId = ?`, dairyId, customerId),
   );
   return row ? mapSubscription(row) : null;
 }
 
-export function getOutstanding(dairyId: string, customerId: string) {
+export async function getOutstanding(dairyId: string, customerId: string) {
   const billed = num(
-    getDb()
-      .prepare(`SELECT COALESCE(SUM(amount), 0) AS t FROM MilkLedger WHERE dairyId = ? AND customerId = ?`)
-      .get(dairyId, customerId)?.t,
+    (await qget(`SELECT COALESCE(SUM(amount), 0) AS t FROM MilkLedger WHERE dairyId = ? AND customerId = ?`, dairyId, customerId))?.t,
   );
   const paid = num(
-    getDb()
-      .prepare(`SELECT COALESCE(SUM(amount), 0) AS t FROM CustomerPayment WHERE dairyId = ? AND customerId = ?`)
-      .get(dairyId, customerId)?.t,
+    (await qget(`SELECT COALESCE(SUM(amount), 0) AS t FROM CustomerPayment WHERE dairyId = ? AND customerId = ?`, dairyId, customerId))?.t,
   );
   return round2(billed - paid);
 }
 
-function upsertLedger(delivery: DailyMilkDelivery) {
+async function upsertLedger(delivery: DailyMilkDelivery) {
   const existing = asRecord(
-    getDb()
-      .prepare(`SELECT id FROM MilkLedger WHERE dairyId = ? AND deliveryId = ?`)
-      .get(delivery.dairyId, delivery.id),
+    await qget(`SELECT id FROM MilkLedger WHERE dairyId = ? AND deliveryId = ?`, delivery.dairyId, delivery.id),
   );
   if (existing) {
-    getDb()
-      .prepare(
-        `UPDATE MilkLedger SET date = ?, regularQty = ?, extraQty = ?, deliveredQty = ?, rate = ?, amount = ?, status = ? WHERE id = ? AND dairyId = ?`,
-      )
-      .run(
-        delivery.date,
+    await qrun(`UPDATE MilkLedger SET date = ?, regularQty = ?, extraQty = ?, deliveredQty = ?, rate = ?, amount = ?, status = ? WHERE id = ? AND dairyId = ?`, delivery.date,
         delivery.regularQty,
         delivery.extraQty,
         delivery.deliveredQty,
@@ -307,17 +282,11 @@ function upsertLedger(delivery: DailyMilkDelivery) {
         delivery.amount,
         delivery.status,
         str(existing.id),
-        delivery.dairyId,
-      );
+        delivery.dairyId,);
     return;
   }
-  getDb()
-    .prepare(
-      `INSERT INTO MilkLedger (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, deliveryId, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      randomUUID(),
+  await qrun(`INSERT INTO MilkLedger (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, deliveryId, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, randomUUID(),
       delivery.dairyId,
       delivery.customerId,
       delivery.date,
@@ -328,35 +297,26 @@ function upsertLedger(delivery: DailyMilkDelivery) {
       delivery.amount,
       delivery.status,
       delivery.id,
-      nowISO(),
-    );
+      nowISO(),);
 }
 
-export function refreshMonthlyBill(dairyId: string, customerId: string, date: string) {
+export async function refreshMonthlyBill(dairyId: string, customerId: string, date: string) {
   const [year, month] = date.split("-").map(Number);
   const from = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
   const to =
     month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
 
-  const agg = getDb()
-    .prepare(
-      `SELECT
+  const agg = await qget(`SELECT
          COALESCE(SUM(CASE WHEN status IN ('delivered','partial','extra') THEN deliveredQty ELSE 0 END), 0) AS totalDelivered,
          COALESCE(SUM(amount), 0) AS totalAmount,
          COALESCE(SUM(CASE WHEN status IN ('skipped','not_delivered') THEN 1 ELSE 0 END), 0) AS skippedDays,
          COALESCE(SUM(extraQty), 0) AS extraMilk
        FROM MilkLedger
-       WHERE dairyId = ? AND customerId = ? AND date >= ? AND date < ?`,
-    )
-    .get(dairyId, customerId, from, to);
+       WHERE dairyId = ? AND customerId = ? AND date >= ? AND date < ?`, dairyId, customerId, from, to);
 
   const paid = num(
-    getDb()
-      .prepare(
-        `SELECT COALESCE(SUM(amount), 0) AS t FROM CustomerPayment
-         WHERE dairyId = ? AND customerId = ? AND date >= ? AND date < ?`,
-      )
-      .get(dairyId, customerId, from, to)?.t,
+    (await qget(`SELECT COALESCE(SUM(amount), 0) AS t FROM CustomerPayment
+         WHERE dairyId = ? AND customerId = ? AND date >= ? AND date < ?`, dairyId, customerId, from, to))?.t,
   );
 
   const totalDelivered = round2(num(agg?.totalDelivered));
@@ -368,37 +328,24 @@ export function refreshMonthlyBill(dairyId: string, customerId: string, date: st
   const updatedAt = nowISO();
 
   const existing = asRecord(
-    getDb()
-      .prepare(`SELECT id FROM MonthlyBill WHERE dairyId = ? AND customerId = ? AND year = ? AND month = ?`)
-      .get(dairyId, customerId, year, month),
+    await qget(`SELECT id FROM MonthlyBill WHERE dairyId = ? AND customerId = ? AND year = ? AND month = ?`, dairyId, customerId, year, month),
   );
 
   if (existing) {
-    getDb()
-      .prepare(
-        `UPDATE MonthlyBill SET totalDelivered = ?, totalAmount = ?, skippedDays = ?, extraMilk = ?, paidAmount = ?, outstanding = ?, updatedAt = ? WHERE id = ?`,
-      )
-      .run(
-        totalDelivered,
+    await qrun(`UPDATE MonthlyBill SET totalDelivered = ?, totalAmount = ?, skippedDays = ?, extraMilk = ?, paidAmount = ?, outstanding = ?, updatedAt = ? WHERE id = ?`, totalDelivered,
         totalAmount,
         skippedDays,
         extraMilk,
         paidAmount,
         outstanding,
         updatedAt,
-        str(existing.id),
-      );
-    return getMonthlyBill(dairyId, str(existing.id));
+        str(existing.id),);
+    return await getMonthlyBill(dairyId, str(existing.id));
   }
 
   const id = randomUUID();
-  getDb()
-    .prepare(
-      `INSERT INTO MonthlyBill (id, dairyId, customerId, year, month, totalDelivered, totalAmount, skippedDays, extraMilk, paidAmount, outstanding, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      id,
+  await qrun(`INSERT INTO MonthlyBill (id, dairyId, customerId, year, month, totalDelivered, totalAmount, skippedDays, extraMilk, paidAmount, outstanding, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id,
       dairyId,
       customerId,
       year,
@@ -409,14 +356,13 @@ export function refreshMonthlyBill(dairyId: string, customerId: string, date: st
       extraMilk,
       paidAmount,
       outstanding,
-      updatedAt,
-    );
-  return getMonthlyBill(dairyId, id);
+      updatedAt,);
+  return await getMonthlyBill(dairyId, id);
 }
 
-function getMonthlyBill(dairyId: string, id: string) {
+async function getMonthlyBill(dairyId: string, id: string) {
   const row = asRecord(
-    getDb().prepare(`SELECT * FROM MonthlyBill WHERE dairyId = ? AND id = ?`).get(dairyId, id),
+    await qget(`SELECT * FROM MonthlyBill WHERE dairyId = ? AND id = ?`, dairyId, id),
   );
   if (!row) throw new CustomerError("Bill not found", 404);
   return mapBill(row);
@@ -473,7 +419,7 @@ function validateCreate(input: CreateCustomerInput) {
   };
 }
 
-function insertSubscription(
+async function insertSubscription(
   dairyId: string,
   customerId: string,
   input: {
@@ -486,13 +432,8 @@ function insertSubscription(
   },
   ts: string,
 ) {
-  getDb()
-    .prepare(
-      `INSERT INTO CustomerSubscription (id, dairyId, customerId, dailyQty, rate, startDate, deliveryTime, paymentCycle, pauseFrom, resumeDate, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`,
-    )
-    .run(
-      randomUUID(),
+  await qrun(`INSERT INTO CustomerSubscription (id, dairyId, customerId, dailyQty, rate, startDate, deliveryTime, paymentCycle, pauseFrom, resumeDate, status, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)`, randomUUID(),
       dairyId,
       customerId,
       input.dailyQty,
@@ -502,29 +443,23 @@ function insertSubscription(
       input.paymentCycle,
       input.status,
       ts,
-      ts,
-    );
+      ts,);
 }
 
-function reuseOrPromoteCustomer(
+async function reuseOrPromoteCustomer(
   dairyId: string,
   existingId: string,
   input: ReturnType<typeof validateCreate>,
 ) {
-  const existing = getCustomer(dairyId, existingId);
+  const existing = await getCustomer(dairyId, existingId);
   if (input.customerType === "walkin" || existing.customerType === "regular") {
-    return getCustomerRow(dairyId, existing.id);
+    return await getCustomerRow(dairyId, existing.id);
   }
 
   const ts = nowISO();
-  getDb()
-    .prepare(
-      `UPDATE Customer
+  await qrun(`UPDATE Customer
        SET name = ?, mobile = ?, address = ?, milkType = ?, customerType = 'regular', defaultQty = ?, defaultRate = ?, status = ?, updatedAt = ?
-       WHERE dairyId = ? AND id = ?`,
-    )
-    .run(
-      input.name || existing.name,
+       WHERE dairyId = ? AND id = ?`, input.name || existing.name,
       mobileDb(input.mobile),
       input.address || existing.address,
       input.milkType,
@@ -533,33 +468,27 @@ function reuseOrPromoteCustomer(
       input.status,
       ts,
       dairyId,
-      existing.id,
-    );
-  if (!getSubscription(dairyId, existing.id)) {
-    insertSubscription(dairyId, existing.id, input, ts);
+      existing.id,);
+  if (!await getSubscription(dairyId, existing.id)) {
+    await insertSubscription(dairyId, existing.id, input, ts);
   }
-  ensureDeliveriesForDate(dairyId, todayISO());
-  return getCustomerRow(dairyId, existing.id);
+  await ensureDeliveriesForDate(dairyId, todayISO());
+  return await getCustomerRow(dairyId, existing.id);
 }
 
-export function createCustomer(dairyId: string, raw: CreateCustomerInput) {
-  requireDairy(dairyId);
+export async function createCustomer(dairyId: string, raw: CreateCustomerInput) {
+  await requireDairy(dairyId);
   const input = validateCreate(raw);
-  const existing = input.mobile ? findCustomerByMobile(dairyId, input.mobile) : null;
+  const existing = input.mobile ? await findCustomerByMobile(dairyId, input.mobile) : null;
   if (existing) {
-    return reuseOrPromoteCustomer(dairyId, existing.id, input);
+    return await reuseOrPromoteCustomer(dairyId, existing.id, input);
   }
 
   const id = randomUUID();
-  const code = nextCustomerCode(dairyId);
+  const code = await nextCustomerCode(dairyId);
   const ts = nowISO();
-  getDb()
-    .prepare(
-      `INSERT INTO Customer (id, dairyId, customerCode, name, mobile, address, milkType, customerType, defaultQty, defaultRate, status, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      id,
+  await qrun(`INSERT INTO Customer (id, dairyId, customerCode, name, mobile, address, milkType, customerType, defaultQty, defaultRate, status, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id,
       dairyId,
       code,
       input.name,
@@ -571,20 +500,19 @@ export function createCustomer(dairyId: string, raw: CreateCustomerInput) {
       input.rate,
       input.status,
       ts,
-      ts,
-    );
+      ts,);
 
   if (input.customerType === "regular") {
-    insertSubscription(dairyId, id, input, ts);
-    ensureDeliveriesForDate(dairyId, todayISO());
+    await insertSubscription(dairyId, id, input, ts);
+    await ensureDeliveriesForDate(dairyId, todayISO());
   }
-  return getCustomerRow(dairyId, id);
+  return await getCustomerRow(dairyId, id);
 }
 
-export function updateCustomer(dairyId: string, customerId: string, raw: UpdateCustomerInput) {
-  requireDairy(dairyId);
-  const customer = getCustomer(dairyId, customerId);
-  const sub = getSubscription(dairyId, customerId);
+export async function updateCustomer(dairyId: string, customerId: string, raw: UpdateCustomerInput) {
+  await requireDairy(dairyId);
+  const customer = await getCustomer(dairyId, customerId);
+  const sub = await getSubscription(dairyId, customerId);
   if (customer.customerType === "regular" && !sub) {
     throw new CustomerError("Subscription missing for this customer", 409);
   }
@@ -608,49 +536,37 @@ export function updateCustomer(dairyId: string, customerId: string, raw: UpdateC
   if (customer.customerType === "regular" && !PAYMENT_CYCLES.includes(paymentCycle)) throw new CustomerError("Choose a payment cycle");
   if (!CUSTOMER_STATUSES.includes(status)) throw new CustomerError("Choose a status");
 
-  const clash = mobile ? findCustomerByMobile(dairyId, mobile) : null;
+  const clash = mobile ? await findCustomerByMobile(dairyId, mobile) : null;
   if (clash && clash.id !== customerId) throw new CustomerError("Another customer already uses this mobile");
 
   const ts = nowISO();
   const defaultQty = raw.dailyQty != null ? dailyQty : customer.defaultQty || dailyQty;
   const defaultRate = raw.rate != null ? rate : customer.defaultRate || rate;
-  getDb()
-    .prepare(
-      `UPDATE Customer SET name = ?, mobile = ?, address = ?, milkType = ?, defaultQty = ?, defaultRate = ?, status = ?, updatedAt = ? WHERE dairyId = ? AND id = ?`,
-    )
-    .run(name, mobileDb(mobile), address, milkType, defaultQty, defaultRate, status, ts, dairyId, customerId);
+  await qrun(`UPDATE Customer SET name = ?, mobile = ?, address = ?, milkType = ?, defaultQty = ?, defaultRate = ?, status = ?, updatedAt = ? WHERE dairyId = ? AND id = ?`, name, mobileDb(mobile), address, milkType, defaultQty, defaultRate, status, ts, dairyId, customerId);
 
   if (customer.customerType === "walkin") {
-    return getCustomerRow(dairyId, customerId);
+    return await getCustomerRow(dairyId, customerId);
   }
 
-  getDb()
-    .prepare(
-      `UPDATE CustomerSubscription SET dailyQty = ?, rate = ?, deliveryTime = ?, paymentCycle = ?, status = ?, updatedAt = ? WHERE dairyId = ? AND customerId = ?`,
-    )
-    .run(dailyQty, rate, deliveryTime, paymentCycle, status, ts, dairyId, customerId);
+  await qrun(`UPDATE CustomerSubscription SET dailyQty = ?, rate = ?, deliveryTime = ?, paymentCycle = ?, status = ?, updatedAt = ? WHERE dairyId = ? AND customerId = ?`, dailyQty, rate, deliveryTime, paymentCycle, status, ts, dairyId, customerId);
 
   if (status === "stopped") {
-    getDb()
-      .prepare(
-        `DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND status = 'pending'`,
-      )
-      .run(dairyId, customerId);
+    await qrun(`DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND status = 'pending'`, dairyId, customerId);
   } else {
-    ensureDeliveriesForDate(dairyId, todayISO());
+    await ensureDeliveriesForDate(dairyId, todayISO());
   }
 
-  return getCustomerRow(dairyId, customerId);
+  return await getCustomerRow(dairyId, customerId);
 }
 
-export function pauseCustomer(
+export async function pauseCustomer(
   dairyId: string,
   customerId: string,
   pauseFrom: string,
   resumeDate: string,
 ) {
-  requireDairy(dairyId);
-  const customer = getCustomer(dairyId, customerId);
+  await requireDairy(dairyId);
+  const customer = await getCustomer(dairyId, customerId);
   if (customer.customerType === "walkin") {
     throw new CustomerError("Walk-in customers have no daily subscription to pause");
   }
@@ -659,103 +575,73 @@ export function pauseCustomer(
   if (resumeDate <= pauseFrom) throw new CustomerError("Resume date must be after pause from");
 
   const ts = nowISO();
-  getDb()
-    .prepare(
-      `UPDATE CustomerSubscription SET pauseFrom = ?, resumeDate = ?, status = 'paused', updatedAt = ? WHERE dairyId = ? AND customerId = ?`,
-    )
-    .run(pauseFrom, resumeDate, ts, dairyId, customerId);
-  getDb()
-    .prepare(`UPDATE Customer SET status = 'paused', updatedAt = ? WHERE dairyId = ? AND id = ?`)
-    .run(ts, dairyId, customerId);
+  await qrun(`UPDATE CustomerSubscription SET pauseFrom = ?, resumeDate = ?, status = 'paused', updatedAt = ? WHERE dairyId = ? AND customerId = ?`, pauseFrom, resumeDate, ts, dairyId, customerId);
+  await qrun(`UPDATE Customer SET status = 'paused', updatedAt = ? WHERE dairyId = ? AND id = ?`, ts, dairyId, customerId);
 
-  getDb()
-    .prepare(
-      `DELETE FROM DailyMilkDelivery
+  await qrun(`DELETE FROM DailyMilkDelivery
        WHERE dairyId = ? AND customerId = ? AND status = 'pending'
-         AND date >= ? AND date < ?`,
-    )
-    .run(dairyId, customerId, pauseFrom, resumeDate);
+         AND date >= ? AND date < ?`, dairyId, customerId, pauseFrom, resumeDate);
 
-  return getCustomerRow(dairyId, customerId);
+  return await getCustomerRow(dairyId, customerId);
 }
 
-export function resumeCustomer(dairyId: string, customerId: string) {
-  requireDairy(dairyId);
-  const customer = getCustomer(dairyId, customerId);
+export async function resumeCustomer(dairyId: string, customerId: string) {
+  await requireDairy(dairyId);
+  const customer = await getCustomer(dairyId, customerId);
   if (customer.customerType === "walkin") {
     throw new CustomerError("Walk-in customers have no daily subscription to resume");
   }
   const ts = nowISO();
-  getDb()
-    .prepare(
-      `UPDATE CustomerSubscription SET pauseFrom = NULL, resumeDate = NULL, status = 'active', updatedAt = ? WHERE dairyId = ? AND customerId = ?`,
-    )
-    .run(ts, dairyId, customerId);
-  getDb()
-    .prepare(`UPDATE Customer SET status = 'active', updatedAt = ? WHERE dairyId = ? AND id = ?`)
-    .run(ts, dairyId, customerId);
-  ensureDeliveriesForDate(dairyId, todayISO());
-  return getCustomerRow(dairyId, customerId);
+  await qrun(`UPDATE CustomerSubscription SET pauseFrom = NULL, resumeDate = NULL, status = 'active', updatedAt = ? WHERE dairyId = ? AND customerId = ?`, ts, dairyId, customerId);
+  await qrun(`UPDATE Customer SET status = 'active', updatedAt = ? WHERE dairyId = ? AND id = ?`, ts, dairyId, customerId);
+  await ensureDeliveriesForDate(dairyId, todayISO());
+  return await getCustomerRow(dairyId, customerId);
 }
 
-export function getCustomerRow(dairyId: string, customerId: string): CustomerRow {
-  const customer = getCustomer(dairyId, customerId);
+export async function getCustomerRow(dairyId: string, customerId: string): Promise<CustomerRow> {
+  const customer = await getCustomer(dairyId, customerId);
   const today = todayISO();
   const deliveryRow = asRecord(
-    getDb()
-      .prepare(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`)
-      .get(dairyId, customerId, today),
+    await qget(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`, dairyId, customerId, today),
   );
   return {
     ...customer,
-    subscription: getSubscription(dairyId, customerId),
+    subscription: await getSubscription(dairyId, customerId),
     todayDelivery: deliveryRow ? mapDelivery(deliveryRow) : null,
-    outstanding: getOutstanding(dairyId, customerId),
+    outstanding: await getOutstanding(dairyId, customerId),
   };
 }
 
-export function listCustomers(dairyId: string): CustomerRow[] {
-  requireDairy(dairyId);
+export async function listCustomers(dairyId: string): Promise<CustomerRow[]> {
+  await requireDairy(dairyId);
   try {
-    ensureDeliveriesForDate(dairyId, todayISO());
+    await ensureDeliveriesForDate(dairyId, todayISO());
   } catch {
     // still return the customer master list
   }
-  const rows = getDb()
-    .prepare(`SELECT * FROM Customer WHERE dairyId = ? ORDER BY customerCode ASC`)
-    .all(dairyId);
-  return rows.map((row) => getCustomerRow(dairyId, str(row.id)));
+  const rows = await qall(`SELECT * FROM Customer WHERE dairyId = ? ORDER BY customerCode ASC`, dairyId);
+  return Promise.all(rows.map((row) => getCustomerRow(dairyId, str(row.id))));
 }
 
-export function ensureDeliveriesForDate(dairyId: string, date: string) {
-  requireDairy(dairyId);
+export async function ensureDeliveriesForDate(dairyId: string, date: string) {
+  await requireDairy(dairyId);
   validateDate(date, "Date");
-  const subs = getDb()
-    .prepare(
-      `SELECT s.*, c.status AS customerStatus, c.milkType AS customerMilkType
+  const subs = await qall(`SELECT s.*, c.status AS customerStatus, c.milkType AS customerMilkType
        FROM CustomerSubscription s
        JOIN Customer c ON c.id = s.customerId
        WHERE s.dairyId = ? AND s.startDate <= ? AND c.status != 'stopped' AND s.status != 'stopped'
-         AND IFNULL(c.customerType, 'regular') = 'regular'`,
-    )
-    .all(dairyId, date);
+         AND IFNULL(c.customerType, 'regular') = 'regular'`, dairyId, date);
 
   let created = 0;
   for (const raw of subs) {
     const sub = mapSubscription(raw);
     if (isPausedOn(sub, date)) {
-      getDb()
-        .prepare(
-          `DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ? AND status = 'pending'`,
-        )
-        .run(dairyId, sub.customerId, date);
+      await qrun(`DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ? AND status = 'pending'`, dairyId, sub.customerId, date);
       continue;
     }
 
     const existing = asRecord(
-      getDb()
-        .prepare(`SELECT id FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`)
-        .get(dairyId, sub.customerId, date),
+      await qget(`SELECT id FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`, dairyId, sub.customerId, date),
     );
     if (existing) continue;
 
@@ -764,12 +650,8 @@ export function ensureDeliveriesForDate(dairyId: string, date: string) {
       ? str(raw.customerMilkType)
       : "cow";
     try {
-      getDb()
-        .prepare(
-          `INSERT OR IGNORE INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, ?, 0, 0, ?, 0, 'pending', NULL, NULL, ?, 'subscription', ?, ?)`,
-        )
-        .run(randomUUID(), dairyId, sub.customerId, date, sub.dailyQty, sub.rate, milkType, ts, ts);
+      await qrun(`INSERT OR IGNORE INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, 0, 0, ?, 0, 'pending', NULL, NULL, ?, 'subscription', ?, ?)`, randomUUID(), dairyId, sub.customerId, date, sub.dailyQty, sub.rate, milkType, ts, ts);
       created += 1;
     } catch {
       // another request already created today's row
@@ -778,16 +660,14 @@ export function ensureDeliveriesForDate(dairyId: string, date: string) {
   return created;
 }
 
-export function listDeliveries(dairyId: string, date: string): DeliveryRow[] {
-  requireDairy(dairyId);
+export async function listDeliveries(dairyId: string, date: string): Promise<DeliveryRow[]> {
+  await requireDairy(dairyId);
   try {
-    ensureDeliveriesForDate(dairyId, date);
+    await ensureDeliveriesForDate(dairyId, date);
   } catch {
     // still return any rows already saved for this date
   }
-  const rows = getDb()
-    .prepare(
-      `SELECT d.* FROM DailyMilkDelivery d
+  const rows = await qall(`SELECT d.* FROM DailyMilkDelivery d
        JOIN Customer c ON c.id = d.customerId
        JOIN CustomerSubscription s ON s.customerId = d.customerId
        WHERE d.dairyId = ? AND d.date = ?
@@ -798,29 +678,29 @@ export function listDeliveries(dairyId: string, date: string): DeliveryRow[] {
              OR c.status = 'paused'
            )
          )
-       ORDER BY c.name ASC`,
-    )
-    .all(dairyId, date);
+       ORDER BY c.name ASC`, dairyId, date);
 
-  return rows.map((row) => {
-    const delivery = mapDelivery(row);
-    return {
-      ...delivery,
-      customer: getCustomer(dairyId, delivery.customerId),
-      subscription: getSubscription(dairyId, delivery.customerId),
-    };
-  });
+  return Promise.all(
+    rows.map(async (row) => {
+      const delivery = mapDelivery(row);
+      return {
+        ...delivery,
+        customer: await getCustomer(dairyId, delivery.customerId),
+        subscription: await getSubscription(dairyId, delivery.customerId),
+      };
+    }),
+  );
 }
 
-function getOwnedDelivery(dairyId: string, deliveryId: string) {
+async function getOwnedDelivery(dairyId: string, deliveryId: string) {
   const row = asRecord(
-    getDb().prepare(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND id = ?`).get(dairyId, deliveryId),
+    await qget(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND id = ?`, dairyId, deliveryId),
   );
   if (!row) throw new CustomerError("Delivery not found", 404);
   return mapDelivery(row);
 }
 
-function finalizeDelivery(
+async function finalizeDelivery(
   dairyId: string,
   deliveryId: string,
   patch: {
@@ -833,16 +713,11 @@ function finalizeDelivery(
   },
 ) {
   if (!DELIVERY_STATUSES.includes(patch.status)) throw new CustomerError("Invalid delivery status");
-  const current = getOwnedDelivery(dairyId, deliveryId);
+  const current = await getOwnedDelivery(dairyId, deliveryId);
   const ts = nowISO();
-  getDb()
-    .prepare(
-      `UPDATE DailyMilkDelivery
+  await qrun(`UPDATE DailyMilkDelivery
        SET extraQty = ?, deliveredQty = ?, amount = ?, status = ?, skipReason = ?, notes = ?, updatedAt = ?
-       WHERE dairyId = ? AND id = ?`,
-    )
-    .run(
-      patch.extraQty,
+       WHERE dairyId = ? AND id = ?`, patch.extraQty,
       patch.deliveredQty,
       patch.amount,
       patch.status,
@@ -850,22 +725,21 @@ function finalizeDelivery(
       patch.notes ?? null,
       ts,
       dairyId,
-      deliveryId,
-    );
-  const next = getOwnedDelivery(dairyId, deliveryId);
-  upsertLedger(next);
-  refreshMonthlyBill(dairyId, current.customerId, current.date);
+      deliveryId,);
+  const next = await getOwnedDelivery(dairyId, deliveryId);
+  await upsertLedger(next);
+  await refreshMonthlyBill(dairyId, current.customerId, current.date);
   return {
     ...next,
-    customer: getCustomer(dairyId, next.customerId),
-    subscription: getSubscription(dairyId, next.customerId),
+    customer: await getCustomer(dairyId, next.customerId),
+    subscription: await getSubscription(dairyId, next.customerId),
   } satisfies DeliveryRow;
 }
 
-export function markDelivered(dairyId: string, deliveryId: string) {
-  const current = getOwnedDelivery(dairyId, deliveryId);
+export async function markDelivered(dairyId: string, deliveryId: string) {
+  const current = await getOwnedDelivery(dairyId, deliveryId);
   const deliveredQty = round2(current.regularQty + current.extraQty);
-  return finalizeDelivery(dairyId, deliveryId, {
+  return await finalizeDelivery(dairyId, deliveryId, {
     status: current.extraQty > 0 ? "extra" : "delivered",
     deliveredQty,
     extraQty: current.extraQty,
@@ -875,11 +749,11 @@ export function markDelivered(dairyId: string, deliveryId: string) {
   });
 }
 
-export function skipToday(dairyId: string, deliveryId: string, reason: string) {
+export async function skipToday(dairyId: string, deliveryId: string, reason: string) {
   const note = cleanName(reason);
   if (note.length < 2) throw new CustomerError("Skip reason is required");
-  getOwnedDelivery(dairyId, deliveryId);
-  return finalizeDelivery(dairyId, deliveryId, {
+  await getOwnedDelivery(dairyId, deliveryId);
+  return await finalizeDelivery(dairyId, deliveryId, {
     status: "skipped",
     deliveredQty: 0,
     extraQty: 0,
@@ -889,9 +763,9 @@ export function skipToday(dairyId: string, deliveryId: string, reason: string) {
   });
 }
 
-export function markNotDelivered(dairyId: string, deliveryId: string, reason?: string) {
-  getOwnedDelivery(dairyId, deliveryId);
-  return finalizeDelivery(dairyId, deliveryId, {
+export async function markNotDelivered(dairyId: string, deliveryId: string, reason?: string) {
+  await getOwnedDelivery(dairyId, deliveryId);
+  return await finalizeDelivery(dairyId, deliveryId, {
     status: "not_delivered",
     deliveredQty: 0,
     extraQty: 0,
@@ -901,13 +775,13 @@ export function markNotDelivered(dairyId: string, deliveryId: string, reason?: s
   });
 }
 
-export function markPartial(dairyId: string, deliveryId: string, qty: number, notes?: string) {
-  const current = getOwnedDelivery(dairyId, deliveryId);
+export async function markPartial(dairyId: string, deliveryId: string, qty: number, notes?: string) {
+  const current = await getOwnedDelivery(dairyId, deliveryId);
   if (!Number.isFinite(qty) || qty <= 0) throw new CustomerError("Partial quantity must be greater than 0");
   if (qty >= current.regularQty) {
     throw new CustomerError("Partial quantity must be less than the regular daily quantity");
   }
-  return finalizeDelivery(dairyId, deliveryId, {
+  return await finalizeDelivery(dairyId, deliveryId, {
     status: "partial",
     deliveredQty: round2(qty),
     extraQty: 0,
@@ -917,11 +791,11 @@ export function markPartial(dairyId: string, deliveryId: string, qty: number, no
   });
 }
 
-export function markExtra(dairyId: string, deliveryId: string, extraQty: number, notes?: string) {
-  const current = getOwnedDelivery(dairyId, deliveryId);
+export async function markExtra(dairyId: string, deliveryId: string, extraQty: number, notes?: string) {
+  const current = await getOwnedDelivery(dairyId, deliveryId);
   if (!Number.isFinite(extraQty) || extraQty <= 0) throw new CustomerError("Extra milk must be greater than 0");
   const deliveredQty = round2(current.regularQty + extraQty);
-  return finalizeDelivery(dairyId, deliveryId, {
+  return await finalizeDelivery(dairyId, deliveryId, {
     status: "extra",
     deliveredQty,
     extraQty: round2(extraQty),
@@ -931,20 +805,18 @@ export function markExtra(dairyId: string, deliveryId: string, extraQty: number,
   });
 }
 
-export function listLedger(
+export async function listLedger(
   dairyId: string,
   from: string,
   to: string,
   customerId?: string,
   filters?: { customerType?: CustomerType; milkType?: CustomerMilkType; paymentStatus?: SalePaymentStatus },
-): LedgerRow[] {
-  requireDairy(dairyId);
+): Promise<LedgerRow[]> {
+  await requireDairy(dairyId);
   validateDate(from, "From date");
   validateDate(to, "To date");
   if (to < from) throw new CustomerError("To date must be on or after from date");
-  const rows = getDb()
-    .prepare(
-      `SELECT l.*, IFNULL(d.milkType, c.milkType) AS rowMilkType, d.paymentStatus AS salePaymentStatus
+  const rows = await qall(`SELECT l.*, IFNULL(d.milkType, c.milkType) AS rowMilkType, d.paymentStatus AS salePaymentStatus
        FROM MilkLedger l
        JOIN Customer c ON c.id = l.customerId
        LEFT JOIN DailyMilkDelivery d ON d.id = l.deliveryId
@@ -953,10 +825,7 @@ export function listLedger(
          AND (? IS NULL OR IFNULL(c.customerType, 'regular') = ?)
          AND (? IS NULL OR IFNULL(d.milkType, c.milkType) = ?)
          AND (? IS NULL OR IFNULL(d.paymentStatus, '') = ?)
-       ORDER BY l.date DESC, l.createdAt DESC`,
-    )
-    .all(
-      dairyId,
+       ORDER BY l.date DESC, l.createdAt DESC`, dairyId,
       from,
       to,
       customerId ?? null,
@@ -966,76 +835,67 @@ export function listLedger(
       filters?.milkType ?? null,
       filters?.milkType ?? null,
       filters?.paymentStatus ?? null,
-      filters?.paymentStatus ?? null,
-    );
+      filters?.paymentStatus ?? null,);
   const outstandingByCustomer = new Map<string, number>();
-  return rows.map((row) => {
-    const customerId = str(row.customerId);
-    if (!outstandingByCustomer.has(customerId)) {
-      outstandingByCustomer.set(customerId, getOutstanding(dairyId, customerId));
-    }
-    const milkType = MILK_TYPES.includes(str(row.rowMilkType) as CustomerMilkType)
-      ? (str(row.rowMilkType) as CustomerMilkType)
-      : "cow";
-    const paymentStatus = SALE_PAYMENT_STATUSES.includes(str(row.salePaymentStatus) as SalePaymentStatus)
-      ? (str(row.salePaymentStatus) as SalePaymentStatus)
-      : null;
-    return {
-      ...mapLedger(row),
-      customer: getCustomer(dairyId, customerId),
-      milkType,
-      paymentStatus,
-      outstanding: outstandingByCustomer.get(customerId) ?? 0,
-    };
-  });
+  return Promise.all(
+    rows.map(async (row) => {
+      const customerId = str(row.customerId);
+      if (!outstandingByCustomer.has(customerId)) {
+        outstandingByCustomer.set(customerId, await getOutstanding(dairyId, customerId));
+      }
+      const milkType = MILK_TYPES.includes(str(row.rowMilkType) as CustomerMilkType)
+        ? (str(row.rowMilkType) as CustomerMilkType)
+        : "cow";
+      const paymentStatus = SALE_PAYMENT_STATUSES.includes(str(row.salePaymentStatus) as SalePaymentStatus)
+        ? (str(row.salePaymentStatus) as SalePaymentStatus)
+        : null;
+      return {
+        ...mapLedger(row),
+        customer: await getCustomer(dairyId, customerId),
+        milkType,
+        paymentStatus,
+        outstanding: outstandingByCustomer.get(customerId) ?? 0,
+      };
+    }),
+  );
 }
 
-export function listMonthlyBills(dairyId: string, year: number, month: number): BillRow[] {
-  requireDairy(dairyId);
+export async function listMonthlyBills(dairyId: string, year: number, month: number): Promise<BillRow[]> {
+  await requireDairy(dairyId);
   if (year < 2020 || year > 2100 || month < 1 || month > 12) {
     throw new CustomerError("Invalid month");
   }
-  const customers = getDb()
-    .prepare(`SELECT id FROM Customer WHERE dairyId = ?`)
-    .all(dairyId);
+  const customers = await qall(`SELECT id FROM Customer WHERE dairyId = ?`, dairyId);
   const date = `${year}-${String(month).padStart(2, "0")}-01`;
   for (const row of customers) {
-    refreshMonthlyBill(dairyId, str(row.id), date);
+    await refreshMonthlyBill(dairyId, str(row.id), date);
   }
-  const bills = getDb()
-    .prepare(
-      `SELECT * FROM MonthlyBill WHERE dairyId = ? AND year = ? AND month = ? ORDER BY customerId ASC`,
-    )
-    .all(dairyId, year, month);
-  return bills
-    .map((row) => {
+  const bills = await qall(`SELECT * FROM MonthlyBill WHERE dairyId = ? AND year = ? AND month = ? ORDER BY customerId ASC`, dairyId, year, month);
+  const mapped = await Promise.all(
+    bills.map(async (row) => {
       const bill = mapBill(row);
-      return { ...bill, customer: getCustomer(dairyId, bill.customerId) };
-    })
-    .filter((bill) => bill.totalDelivered > 0 || bill.skippedDays > 0 || bill.paidAmount > 0);
+      return { ...bill, customer: await getCustomer(dairyId, bill.customerId) };
+    }),
+  );
+  return mapped.filter((bill) => bill.totalDelivered > 0 || bill.skippedDays > 0 || bill.paidAmount > 0);
 }
 
-export function recordPayment(
+export async function recordPayment(
   dairyId: string,
   input: { customerId: string; date: string; amount: number; mode: PaymentMode; reference?: string },
-): PaymentRow {
-  requireDairy(dairyId);
-  const customer = getCustomer(dairyId, input.customerId);
+): Promise<PaymentRow> {
+  await requireDairy(dairyId);
+  const customer = await getCustomer(dairyId, input.customerId);
   validateDate(input.date, "Payment date");
   if (!Number.isFinite(input.amount) || input.amount <= 0) {
     throw new CustomerError("Payment amount must be greater than 0");
   }
   if (!PAYMENT_MODES.includes(input.mode)) throw new CustomerError("Choose a payment mode");
-  const remaining = round2(getOutstanding(dairyId, customer.id) - input.amount);
+  const remaining = round2(await getOutstanding(dairyId, customer.id) - input.amount);
   const id = randomUUID();
   const ts = nowISO();
-  getDb()
-    .prepare(
-      `INSERT INTO CustomerPayment (id, dairyId, customerId, date, amount, mode, reference, remainingBalance, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      id,
+  await qrun(`INSERT INTO CustomerPayment (id, dairyId, customerId, date, amount, mode, reference, remainingBalance, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, id,
       dairyId,
       customer.id,
       input.date,
@@ -1043,48 +903,41 @@ export function recordPayment(
       input.mode,
       cleanName(input.reference || ""),
       remaining,
-      ts,
-    );
-  refreshMonthlyBill(dairyId, customer.id, input.date);
+      ts,);
+  await refreshMonthlyBill(dairyId, customer.id, input.date);
   const row = asRecord(
-    getDb().prepare(`SELECT * FROM CustomerPayment WHERE dairyId = ? AND id = ?`).get(dairyId, id),
+    await qget(`SELECT * FROM CustomerPayment WHERE dairyId = ? AND id = ?`, dairyId, id),
   );
   if (!row) throw new CustomerError("Payment failed", 500);
   return { ...mapPayment(row), customer };
 }
 
-export function listPayments(dairyId: string, customerId?: string): PaymentRow[] {
-  requireDairy(dairyId);
+export async function listPayments(dairyId: string, customerId?: string): Promise<PaymentRow[]> {
+  await requireDairy(dairyId);
   const rows = customerId
-    ? getDb()
-        .prepare(`SELECT * FROM CustomerPayment WHERE dairyId = ? AND customerId = ? ORDER BY date DESC, createdAt DESC`)
-        .all(dairyId, customerId)
-    : getDb()
-        .prepare(`SELECT * FROM CustomerPayment WHERE dairyId = ? ORDER BY date DESC, createdAt DESC`)
-        .all(dairyId);
-  return rows.map((row) => ({
-    ...mapPayment(row),
-    customer: getCustomer(dairyId, str(row.customerId)),
-  }));
+    ? await qall(`SELECT * FROM CustomerPayment WHERE dairyId = ? AND customerId = ? ORDER BY date DESC, createdAt DESC`, dairyId, customerId)
+    : await qall(`SELECT * FROM CustomerPayment WHERE dairyId = ? ORDER BY date DESC, createdAt DESC`, dairyId);
+  return Promise.all(
+    rows.map(async (row) => ({
+      ...mapPayment(row),
+      customer: await getCustomer(dairyId, str(row.customerId)),
+    })),
+  );
 }
 
-export function seedTestCustomer(dairyId: string) {
-  requireDairy(dairyId);
+export async function seedTestCustomer(dairyId: string) {
+  await requireDairy(dairyId);
   const startDate = addDays(todayISO(), -7);
-  const existing = findCustomerByMobile(dairyId, "9876502001");
+  const existing = await findCustomerByMobile(dairyId, "9876502001");
   if (existing) {
     try {
-      getDb()
-        .prepare(
-          `UPDATE CustomerSubscription SET startDate = ? WHERE dairyId = ? AND customerId = ? AND startDate > ?`,
-        )
-        .run(startDate, dairyId, existing.id, startDate);
+      await qrun(`UPDATE CustomerSubscription SET startDate = ? WHERE dairyId = ? AND customerId = ? AND startDate > ?`, startDate, dairyId, existing.id, startDate);
     } catch {
       // walk-in or missing subscription — keep the master record
     }
-    return getCustomerRow(dairyId, existing.id);
+    return await getCustomerRow(dairyId, existing.id);
   }
-  return createCustomer(dairyId, {
+  return await createCustomer(dairyId, {
     name: "Ramesh",
     mobile: "9876502001",
     address: "Near temple, Village Road",
@@ -1099,30 +952,24 @@ export function seedTestCustomer(dairyId: string) {
   });
 }
 
-function rememberWalkInDefaults(
+async function rememberWalkInDefaults(
   dairyId: string,
   customerId: string,
   milkType: CustomerMilkType,
   qty: number,
   rate: number,
 ) {
-  getDb()
-    .prepare(
-      `UPDATE Customer SET milkType = ?, defaultQty = ?, defaultRate = ?, updatedAt = ? WHERE dairyId = ? AND id = ?`,
-    )
-    .run(milkType, qty, rate, nowISO(), dairyId, customerId);
+  await qrun(`UPDATE Customer SET milkType = ?, defaultQty = ?, defaultRate = ?, updatedAt = ? WHERE dairyId = ? AND id = ?`, milkType, qty, rate, nowISO(), dairyId, customerId);
 }
 
 function walkInPaymentRef(deliveryId: string) {
   return `walkin:${deliveryId}`;
 }
 
-function syncWalkInPayment(dairyId: string, customerId: string, date: string, deliveryId: string, paidAmount: number, mode: PaymentMode) {
-  getDb()
-    .prepare(`DELETE FROM CustomerPayment WHERE dairyId = ? AND reference = ?`)
-    .run(dairyId, walkInPaymentRef(deliveryId));
+async function syncWalkInPayment(dairyId: string, customerId: string, date: string, deliveryId: string, paidAmount: number, mode: PaymentMode) {
+  await qrun(`DELETE FROM CustomerPayment WHERE dairyId = ? AND reference = ?`, dairyId, walkInPaymentRef(deliveryId));
   if (paidAmount > 0) {
-    recordPayment(dairyId, {
+    await recordPayment(dairyId, {
       customerId,
       date,
       amount: paidAmount,
@@ -1142,9 +989,9 @@ function resolvePaidAmount(amount: number, status: SalePaymentStatus, paidAmount
   return paid;
 }
 
-export function createWalkInSale(dairyId: string, raw: WalkInSaleInput): DeliveryRow {
-  requireDairy(dairyId);
-  const customer = getCustomer(dairyId, raw.customerId);
+export async function createWalkInSale(dairyId: string, raw: WalkInSaleInput): Promise<DeliveryRow> {
+  await requireDairy(dairyId);
+  const customer = await getCustomer(dairyId, raw.customerId);
   if (customer.customerType !== "walkin") {
     throw new CustomerError("Use Daily Milk Delivery for regular subscription customers");
   }
@@ -1162,9 +1009,7 @@ export function createWalkInSale(dairyId: string, raw: WalkInSaleInput): Deliver
   if (paidAmount > amount) throw new CustomerError("Payment amount cannot exceed the sale amount");
 
   const existing = asRecord(
-    getDb()
-      .prepare(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`)
-      .get(dairyId, customer.id, raw.date),
+    await qget(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`, dairyId, customer.id, raw.date),
   );
   const ts = nowISO();
   const notes = raw.notes ? cleanName(raw.notes) : null;
@@ -1174,44 +1019,38 @@ export function createWalkInSale(dairyId: string, raw: WalkInSaleInput): Deliver
     if (current.source !== "walkin") {
       throw new CustomerError("This date already has a subscription delivery for the customer");
     }
-    return updateWalkInSale(dairyId, current.id, raw);
+    return await updateWalkInSale(dairyId, current.id, raw);
   }
 
   const id = randomUUID();
   try {
-    getDb()
-      .prepare(
-        `INSERT INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, paymentStatus, paymentMode, paidAmount, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'delivered', NULL, ?, ?, 'walkin', ?, ?, ?, ?, ?)`,
-      )
-      .run(id, dairyId, customer.id, raw.date, qty, qty, rate, amount, notes, raw.milkType, raw.paymentStatus, mode, paidAmount, ts, ts);
+    await qrun(`INSERT INTO DailyMilkDelivery (id, dairyId, customerId, date, regularQty, extraQty, deliveredQty, rate, amount, status, skipReason, notes, milkType, source, paymentStatus, paymentMode, paidAmount, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'delivered', NULL, ?, ?, 'walkin', ?, ?, ?, ?, ?)`, id, dairyId, customer.id, raw.date, qty, qty, rate, amount, notes, raw.milkType, raw.paymentStatus, mode, paidAmount, ts, ts);
   } catch (error) {
     const existingNow = asRecord(
-      getDb()
-        .prepare(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`)
-        .get(dairyId, customer.id, raw.date),
+      await qget(`SELECT * FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND date = ?`, dairyId, customer.id, raw.date),
     );
-    if (existingNow) return updateWalkInSale(dairyId, str(existingNow.id), raw);
+    if (existingNow) return await updateWalkInSale(dairyId, str(existingNow.id), raw);
     throw error;
   }
 
-  rememberWalkInDefaults(dairyId, customer.id, raw.milkType, qty, rate);
-  const saved = getOwnedDelivery(dairyId, id);
-  upsertLedger(saved);
-  refreshMonthlyBill(dairyId, customer.id, raw.date);
-  syncWalkInPayment(dairyId, customer.id, raw.date, id, paidAmount, mode);
+  await rememberWalkInDefaults(dairyId, customer.id, raw.milkType, qty, rate);
+  const saved = await getOwnedDelivery(dairyId, id);
+  await upsertLedger(saved);
+  await refreshMonthlyBill(dairyId, customer.id, raw.date);
+  await syncWalkInPayment(dairyId, customer.id, raw.date, id, paidAmount, mode);
   return {
-    ...getOwnedDelivery(dairyId, id),
-    customer: getCustomer(dairyId, customer.id),
+    ...await getOwnedDelivery(dairyId, id),
+    customer: await getCustomer(dairyId, customer.id),
     subscription: null,
   };
 }
 
-export function updateWalkInSale(dairyId: string, deliveryId: string, raw: Partial<WalkInSaleInput> & Pick<WalkInSaleInput, "quantity" | "rate" | "paymentStatus">): DeliveryRow {
-  requireDairy(dairyId);
-  const current = getOwnedDelivery(dairyId, deliveryId);
+export async function updateWalkInSale(dairyId: string, deliveryId: string, raw: Partial<WalkInSaleInput> & Pick<WalkInSaleInput, "quantity" | "rate" | "paymentStatus">): Promise<DeliveryRow> {
+  await requireDairy(dairyId);
+  const current = await getOwnedDelivery(dairyId, deliveryId);
   if (current.source !== "walkin") throw new CustomerError("This is not a walk-in sale");
-  const customer = getCustomer(dairyId, current.customerId);
+  const customer = await getCustomer(dairyId, current.customerId);
   const milkType = raw.milkType && MILK_TYPES.includes(raw.milkType) ? raw.milkType : customer.milkType;
   if (!Number.isFinite(raw.quantity) || raw.quantity <= 0) throw new CustomerError("Quantity must be greater than 0");
   if (!Number.isFinite(raw.rate) || raw.rate < 0) throw new CustomerError("Rate cannot be negative");
@@ -1224,61 +1063,55 @@ export function updateWalkInSale(dairyId: string, deliveryId: string, raw: Parti
   const notes = raw.notes != null ? cleanName(raw.notes) || null : current.notes;
   const ts = nowISO();
 
-  rememberWalkInDefaults(dairyId, customer.id, milkType, qty, rate);
+  await rememberWalkInDefaults(dairyId, customer.id, milkType, qty, rate);
 
-  getDb()
-    .prepare(
-      `UPDATE DailyMilkDelivery
+  await qrun(`UPDATE DailyMilkDelivery
        SET regularQty = ?, deliveredQty = ?, rate = ?, amount = ?, notes = ?, milkType = ?, paymentStatus = ?, paymentMode = ?, paidAmount = ?, updatedAt = ?
-       WHERE dairyId = ? AND id = ?`,
-    )
-    .run(qty, qty, rate, amount, notes, milkType, raw.paymentStatus, mode, paidAmount, ts, dairyId, deliveryId);
+       WHERE dairyId = ? AND id = ?`, qty, qty, rate, amount, notes, milkType, raw.paymentStatus, mode, paidAmount, ts, dairyId, deliveryId);
 
-  const next = getOwnedDelivery(dairyId, deliveryId);
-  upsertLedger(next);
-  refreshMonthlyBill(dairyId, customer.id, current.date);
-  syncWalkInPayment(dairyId, customer.id, current.date, deliveryId, paidAmount, mode);
+  const next = await getOwnedDelivery(dairyId, deliveryId);
+  await upsertLedger(next);
+  await refreshMonthlyBill(dairyId, customer.id, current.date);
+  await syncWalkInPayment(dairyId, customer.id, current.date, deliveryId, paidAmount, mode);
   return {
-    ...getOwnedDelivery(dairyId, deliveryId),
-    customer: getCustomer(dairyId, customer.id),
+    ...await getOwnedDelivery(dairyId, deliveryId),
+    customer: await getCustomer(dairyId, customer.id),
     subscription: null,
   };
 }
 
-export function deleteWalkInSale(dairyId: string, deliveryId: string) {
-  requireDairy(dairyId);
-  const current = getOwnedDelivery(dairyId, deliveryId);
+export async function deleteWalkInSale(dairyId: string, deliveryId: string) {
+  await requireDairy(dairyId);
+  const current = await getOwnedDelivery(dairyId, deliveryId);
   if (current.source !== "walkin") throw new CustomerError("Only walk-in sales can be deleted here");
-  getDb().prepare(`DELETE FROM MilkLedger WHERE dairyId = ? AND deliveryId = ?`).run(dairyId, deliveryId);
-  getDb().prepare(`DELETE FROM CustomerPayment WHERE dairyId = ? AND reference = ?`).run(dairyId, walkInPaymentRef(deliveryId));
-  getDb().prepare(`DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND id = ?`).run(dairyId, deliveryId);
-  refreshMonthlyBill(dairyId, current.customerId, current.date);
+  await qrun(`DELETE FROM MilkLedger WHERE dairyId = ? AND deliveryId = ?`, dairyId, deliveryId);
+  await qrun(`DELETE FROM CustomerPayment WHERE dairyId = ? AND reference = ?`, dairyId, walkInPaymentRef(deliveryId));
+  await qrun(`DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND id = ?`, dairyId, deliveryId);
+  await refreshMonthlyBill(dairyId, current.customerId, current.date);
   return { ok: true };
 }
 
-export function listWalkInSales(dairyId: string, date: string): DeliveryRow[] {
-  requireDairy(dairyId);
+export async function listWalkInSales(dairyId: string, date: string): Promise<DeliveryRow[]> {
+  await requireDairy(dairyId);
   validateDate(date, "Date");
-  const rows = getDb()
-    .prepare(
-      `SELECT d.* FROM DailyMilkDelivery d
+  const rows = await qall(`SELECT d.* FROM DailyMilkDelivery d
        JOIN Customer c ON c.id = d.customerId
        WHERE d.dairyId = ? AND d.date = ? AND IFNULL(d.source, 'subscription') = 'walkin'
-       ORDER BY d.createdAt DESC`,
-    )
-    .all(dairyId, date);
-  return rows.map((row) => {
-    const delivery = mapDelivery(row);
-    return {
-      ...delivery,
-      customer: getCustomer(dairyId, delivery.customerId),
-      subscription: null,
-    };
-  });
+       ORDER BY d.createdAt DESC`, dairyId, date);
+  return Promise.all(
+    rows.map(async (row) => {
+      const delivery = mapDelivery(row);
+      return {
+        ...delivery,
+        customer: await getCustomer(dairyId, delivery.customerId),
+        subscription: null,
+      };
+    }),
+  );
 }
 
-export function walkInTotals(dairyId: string, date: string): WalkInTotals {
-  const sales = listWalkInSales(dairyId, date);
+export async function walkInTotals(dairyId: string, date: string): Promise<WalkInTotals> {
+  const sales = await listWalkInSales(dairyId, date);
   const qty = round2(sales.reduce((s, r) => s + r.deliveredQty, 0));
   const total = round2(sales.reduce((s, r) => s + r.amount, 0));
   const paid = round2(sales.reduce((s, r) => s + r.paidAmount, 0));
@@ -1291,13 +1124,11 @@ export function walkInTotals(dairyId: string, date: string): WalkInTotals {
   };
 }
 
-export function searchCustomers(dairyId: string, query: string, type?: CustomerType): CustomerRow[] {
-  requireDairy(dairyId);
+export async function searchCustomers(dairyId: string, query: string, type?: CustomerType): Promise<CustomerRow[]> {
+  await requireDairy(dairyId);
   const q = query.trim();
   if (!q && !type) return [];
-  const rows = getDb()
-    .prepare(
-      `SELECT * FROM Customer
+  const rows = await qall(`SELECT * FROM Customer
        WHERE dairyId = ?
          AND (? IS NULL OR IFNULL(customerType, 'regular') = ?)
          AND (
@@ -1307,57 +1138,41 @@ export function searchCustomers(dairyId: string, query: string, type?: CustomerT
            OR lower(customerCode) LIKE ?
          )
        ORDER BY name ASC
-       LIMIT 40`,
-    )
-    .all(
-      dairyId,
+       LIMIT 40`, dairyId,
       type ?? null,
       type ?? null,
       q,
       `%${q.toLowerCase()}%`,
       `%${q}%`,
-      `%${q.toLowerCase()}%`,
-    );
-  return rows.map((row) => getCustomerRow(dairyId, str(row.id)));
+      `%${q.toLowerCase()}%`,);
+  return Promise.all(rows.map((row) => getCustomerRow(dairyId, str(row.id))));
 }
 
-export function customerDashboardStats(dairyId: string, date: string): CustomerDashboardStats {
-  requireDairy(dairyId);
+export async function customerDashboardStats(dairyId: string, date: string): Promise<CustomerDashboardStats> {
+  await requireDairy(dairyId);
   validateDate(date, "Date");
-  const counts = getDb()
-    .prepare(
-      `SELECT
+  const counts = await qget(`SELECT
          COUNT(*) AS total,
          COALESCE(SUM(CASE WHEN IFNULL(customerType, 'regular') = 'regular' THEN 1 ELSE 0 END), 0) AS regular,
          COALESCE(SUM(CASE WHEN customerType = 'walkin' THEN 1 ELSE 0 END), 0) AS walkin,
          COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active
-       FROM Customer WHERE dairyId = ?`,
-    )
-    .get(dairyId);
-  const sales = getDb()
-    .prepare(
-      `SELECT
+       FROM Customer WHERE dairyId = ?`, dairyId);
+  const sales = await qget(`SELECT
          COALESCE(SUM(CASE WHEN status IN ('delivered','partial','extra') THEN deliveredQty ELSE 0 END), 0) AS qty,
          COALESCE(SUM(CASE WHEN status IN ('delivered','partial','extra') THEN amount ELSE 0 END), 0) AS sales,
          COALESCE(SUM(CASE WHEN IFNULL(source, 'subscription') = 'walkin' THEN deliveredQty ELSE 0 END), 0) AS walkInQty,
          COALESCE(SUM(CASE WHEN IFNULL(source, 'subscription') = 'walkin' THEN amount ELSE 0 END), 0) AS walkInSales,
          COALESCE(SUM(CASE WHEN IFNULL(source, 'subscription') = 'subscription' AND status IN ('delivered','partial','extra') THEN deliveredQty ELSE 0 END), 0) AS regularQty,
          COALESCE(SUM(CASE WHEN IFNULL(source, 'subscription') = 'subscription' AND status IN ('delivered','partial','extra') THEN amount ELSE 0 END), 0) AS regularSales
-       FROM DailyMilkDelivery WHERE dairyId = ? AND date = ?`,
-    )
-    .get(dairyId, date);
-  const pending = getDb()
-    .prepare(
-      `SELECT COUNT(*) AS n, COALESCE(SUM(outstanding), 0) AS amount FROM (
+       FROM DailyMilkDelivery WHERE dairyId = ? AND date = ?`, dairyId, date);
+  const pending = await qget(`SELECT COUNT(*) AS n, COALESCE(SUM(outstanding), 0) AS amount FROM (
          SELECT
            COALESCE((SELECT SUM(amount) FROM MilkLedger l WHERE l.dairyId = c.dairyId AND l.customerId = c.id), 0)
            - COALESCE((SELECT SUM(amount) FROM CustomerPayment p WHERE p.dairyId = c.dairyId AND p.customerId = c.id), 0)
            AS outstanding
          FROM Customer c
          WHERE c.dairyId = ?
-       ) x WHERE outstanding > 0.005`,
-    )
-    .get(dairyId);
+       ) x WHERE outstanding > 0.005`, dairyId);
 
   return {
     date,
@@ -1382,9 +1197,9 @@ export function customerDashboardStats(dairyId: string, date: string): CustomerD
   };
 }
 
-export function countCustomers(dairyId: string) {
+export async function countCustomers(dairyId: string) {
   return num(
-    getDb().prepare(`SELECT COUNT(*) AS t FROM Customer WHERE dairyId = ?`).get(dairyId)?.t,
+    (await qget(`SELECT COUNT(*) AS t FROM Customer WHERE dairyId = ?`, dairyId))?.t,
   );
 }
 

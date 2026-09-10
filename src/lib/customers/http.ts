@@ -25,7 +25,7 @@ export async function withDairy<T>(
       return jsonError(new CustomerError("Invalid JSON"));
     }
     const message = error instanceof Error ? error.message : "";
-    if (request.method === "GET" && /UNIQUE constraint|SQLITE_BUSY|database is locked/i.test(message)) {
+    if (request.method === "GET" && /UNIQUE constraint|SQLITE_BUSY|database is locked|duplicate key|23505/i.test(message)) {
       try {
         const dairyId = getRequestDairyId(request);
         const data = await handler(dairyId, {});
@@ -34,10 +34,10 @@ export async function withDairy<T>(
         return jsonError(new CustomerError("Please refresh and try again"));
       }
     }
-    if (/UNIQUE constraint|already exists/i.test(message)) {
+    if (/UNIQUE constraint|already exists|duplicate key|23505/i.test(message)) {
       return jsonError(new CustomerError("This record already exists"));
     }
-    if (/SQLITE_BUSY|database is locked/i.test(message)) {
+    if (/SQLITE_BUSY|database is locked|too many connections|53300/i.test(message)) {
       return jsonError(new CustomerError("Database is busy, try again"));
     }
     return jsonError(error);

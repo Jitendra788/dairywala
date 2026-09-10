@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const dairyId = getRequestDairyId(request);
-    return Response.json(runCustomerFlowTest(dairyId));
+    return Response.json(await runCustomerFlowTest(dairyId));
   } catch (error) {
     return jsonError(error);
   }
