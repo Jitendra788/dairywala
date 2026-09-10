@@ -5,11 +5,11 @@ import { changePassword, changeUsername, getAuthRecord } from "@/lib/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader } from "@/components/ui";
+import { ProfileForm } from "@/components/dairy-brand";
 
 export function SettingsView() {
   const dairy = useDairy();
   const { username } = useAuth();
-  const s = dairy.settings;
   const [user, setUser] = useState(username);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -56,38 +56,15 @@ export function SettingsView() {
       <PageHeader
         kicker="सेटिंग"
         title="Dairy settings"
-        hint="Centre name slips aur bills par chhapega. Data is browser mein save hota hai — Hamari jaisa offline desk."
+        hint="Pehle dairy profile save karo. Logo, name, centre, phone slip aur bill pe chhapenge."
       />
 
-      <Card id="profile" className="space-y-3 p-5">
-        <Field label="Dairy name">
-          <input
-            className={inputClass}
-            value={s.dairyName}
-            onChange={(e) => dairy.updateSettings({ dairyName: e.target.value })}
-          />
-        </Field>
-        <Field label="Collection centre">
-          <input
-            className={inputClass}
-            value={s.centerName}
-            onChange={(e) => dairy.updateSettings({ centerName: e.target.value })}
-          />
-        </Field>
-        <Field label="Phone">
-          <input
-            className={inputClass}
-            value={s.phone}
-            onChange={(e) => dairy.updateSettings({ phone: e.target.value })}
-          />
-        </Field>
-        <Field label="Address">
-          <input
-            className={inputClass}
-            value={s.address}
-            onChange={(e) => dairy.updateSettings({ address: e.target.value })}
-          />
-        </Field>
+      <Card id="profile" className="space-y-4 p-4 sm:p-5">
+        <div>
+          <h2 className="font-display text-xl">Dairy profile</h2>
+          <p className="mt-1 text-sm text-muted">Yahan se logo aur name edit karo — collection slip turant update ho jayegi.</p>
+        </div>
+        <ProfileForm />
       </Card>
 
       <Card id="account" className="space-y-3 p-4 sm:p-5">

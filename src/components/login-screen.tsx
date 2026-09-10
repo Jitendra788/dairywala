@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Droplets, Eye, EyeOff, Lock, UserRound } from "lucide-react";
+import { Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { getAuthRecord, login } from "@/lib/auth";
 import { btnPrimary, Card, Field, inputClass } from "@/components/ui";
 
 export function LoginScreen() {
   const router = useRouter();
   const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("admin");
   const [remember, setRemember] = useState(true);
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -38,9 +38,11 @@ export function LoginScreen() {
     <div className="relative z-10 h-dvh overflow-y-auto bg-background">
       <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-4 py-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
         <div className="mb-6 text-center sm:mb-8">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-3xl bg-primary text-white shadow-[0_10px_30px_rgba(24,122,72,0.35)] sm:h-14 sm:w-14">
-            <Droplets size={24} />
-          </span>
+          <img
+            src="/dairy-logo.png"
+            alt="Tony Dairy"
+            className="mx-auto h-16 w-16 rounded-3xl object-contain shadow-[0_10px_30px_rgba(24,122,72,0.35)] sm:h-[72px] sm:w-[72px]"
+          />
           <h1 className="mt-3 font-display text-[28px] leading-none sm:mt-4 sm:text-3xl">Tony Dairy</h1>
           <p className="mt-2 text-[13px] text-muted sm:text-sm">Collection desk lock — login ke baad hi data dikhega.</p>
         </div>

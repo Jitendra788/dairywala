@@ -9,6 +9,7 @@ import { useDairy } from "@/hooks/use-dairy";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerDashboardStats } from "@/lib/customers/types";
 import { todayISO } from "@/lib/dates";
+import { DairyLogo } from "@/components/dairy-brand";
 import { btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
 
 export function DashboardView() {
@@ -30,10 +31,17 @@ export function DashboardView() {
         <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute right-16 -bottom-12 h-32 w-32 rounded-full bg-gold/20" />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] tracking-[0.18em] text-white/70 uppercase">{dairy.settings.centerName}</p>
-            <h1 className="mt-1 font-display text-[28px] leading-tight sm:text-[34px] sm:leading-none">{dairy.settings.dairyName}</h1>
-            <p className="mt-2 text-sm text-white/75">Aaj ka collection live desk par.</p>
+          <div className="flex min-w-0 items-start gap-3">
+            <DairyLogo
+              settings={dairy.settings}
+              size={56}
+              className="rounded-2xl bg-white object-contain p-1"
+            />
+            <div className="min-w-0">
+              <p className="text-[11px] tracking-[0.18em] text-white/70 uppercase">{dairy.settings.centerName || "Collection"}</p>
+              <h1 className="mt-1 font-display text-[28px] leading-tight sm:text-[34px] sm:leading-none">{dairy.settings.dairyName}</h1>
+              <p className="mt-2 text-sm text-white/75">Aaj ka collection live desk par.</p>
+            </div>
           </div>
           <div className="min-w-0 sm:text-right">
             <p className="text-[11px] text-white/65">Today</p>

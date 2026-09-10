@@ -1,4 +1,5 @@
 import { addDays, todayISO } from "@/lib/dates";
+import { DEFAULT_DAIRY_LOGO } from "@/lib/profile";
 import { calcAmount, defaultChart, ensureMethodCharts, generateFormulaCells, milkKey, quoteRate } from "@/lib/rate";
 import type { CollectionEntry, DairyState, Farmer, RateChart } from "@/lib/types";
 
@@ -85,9 +86,11 @@ export function createSeedState(): DairyState {
   return {
     settings: {
       dairyName: "Tony Dairy",
-      centerName: "Bagru Collection Centre",
-      phone: "9352729857",
-      address: "Jaipur, Rajasthan",
+      centerName: "Collection Centre",
+      phone: "",
+      address: "",
+      logo: DEFAULT_DAIRY_LOGO,
+      profileComplete: true,
       rateMethod: "formula",
       cowMethod: "formula",
       buffaloMethod: "fat-only",

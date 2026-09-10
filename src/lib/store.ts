@@ -2,6 +2,7 @@ import { todayISO } from "@/lib/dates";
 import { calcAmount, ensureMethodCharts, methodForMilk, normalizeChart, pickChart, quoteRate } from "@/lib/rate";
 import { round2 } from "@/lib/money";
 import { createSeedState } from "@/lib/seed";
+import { DEFAULT_DAIRY_LOGO } from "@/lib/profile";
 import type {
   Advance,
   Bill,
@@ -73,6 +74,9 @@ function migrateState(raw: DairyState): DairyState {
     ...raw,
     settings: {
       ...raw.settings,
+      logo: raw.settings.logo || DEFAULT_DAIRY_LOGO,
+      dairyName: raw.settings.dairyName || "Tony Dairy",
+      profileComplete: true,
       rateMethod: raw.settings.rateMethod ?? "formula",
       cowMethod: raw.settings.cowMethod ?? raw.settings.rateMethod ?? "formula",
       buffaloMethod: raw.settings.buffaloMethod ?? "fat-only",

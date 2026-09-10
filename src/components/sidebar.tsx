@@ -22,6 +22,7 @@ import { formatQty } from "@/lib/money";
 import { logout } from "@/lib/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useDairy } from "@/hooks/use-dairy";
+import { DairyLogo } from "@/components/dairy-brand";
 
 type GroupKey = "milk" | "customers" | "finance" | "payments" | "rates" | "rateChart" | "reports" | "reportsMenu" | "management" | "settings";
 
@@ -165,11 +166,13 @@ export function Sidebar({
       >
         <div className={`flex shrink-0 items-center gap-2 px-3 pt-3 ${collapsed ? "lg:justify-center lg:px-2" : "px-3"} pb-2`}>
           <Link href="/" onClick={onClose} className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-white shadow-[0_0_0_4px_rgba(24,122,72,0.28)]">
-              <Droplets size={18} />
-            </span>
+            <DairyLogo
+              settings={settings}
+              size={40}
+              className="shadow-[0_0_0_4px_rgba(24,122,72,0.28)]"
+            />
             <span className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
-              <span className="block truncate font-display text-[18px] leading-none text-white">{settings.dairyName}</span>
+              <span className="block truncate font-display text-[18px] leading-none text-white">{settings.dairyName || "Dairy desk"}</span>
               <span className="mt-1 block truncate text-[10px] text-white/65">{settings.centerName}</span>
             </span>
           </Link>

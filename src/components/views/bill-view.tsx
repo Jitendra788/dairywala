@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnDanger, btnPrimary, Card, confirmAction } from "@/components/ui";
+import { DairyLetterhead } from "@/components/dairy-brand";
 
 export function BillView() {
   const { id } = useParams<{ id: string }>();
@@ -51,10 +52,8 @@ export function BillView() {
         </Link>
       </div>
 
-      <Card className="p-6">
-        <p className="text-xs uppercase tracking-widest text-muted">Farmer bill</p>
-        <h1 className="font-display text-3xl">{dairy.settings.dairyName}</h1>
-        <p className="text-sm text-muted">{dairy.settings.centerName}</p>
+      <Card className="print-slip p-6">
+        <DairyLetterhead settings={dairy.settings} kicker="Farmer bill" />
         <div className="mt-4 grid gap-1 text-sm">
           <p>
             <span className="text-muted">Farmer · </span>

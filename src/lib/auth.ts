@@ -13,6 +13,7 @@ export type AuthSession = {
 
 const AUTH_KEY = "tony-dairy-auth";
 const SESSION_KEY = "tony-dairy-session";
+const AUTH_RESET_KEY = "tony-dairy-auth-admin-reset";
 
 const listeners = new Set<() => void>();
 let cachedRaw: string | null = null;
@@ -92,13 +93,15 @@ function writeSession(session: AuthSession) {
 
 export async function ensureDefaultAuth() {
   if (typeof window === "undefined") return;
-  if (readAuth()) return;
+  const force = !localStorage.getItem(AUTH_RESET_KEY);
+  if (readAuth() && !force) return;
   writeAuth({
     username: "admin",
     passwordHash: await sha256("admin"),
     isDefault: true,
     updatedAt: new Date().toISOString(),
   });
+  localStorage.setItem(AUTH_RESET_KEY, "1");
 }
 
 export function getAuthRecord() {

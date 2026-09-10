@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/toast";
 import { UserMenu } from "@/components/user-menu";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { useDairy } from "@/hooks/use-dairy";
+import { DairyLogo } from "@/components/dairy-brand";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -38,9 +39,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Menu size={18} />
             </button>
-            <div className="min-w-0 lg:hidden">
-              <p className="truncate text-[13px] font-medium">{settings.dairyName}</p>
-              <p className="text-[10px] text-muted">{formatDate(todayISO())}</p>
+            <div className="flex min-w-0 items-center gap-2 lg:hidden">
+              <DairyLogo settings={settings} size={28} className="rounded-xl" />
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-medium">{settings.dairyName || "Dairy desk"}</p>
+                <p className="text-[10px] text-muted">{formatDate(todayISO())}</p>
+              </div>
             </div>
             <div className="hidden items-center gap-2 lg:flex">
               <span className="rounded-full bg-[#f4ead6] px-2.5 py-1 text-[12px] text-foreground/80">

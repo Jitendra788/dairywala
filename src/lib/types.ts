@@ -104,6 +104,8 @@ export type Settings = {
   centerName: string;
   phone: string;
   address: string;
+  logo: string;
+  profileComplete: boolean;
   rateMethod: ChartMethod;
   cowMethod: ChartMethod;
   buffaloMethod: ChartMethod;
