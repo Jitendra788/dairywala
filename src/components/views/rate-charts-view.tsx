@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { Calculator, ChevronDown, Droplets, SlidersHorizontal } from "lucide-react";
+import { Calculator, Check, ChevronDown, Droplets, Search, Shield, SlidersHorizontal, Sparkles } from "lucide-react";
 import {
   chartAxes,
   defaultRules,
   generateBlankGrid,
+  fatPointRate,
   generateFatOnlyCells,
   generateFormulaCells,
   isLowKgFatRate,
@@ -15,40 +16,45 @@ import {
   methodRowCount,
   milkKey,
   resolvedKgFatRate,
-  TYPICAL_KG_FAT,
 } from "@/lib/rate";
 import { formatInr, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
-import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader } from "@/components/ui";
+import { btnGhost, btnPrimary, Card, Field, inputClass } from "@/components/ui";
 import type { ChartMethod, MilkType, QualityRule, RateChart, Settings } from "@/lib/types";
 
 const METHODS: {
   kind: ChartMethod;
   icon: ReactNode;
+  title: string;
   hint: string;
 }[] = [
   {
     kind: "fat-only",
     icon: <Droplets size={18} />,
-    hint: "Buffalo: Rate/L = FAT% × (₹/kg Fat ÷ 100). Typical ₹900/kg Fat → 6% FAT = ₹54/L. SNF collection pe optional.",
+    title: "₹ / kg Fat",
+    hint: "Buffalo collection. FAT% × rate point = ₹ / L.",
   },
   {
     kind: "formula",
     icon: <Calculator size={18} />,
-    hint: "Har FAT ka alag rate. Add se naya FAT daalo, Update se purana rate badlo.",
+    title: "FAT rate table",
+    hint: "Har FAT ka alag litre rate. Cow ke liye best.",
   },
   {
     kind: "grid",
     icon: <SlidersHorizontal size={18} />,
-    hint: "Type your own SNF × FAT cell rates if the Excel formulas are not enough.",
+    title: "SNF × FAT grid",
+    hint: "Cell-by-cell chart jab formula kaafi na ho.",
   },
 ];
+
+const PREVIEW_FATS = [5.5, 6, 7, 8, 10, 12];
 
 export function RateChartsView() {
   const dairy = useDairy();
   const searchParams = useSearchParams();
-  const [open, setOpen] = useState<ChartMethod | null>(dairy.settings.cowMethod ?? dairy.settings.rateMethod);
-  const [milk, setMilk] = useState<MilkType>("cow");
+  const [open, setOpen] = useState<ChartMethod>(dairy.settings.buffaloMethod ?? dairy.settings.cowMethod ?? "fat-only");
+  const [milk, setMilk] = useState<MilkType>("buffalo");
   const [fatPage, setFatPage] = useState(0);
   const [saved, setSaved] = useState("");
 
@@ -83,165 +89,199 @@ export function RateChartsView() {
     dairy.updateSettings(patchSettings);
     setOpen(kind);
     setMilk(milkType);
-    setSaved(`${METHOD_LABEL[kind]} is now used for ${milkType} collection.`);
+    setSaved(`${METHOD_LABEL[kind]} ab ${milkType} collection pe lagega.`);
   }
 
-  function badge(kind: ChartMethod) {
-    const cow = methodRowCount(dairy.charts, kind, "cow");
-    const buffalo = methodRowCount(dairy.charts, kind, "buffalo");
-    if (!cow && !buffalo) return "Not set";
-    return `${cow} cow • ${buffalo} buffalo rows`;
-  }
+  const active = METHODS.find((m) => m.kind === open) ?? METHODS[0];
+  const buffaloLive = chartOf(dairy.settings.buffaloMethod ?? "fat-only", "buffalo");
+  const cowLive = chartOf(dairy.settings.cowMethod ?? dairy.settings.rateMethod ?? "formula", "cow");
+  const buffaloPoint = buffaloLive ? fatPointRate(buffaloLive) : 0;
+  const buffaloSample = buffaloLive ? kgFatLitreRate(buffaloLive, 5.5) : 0;
+  const cowActive = usedBy(active.kind) === "Cow" || usedBy(active.kind) === "Cow + Buffalo";
+  const buffaloActive = usedBy(active.kind) === "Buffalo" || usedBy(active.kind) === "Cow + Buffalo";
 
   return (
-    <div className="mx-auto min-w-0 max-w-3xl space-y-4 sm:space-y-5">
-      <PageHeader
-        kicker="रेट चार्ट"
-        title="Create rate chart"
-        hint="Buffalo typical ₹900 / kg Fat (6% FAT ≈ ₹54 / L). Cow mein har FAT ka rate Add / Update se set karo."
-      />
+    <div className="mx-auto min-w-0 max-w-5xl space-y-3 sm:space-y-5">
+      <section className="relative overflow-hidden rounded-2xl bg-primary px-3.5 py-4 text-white shadow-[0_16px_40px_rgba(24,122,72,0.24)] sm:rounded-3xl sm:px-6 sm:py-6">
+        <div className="pointer-events-none absolute -right-8 -top-16 h-44 w-44 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute right-24 -bottom-14 hidden h-28 w-28 rounded-full bg-gold/25 sm:block" />
+        <div className="relative flex flex-col gap-3 sm:gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] tracking-[0.18em] text-white/65 uppercase sm:text-[11px]">रेट चार्ट</p>
+            <h1 className="mt-1 font-display text-[24px] leading-tight sm:text-[34px] sm:leading-none">Rate desk</h1>
+            <p className="mt-1 hidden max-w-lg text-sm text-white/75 sm:mt-2 sm:block">
+              Collection isi chart se rate nikalta hai. Buffalo ₹ / kg Fat, cow alag FAT table.
+            </p>
+          </div>
+          <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:min-w-[340px] sm:gap-2">
+            <HeroStat
+              label="Buffalo 5.5%"
+              value={buffaloSample ? formatInr(buffaloSample) : "—"}
+              hint={buffaloPoint ? `${formatInr(buffaloPoint)} / 1%` : "Chart set karo"}
+            />
+            <HeroStat
+              label="Cow rates"
+              value={cowLive?.cells.length ? String(cowLive.cells.length) : "—"}
+              hint={cowLive?.cells.length ? "FAT rows ready" : "Table empty"}
+            />
+          </div>
+        </div>
+      </section>
 
-      {saved ? <p className="text-sm font-medium text-primary">{saved}</p> : null}
+      {saved ? (
+        <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px] font-medium break-words text-primary sm:items-center sm:text-sm">
+          <Check size={16} className="mt-0.5 shrink-0 sm:mt-0" />
+          {saved}
+        </div>
+      ) : null}
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
         {METHODS.map((item) => {
           const using = usedBy(item.kind);
-          const expanded = open === item.kind;
-          const ready = badge(item.kind) !== "Not set";
-          const cowActive = using === "Cow" || using === "Cow + Buffalo";
-          const buffaloActive = using === "Buffalo" || using === "Cow + Buffalo";
+          const selected = open === item.kind;
+          const rows = methodRowCount(dairy.charts, item.kind, milk);
           return (
-            <Card key={item.kind} className="min-w-0 overflow-hidden p-0">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2.5 px-3 py-3 text-left sm:gap-3 sm:px-4 sm:py-4"
-                onClick={() => setOpen(expanded ? null : item.kind)}
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-primary sm:h-11 sm:w-11">
+            <button
+              key={item.kind}
+              type="button"
+              onClick={() => setOpen(item.kind)}
+              className={`min-w-0 rounded-xl border px-1.5 py-2 text-left transition sm:rounded-2xl sm:px-3.5 sm:py-3.5 ${
+                selected
+                  ? "border-primary bg-card shadow-[0_10px_28px_rgba(24,122,72,0.12)]"
+                  : "border-line bg-card/70 hover:border-primary/40 hover:bg-card"
+              }`}
+            >
+              <span className="flex flex-col items-center gap-1.5 sm:flex-row sm:items-start sm:gap-3">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 sm:rounded-2xl ${
+                    selected ? "bg-primary text-white" : "bg-emerald-50 text-primary"
+                  }`}
+                >
                   {item.icon}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <span className="font-display text-[17px] leading-tight sm:text-lg sm:leading-none">{METHOD_LABEL[item.kind]}</span>
+                <span className="min-w-0 text-center sm:text-left">
+                  <span className="flex flex-col items-center gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5">
+                    <span className="font-display text-[11px] leading-tight sm:text-[16px]">{item.title}</span>
                     {using ? (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary uppercase">
-                        {using}
+                      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-primary uppercase sm:text-[10px]">
+                        Live
                       </span>
                     ) : null}
                   </span>
-                  <span className="mt-1 line-clamp-2 hidden text-[13px] text-muted sm:block">{item.hint}</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span
-                    className={`hidden rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline ${
-                      ready ? "bg-emerald-50 text-primary" : "bg-[#f4ead6] text-muted"
-                    }`}
-                  >
-                    {badge(item.kind)}
+                  <span className="mt-1 hidden text-[12px] text-muted md:block">{item.hint}</span>
+                  <span className="mt-2 hidden text-[11px] font-semibold text-foreground/70 md:block">
+                    {using ? `In use: ${using}` : "Not used in collection"}
+                    {rows ? ` · ${rows} rows` : ""}
                   </span>
-                  <ChevronDown size={16} className={`text-muted transition ${expanded ? "rotate-180" : ""}`} />
                 </span>
-              </button>
-
-              {expanded ? (
-                <div className="min-w-0 border-t border-line px-3 py-3 sm:px-4 sm:py-4">
-                  <p className="mb-3 text-[12px] text-muted sm:hidden">{item.hint}</p>
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:hidden">
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${ready ? "bg-emerald-50 text-primary" : "bg-[#f4ead6] text-muted"}`}>
-                      {badge(item.kind)}
-                    </span>
-                  </div>
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex w-full rounded-xl bg-[#f4ead6] p-0.5 sm:w-auto">
-                      {(["buffalo", "cow"] as const).map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          className={`min-h-11 flex-1 rounded-[10px] px-3 py-2 text-[13px] font-semibold capitalize sm:min-h-0 sm:flex-none sm:py-1.5 sm:text-[12px] ${
-                            milk === m ? "bg-primary text-white" : "text-muted"
-                          }`}
-                          onClick={() => {
-                            setMilk(m);
-                            setFatPage(0);
-                          }}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                      <button
-                        type="button"
-                        className={`${cowActive ? btnGhost : btnPrimary} w-full sm:w-auto`}
-                        onClick={() => useFor(item.kind, "cow")}
-                      >
-                        Use for Cow
-                      </button>
-                      <button
-                        type="button"
-                        className={`${buffaloActive ? btnGhost : btnPrimary} w-full sm:w-auto`}
-                        onClick={() => useFor(item.kind, "buffalo")}
-                      >
-                        Use for Buffalo
-                      </button>
-                    </div>
-                  </div>
-
-                  {item.kind === "fat-only" ? (
-                    milk === "cow" ? (
-                      <FatRowEditor chart={chartOf("fat-only", milk)} onPatch={patch} />
-                    ) : (
-                      <FatOnlyEditor chart={chartOf("fat-only", milk)} onPatch={patch} />
-                    )
-                  ) : null}
-                  {item.kind === "formula" ? (
-                    <FatRowEditor chart={chartOf("formula", milk)} onPatch={patch} />
-                  ) : null}
-                  {item.kind === "grid" ? (
-                    <ManualEditor
-                      chart={chartOf("grid", milk)}
-                      fatPage={fatPage}
-                      onFatPage={setFatPage}
-                      onPatch={patch}
-                      onGenerateBlank={() => {
-                        const current = chartOf("grid", milk);
-                        if (!current) return;
-                        patch(current.id, { cells: generateBlankGrid(current) });
-                        setSaved(`${milk} manual grid ready. Type rates in the cells.`);
-                      }}
-                      onCopyFormula={() => {
-                        const formula = chartOf("formula", milk);
-                        const current = chartOf("grid", milk);
-                        if (!formula || !current) return;
-                        patch(current.id, {
-                          fatMin: formula.fatMin,
-                          fatMax: formula.fatMax,
-                          fatStep: formula.fatStep,
-                          snfMin: formula.snfMin,
-                          snfMax: formula.snfMax,
-                          snfStep: formula.snfStep,
-                          cells: generateFormulaCells({ ...formula, kind: "formula" }),
-                        });
-                        setSaved(`${milk} manual chart copied from formula. You can edit any cell.`);
-                      }}
-                    />
-                  ) : null}
-
-                  {item.kind === "fat-only" && milk === "buffalo" && chartOf(item.kind, milk) ? (
-                    <RulesEditor chart={chartOf(item.kind, milk)!} onPatch={patch} />
-                  ) : null}
-                </div>
-              ) : null}
-            </Card>
+              </span>
+            </button>
           );
         })}
       </div>
+
+      <Card className="min-w-0 overflow-hidden p-0">
+        <div className="flex flex-col gap-2.5 border-b border-line bg-[#fffaf1] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <p className="font-display text-[17px] leading-none sm:text-lg">{active.title}</p>
+            <p className="mt-1 hidden text-[12px] text-muted sm:block">{active.hint}</p>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex w-full rounded-xl bg-[#f4ead6] p-0.5 sm:w-auto">
+              {(["buffalo", "cow"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`min-h-10 flex-1 rounded-[10px] px-3 text-[13px] font-semibold capitalize sm:min-h-9 sm:flex-none sm:px-3.5 ${
+                    milk === m
+                      ? m === "buffalo"
+                        ? "bg-amber-700 text-white"
+                        : "bg-sky-700 text-white"
+                      : "text-muted"
+                  }`}
+                  onClick={() => {
+                    setMilk(m);
+                    setFatPage(0);
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <button type="button" className={`${cowActive ? btnGhost : btnPrimary} w-full px-3 sm:w-auto`} onClick={() => useFor(active.kind, "cow")}>
+                <span className="sm:hidden">{cowActive ? "Cow ✓" : "Cow"}</span>
+                <span className="hidden sm:inline">{cowActive ? "Cow live" : "Use for Cow"}</span>
+              </button>
+              <button
+                type="button"
+                className={`${buffaloActive ? btnGhost : btnPrimary} w-full px-3 sm:w-auto`}
+                onClick={() => useFor(active.kind, "buffalo")}
+              >
+                <span className="sm:hidden">{buffaloActive ? "Buffalo ✓" : "Buffalo"}</span>
+                <span className="hidden sm:inline">{buffaloActive ? "Buffalo live" : "Use for Buffalo"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="min-w-0 px-3 py-3 sm:px-5 sm:py-5">
+          {active.kind === "fat-only" ? (
+            milk === "cow" ? (
+              <FatRowEditor chart={chartOf("fat-only", milk)} onPatch={patch} />
+            ) : (
+              <FatOnlyEditor chart={chartOf("fat-only", milk)} onPatch={patch} />
+            )
+          ) : null}
+          {active.kind === "formula" ? <FatRowEditor chart={chartOf("formula", milk)} onPatch={patch} /> : null}
+          {active.kind === "grid" ? (
+            <ManualEditor
+              chart={chartOf("grid", milk)}
+              fatPage={fatPage}
+              onFatPage={setFatPage}
+              onPatch={patch}
+              onGenerateBlank={() => {
+                const current = chartOf("grid", milk);
+                if (!current) return;
+                patch(current.id, { cells: generateBlankGrid(current) });
+                setSaved(`${milk} manual grid ready. Type rates in the cells.`);
+              }}
+              onCopyFormula={() => {
+                const formula = chartOf("formula", milk);
+                const current = chartOf("grid", milk);
+                if (!formula || !current) return;
+                patch(current.id, {
+                  fatMin: formula.fatMin,
+                  fatMax: formula.fatMax,
+                  fatStep: formula.fatStep,
+                  snfMin: formula.snfMin,
+                  snfMax: formula.snfMax,
+                  snfStep: formula.snfStep,
+                  cells: generateFormulaCells({ ...formula, kind: "formula" }),
+                });
+                setSaved(`${milk} manual chart copied from formula. You can edit any cell.`);
+              }}
+            />
+          ) : null}
+
+          {active.kind === "fat-only" && milk === "buffalo" && chartOf(active.kind, milk) ? (
+            <RulesEditor chart={chartOf(active.kind, milk)!} onPatch={patch} />
+          ) : null}
+        </div>
+      </Card>
     </div>
   );
 }
 
-const KG_FAT_PRESETS = [800, 900, 1000, 1100, 1200];
-const PREVIEW_FATS = [5.5, 6, 7, 8];
+function HeroStat({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-white/10 px-2.5 py-2.5 backdrop-blur-sm sm:rounded-2xl sm:px-3.5 sm:py-3">
+      <p className="truncate text-[9px] tracking-wide text-white/65 uppercase sm:text-[10px]">{label}</p>
+      <p className="mt-1 truncate font-display text-lg leading-none sm:text-2xl">{value}</p>
+      <p className="mt-1 truncate text-[10px] text-white/70 sm:mt-1.5 sm:text-[11px]">{hint}</p>
+    </div>
+  );
+}
 
 function FatOnlyEditor({
   chart,
@@ -250,21 +290,31 @@ function FatOnlyEditor({
   chart?: RateChart;
   onPatch: (id: string, next: Partial<RateChart>) => void;
 }) {
+  const [trial, setTrial] = useState("6.0");
+  const [query, setQuery] = useState("");
+
   if (!chart) return null;
   const current = chart;
   const kg = resolvedKgFatRate(current);
-  const typical = TYPICAL_KG_FAT[milkKey(current.milkType)];
-  const perPoint = kg / 100;
+  const perPoint = fatPointRate(current);
   const draft: RateChart = { ...current, kgFatRate: kg, fatRate: perPoint };
   const low = isLowKgFatRate(kg);
-  const samples = PREVIEW_FATS.map((fat) => ({ fat, rate: kgFatLitreRate(draft, fat) }));
+  const samples = PREVIEW_FATS.filter((fat) => fat >= current.fatMin && fat <= current.fatMax).map((fat) => ({
+    fat,
+    rate: kgFatLitreRate(draft, fat),
+  }));
+  const trialFat = Number(trial);
+  const trialRate = trialFat > 0 ? kgFatLitreRate(draft, trialFat) : 0;
+  const rows = query.trim()
+    ? chart.cells.filter((cell) => cell.fat.toFixed(1).includes(query.trim()) || String(cell.fat).includes(query.trim()))
+    : chart.cells;
 
-  function applyKg(nextKg: number, regenerate: boolean) {
-    const next: RateChart = { ...current, kgFatRate: nextKg, fatRate: nextKg / 100 };
+  function applyKg(nextKg: number) {
+    const next: RateChart = { ...current, kgFatRate: nextKg, fatRate: fatPointRate({ kgFatRate: nextKg, fatRate: 0 }) };
     onPatch(current.id, {
       kgFatRate: nextKg,
-      fatRate: nextKg / 100,
-      cells: regenerate ? generateFatOnlyCells(next) : current.cells,
+      fatRate: next.fatRate,
+      cells: nextKg > 0 ? generateFatOnlyCells(next) : current.cells,
     });
   }
 
@@ -272,108 +322,166 @@ function FatOnlyEditor({
     onPatch(current.id, { cells: generateFatOnlyCells(draft) });
   }
 
+  function patchRange(next: Partial<RateChart>) {
+    const merged = { ...current, ...next };
+    onPatch(current.id, { ...next, cells: generateFatOnlyCells(merged) });
+  }
+
   return (
-    <div className="min-w-0 space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Field label="₹ / kg Fat">
-          <input
-            className={inputClass}
-            inputMode="decimal"
-            value={kg || ""}
-            onChange={(e) => applyKg(Number(e.target.value), false)}
-          />
-        </Field>
-        <Field label="Good SNF min">
-          <input
-            className={inputClass}
-            inputMode="decimal"
-            value={chart.goodSnfMin}
-            onChange={(e) => onPatch(chart.id, { goodSnfMin: Number(e.target.value) })}
-          />
-        </Field>
-        <Field label="FAT from">
-          <input className={inputClass} inputMode="decimal" value={chart.fatMin} onChange={(e) => onPatch(chart.id, { fatMin: Number(e.target.value) })} />
-        </Field>
-        <Field label="FAT to">
-          <input className={inputClass} inputMode="decimal" value={chart.fatMax} onChange={(e) => onPatch(chart.id, { fatMax: Number(e.target.value) })} />
-        </Field>
+    <div className="min-w-0 space-y-3 sm:space-y-5">
+      <div className="grid gap-3 lg:grid-cols-[1.4fr_0.9fr]">
+        <div className="rounded-2xl border border-line bg-[#fffaf1] p-3 sm:p-4">
+          <p className="text-[10px] font-semibold tracking-[0.16em] text-muted uppercase">Buffalo rate</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            <label className="col-span-2">
+              <span className="text-[11px] font-medium text-muted">₹ / kg Fat</span>
+              <input
+                className={`${inputClass} mt-1 font-display text-xl sm:text-2xl md:text-2xl`}
+                inputMode="decimal"
+                value={kg || ""}
+                onChange={(e) => applyKg(Number(e.target.value))}
+                placeholder="66"
+              />
+            </label>
+            <div className="col-span-2 sm:col-span-1">
+              <Field label="Good SNF min">
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  value={chart.goodSnfMin}
+                  onChange={(e) => onPatch(chart.id, { goodSnfMin: Number(e.target.value) })}
+                />
+              </Field>
+            </div>
+            <Field label="FAT from">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                value={chart.fatMin}
+                onChange={(e) => patchRange({ fatMin: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="FAT to">
+              <input
+                className={inputClass}
+                inputMode="decimal"
+                value={chart.fatMax}
+                onChange={(e) => patchRange({ fatMax: Number(e.target.value) })}
+              />
+            </Field>
+          </div>
+          {low ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] break-words text-amber-950 sm:text-[13px]">
+              ₹{kg} se 6% FAT sirf {formatInr(kgFatLitreRate(draft, 6))} / L — rate check karo.
+            </div>
+          ) : (
+            <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[12px] break-words text-muted sm:text-[13px]">
+              {kg > 0 && kg < 200
+                ? `₹${kg} desk = ${formatInr(perPoint)} / 1% FAT. Collection: FAT% × ${formatInr(perPoint)}.`
+                : `1% FAT = ${formatInr(perPoint)}. Collection: FAT% × ${formatInr(perPoint)}.`}{" "}
+              SNF optional.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl bg-[#12281e] px-3.5 py-3.5 text-white shadow-[0_12px_28px_rgba(18,40,30,0.18)] sm:px-4 sm:py-4">
+          <p className="text-[10px] font-semibold tracking-[0.16em] text-white/55 uppercase">Live trial</p>
+          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+            <label className="min-w-0">
+              <span className="text-[11px] text-white/65">FAT %</span>
+              <input
+                className="mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-lg text-white outline-none placeholder:text-white/35 focus:border-white/40"
+                inputMode="decimal"
+                value={trial}
+                onChange={(e) => setTrial(e.target.value)}
+                placeholder="6.0"
+              />
+            </label>
+            <div className="min-w-0 pb-0.5 text-right">
+              <p className="text-[11px] text-white/60">Rate / L</p>
+              <p className="font-display text-2xl leading-none sm:text-3xl">{trialFat > 0 ? formatInr(trialRate) : "—"}</p>
+              <p className="mt-1 text-[11px] text-white/65">
+                {trialFat > 0 ? `${trialFat.toFixed(1)}% × ${formatInr(perPoint)}` : "FAT daalo"}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {KG_FAT_PRESETS.map((preset) => (
-          <button
-            key={preset}
-            type="button"
-            className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${
-              kg === preset ? "bg-primary text-white" : "bg-[#f4ead6] text-ink hover:bg-[#efe4cc]"
-            }`}
-            onClick={() => applyKg(preset, true)}
-          >
-            ₹{preset}
-          </button>
-        ))}
-      </div>
+      {samples.length ? (
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-6 sm:overflow-visible sm:px-0 sm:pb-0">
+          {samples.map((row) => (
+            <div key={row.fat} className="min-w-[104px] shrink-0 rounded-2xl border border-line bg-card px-3 py-2.5 sm:min-w-0">
+              <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">{row.fat.toFixed(1)}%</p>
+              <p className="font-display text-[15px] leading-tight sm:text-lg">{formatInr(row.rate)}</p>
+              <p className="text-[10px] text-muted">per litre</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
-      {low ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-950">
-          ₹{kg} / kg Fat se 6% FAT sirf {formatInr(kgFatLitreRate(draft, 6))} / L padega — ye dairy rate nahi hai.
-          <button type="button" className="ml-2 font-semibold text-primary underline" onClick={() => applyKg(typical, true)}>
-            Typical ₹{typical} use karo
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="relative min-w-0 flex-1 sm:max-w-xs">
+          <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
+          <input
+            className={`${inputClass} pl-9`}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="FAT dhoondo — 6.5"
+          />
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <p className="text-[12px] text-muted">
+            {rows.length} / {chart.cells.length} rows · {chart.fatMin.toFixed(1)}–{chart.fatMax.toFixed(1)}%
+          </p>
+          <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={generate}>
+            <Sparkles size={15} />
+            Refresh chart
           </button>
         </div>
-      ) : (
-        <p className="text-[13px] text-muted">
-          1% FAT = {formatInr(perPoint)} / L. Collection: FAT% × {formatInr(perPoint)}. SNF optional — deduction tabhi jab SNF daali ho.
-        </p>
-      )}
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {samples.map((row) => (
-          <div key={row.fat} className="rounded-xl border border-line bg-[#fbf7ef] px-3 py-2">
-            <p className="text-[10px] font-semibold tracking-wide text-muted uppercase">{row.fat.toFixed(1)}% FAT</p>
-            <p className="font-display text-lg leading-tight">{formatInr(row.rate)}</p>
-            <p className="text-[11px] text-muted">per litre</p>
-          </div>
-        ))}
       </div>
 
-      <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={generate}>
-        Generate {chart.milkType} FAT chart
-      </button>
       {chart.cells.length ? (
-        <div className="table-scroll max-h-72 rounded-xl border border-line">
+        <div className="table-scroll max-h-[min(420px,55vh)] overflow-auto rounded-2xl border border-line">
           <table className="w-full min-w-[280px] text-left text-sm">
-            <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
+            <thead className="table-head sticky top-0 z-[1] text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-3 py-2 font-medium">FAT %</th>
-                <th className="px-3 py-2 font-medium">Rate / L</th>
+                <th className="px-4 py-2.5 font-medium">FAT %</th>
+                <th className="px-4 py-2.5 font-medium">Rate / L</th>
               </tr>
             </thead>
             <tbody>
-              {chart.cells.map((cell, i) => (
-                <tr key={`${cell.fat}-${i}`} className="border-t border-line/70">
-                  <td className="px-3 py-1.5 font-medium">{cell.fat.toFixed(1)}</td>
-                  <td className="px-3 py-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="shrink-0 text-muted">₹</span>
-                      <input
-                        className="w-full min-w-0 max-w-36 rounded-lg border border-line bg-[#fbf7ef] px-2 py-2 text-base sm:py-1 sm:text-sm"
-                        inputMode="decimal"
-                        value={cell.rate}
-                        onChange={(e) => {
-                          const cells = chart.cells.map((row, idx) => (idx === i ? { ...row, rate: Number(e.target.value) } : row));
-                          onPatch(chart.id, { cells });
-                        }}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((cell) => {
+                const mark = Math.round(cell.fat * 10) % 5 === 0;
+                return (
+                  <tr key={cell.fat} className={`border-t border-line/70 ${mark ? "bg-emerald-50/70" : "bg-card"}`}>
+                    <td className="px-3 py-2 font-semibold sm:px-4">{cell.fat.toFixed(1)}</td>
+                    <td className="px-3 py-2 sm:px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-muted">₹</span>
+                        <input
+                          className="w-full min-w-0 max-w-40 rounded-lg border border-line bg-[#fbf7ef] px-2.5 py-2 text-base outline-none focus:border-primary focus:bg-white sm:py-1.5 sm:text-sm"
+                          inputMode="decimal"
+                          value={cell.rate}
+                          onChange={(e) => {
+                            const nextRate = Number(e.target.value);
+                            onPatch(chart.id, {
+                              cells: chart.cells.map((row) =>
+                                row.fat === cell.fat && row.snf === cell.snf ? { ...row, rate: nextRate } : row,
+                              ),
+                            });
+                          }}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : (
-        <p className="text-sm text-muted">Not set yet for {chart.milkType}. Generate to create the FAT table.</p>
+        <EmptyBox text="Chart empty hai. ₹ / kg Fat daalo, table khud ban jayegi." />
       )}
     </div>
   );
@@ -434,34 +542,34 @@ function FatRowEditor({
 
   return (
     <div className="min-w-0 space-y-4">
-      <p className="text-[13px] text-muted sm:text-sm">
-        Har FAT% ka apna rate. Naya FAT Add karo, purana row Update karo.
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="FAT %">
-          <input className={inputClass} inputMode="decimal" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="3.5" />
-        </Field>
-        <Field label="Rate / L">
-          <input className={inputClass} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="38.65" />
-        </Field>
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => save("add")}>
-          Add
-        </button>
-        <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={() => save("update")}>
-          Update
-        </button>
-        {editFat != null ? (
-          <button type="button" className={`${btnGhost} col-span-2 w-full sm:col-auto sm:w-auto`} onClick={clear}>
-            Cancel
+      <div className="rounded-2xl border border-line bg-[#fffaf1] p-4">
+        <p className="text-[13px] text-muted">Har FAT% ka apna rate. Naya FAT Add karo, purana row Update karo.</p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <Field label="FAT %">
+            <input className={inputClass} inputMode="decimal" value={fat} onChange={(e) => setFat(e.target.value)} placeholder="3.5" />
+          </Field>
+          <Field label="Rate / L">
+            <input className={inputClass} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="38.65" />
+          </Field>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={() => save("add")}>
+            Add
           </button>
-        ) : null}
+          <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={() => save("update")}>
+            Update
+          </button>
+          {editFat != null ? (
+            <button type="button" className={`${btnGhost} col-span-2 w-full sm:col-auto sm:w-auto`} onClick={clear}>
+              Cancel
+            </button>
+          ) : null}
+        </div>
+        {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
       </div>
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
       {rows.length ? (
         <>
-          <div className="divide-y divide-line/70 overflow-hidden rounded-xl border border-line md:hidden">
+          <div className="divide-y divide-line/70 overflow-hidden rounded-2xl border border-line md:hidden">
             {rows.map((cell) => (
               <div
                 key={cell.fat}
@@ -498,7 +606,7 @@ function FatRowEditor({
               </div>
             ))}
           </div>
-          <div className="table-scroll hidden max-h-80 rounded-xl border border-line md:block">
+          <div className="table-scroll hidden max-h-80 rounded-2xl border border-line md:block">
             <table className="w-full text-left text-sm">
               <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
                 <tr>
@@ -546,7 +654,7 @@ function FatRowEditor({
           </div>
         </>
       ) : (
-        <p className="text-sm text-muted">Abhi koi FAT rate nahi. FAT aur Rate daal ke Add karo.</p>
+        <EmptyBox text="Abhi koi FAT rate nahi. FAT aur Rate daal ke Add karo." />
       )}
     </div>
   );
@@ -559,6 +667,7 @@ function RulesEditor({
   chart: RateChart;
   onPatch: (id: string, next: Partial<RateChart>) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const milk = milkKey(chart.milkType);
   const rules = chart.rules ?? [];
 
@@ -567,78 +676,92 @@ function RulesEditor({
   }
 
   return (
-    <div className="mt-6 space-y-3 border-t border-line pt-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="font-display text-lg leading-none">Quality deductions</p>
-          <p className="mt-1 text-[12px] text-muted">First matching rule wins. 100 = full rate, 0 = reject. SNF rule tabhi lagegi jab collection pe SNF daali ho.</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex">
-          <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={() => onPatch(chart.id, { rules: defaultRules(milk) })}>
-            Load Excel
-          </button>
-          <button
-            type="button"
-            className={`${btnGhost} w-full sm:w-auto`}
-            onClick={() =>
-              onPatch(chart.id, {
-                rules: [
-                  ...rules,
-                  {
-                    id: `rule-${crypto.randomUUID().slice(0, 8)}`,
-                    label: "New rule",
-                    fatMin: null,
-                    fatMax: null,
-                    snfMin: null,
-                    snfMax: null,
-                    payPercent: 100,
-                  },
-                ],
-              })
-            }
-          >
-            Add rule
-          </button>
-        </div>
-      </div>
-      {rules.length === 0 ? (
-        <p className="text-sm text-muted">No deductions. Good milk pays 100%.</p>
-      ) : (
-        <div className="space-y-2">
-          {rules.map((rule, i) => (
-            <div key={rule.id} className="rounded-xl border border-line bg-[#fbf7ef] p-3">
-              <input
-                className={`${inputClass} mb-2`}
-                value={rule.label}
-                onChange={(e) => setRule(i, { label: e.target.value })}
-              />
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-                <BoundField label="FAT min" value={rule.fatMin} onChange={(fatMin) => setRule(i, { fatMin })} />
-                <BoundField label="FAT max" value={rule.fatMax} onChange={(fatMax) => setRule(i, { fatMax })} />
-                <BoundField label="SNF min" value={rule.snfMin} onChange={(snfMin) => setRule(i, { snfMin })} />
-                <BoundField label="SNF max" value={rule.snfMax} onChange={(snfMax) => setRule(i, { snfMax })} />
-                <Field label="Pay %">
-                  <input
-                    className={inputClass}
-                    inputMode="decimal"
-                    value={rule.payPercent}
-                    onChange={(e) => setRule(i, { payPercent: Number(e.target.value) })}
-                  />
-                </Field>
-                <div className="flex items-end">
-                  <button
-                    type="button"
-                    className="h-11 w-full rounded-xl border border-line text-sm text-danger"
-                    onClick={() => onPatch(chart.id, { rules: rules.filter((_, idx) => idx !== i) })}
-                  >
-                    Remove
-                  </button>
+    <div className="mt-6 border-t border-line pt-4">
+      <button type="button" className="flex w-full items-center justify-between gap-3 text-left" onClick={() => setOpen((v) => !v)}>
+        <span className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+            <Shield size={16} />
+          </span>
+          <span>
+            <span className="block font-display text-lg leading-none">Quality deductions</span>
+            <span className="mt-1 block text-[12px] text-muted">
+              {rules.length ? `${rules.length} rules · SNF tabhi jab collection pe SNF ho` : "No deductions. Good milk 100%."}
+            </span>
+          </span>
+        </span>
+        <ChevronDown size={16} className={`text-muted transition ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open ? (
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <button type="button" className={`${btnGhost} w-full sm:w-auto`} onClick={() => onPatch(chart.id, { rules: defaultRules(milk) })}>
+              Load Excel
+            </button>
+            <button
+              type="button"
+              className={`${btnGhost} w-full sm:w-auto`}
+              onClick={() =>
+                onPatch(chart.id, {
+                  rules: [
+                    ...rules,
+                    {
+                      id: `rule-${crypto.randomUUID().slice(0, 8)}`,
+                      label: "New rule",
+                      fatMin: null,
+                      fatMax: null,
+                      snfMin: null,
+                      snfMax: null,
+                      payPercent: 100,
+                    },
+                  ],
+                })
+              }
+            >
+              Add rule
+            </button>
+          </div>
+          {rules.length === 0 ? (
+            <p className="text-sm text-muted">No deductions. Good milk pays 100%.</p>
+          ) : (
+            <div className="space-y-2">
+              {rules.map((rule, i) => (
+                <div key={rule.id} className="rounded-2xl border border-line bg-[#fffaf1] p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <input className={inputClass} value={rule.label} onChange={(e) => setRule(i, { label: e.target.value })} />
+                    <span className="hidden shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-primary sm:inline">
+                      {rule.payPercent}%
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                    <BoundField label="FAT min" value={rule.fatMin} onChange={(fatMin) => setRule(i, { fatMin })} />
+                    <BoundField label="FAT max" value={rule.fatMax} onChange={(fatMax) => setRule(i, { fatMax })} />
+                    <BoundField label="SNF min" value={rule.snfMin} onChange={(snfMin) => setRule(i, { snfMin })} />
+                    <BoundField label="SNF max" value={rule.snfMax} onChange={(snfMax) => setRule(i, { snfMax })} />
+                    <Field label="Pay %">
+                      <input
+                        className={inputClass}
+                        inputMode="decimal"
+                        value={rule.payPercent}
+                        onChange={(e) => setRule(i, { payPercent: Number(e.target.value) })}
+                      />
+                    </Field>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        className="h-11 w-full rounded-xl border border-line text-sm text-danger"
+                        onClick={() => onPatch(chart.id, { rules: rules.filter((_, idx) => idx !== i) })}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -707,7 +830,7 @@ function ManualEditor({
         </button>
       </div>
       {!current.cells.length ? (
-        <p className="text-sm text-muted">Not set. Create a blank grid or copy the formula chart, then type rates.</p>
+        <EmptyBox text="Not set. Create a blank grid or copy the formula chart, then type rates." />
       ) : (
         <>
           <div className="flex flex-col gap-2 text-[12px] text-muted sm:flex-row sm:items-center sm:justify-between">
@@ -723,7 +846,7 @@ function ManualEditor({
               </button>
             </div>
           </div>
-          <div className="table-scroll max-h-[min(420px,60vh)] rounded-xl border border-line">
+          <div className="table-scroll max-h-[min(420px,60vh)] rounded-2xl border border-line">
             <table className="min-w-max text-left text-[11px]">
               <thead className="table-head sticky top-0">
                 <tr>
@@ -756,6 +879,14 @@ function ManualEditor({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function EmptyBox({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-line bg-[#fffaf1] px-4 py-8 text-center text-sm text-muted">
+      {text}
     </div>
   );
 }

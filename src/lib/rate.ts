@@ -26,7 +26,7 @@ export function methodForMilk(settings: Pick<Settings, "cowMethod" | "buffaloMet
 
 export function defaultRanges(milk: MilkType) {
   if (milk === "buffalo") {
-    return { fatMin: 5.1, fatMax: 10, fatStep: 0.1, snfMin: 9, snfMax: 11, snfStep: 0.1 };
+    return { fatMin: 5.1, fatMax: 12.1, fatStep: 0.1, snfMin: 9, snfMax: 11, snfStep: 0.1 };
   }
   return { fatMin: 3, fatMax: 5, fatStep: 0.1, snfMin: 8.5, snfMax: 10, snfStep: 0.1 };
 }
@@ -85,9 +85,19 @@ export function resolvedKgFatRate(chart: Pick<RateChart, "kgFatRate" | "fatRate"
   return chart.kgFatRate || chart.fatRate * 100 || 0;
 }
 
-/** ₹100 / kg Fat pays only ₹6 / L at 6% FAT — almost always a typing mistake. */
+/** Desk often types 66 for ₹6.60 / 1% FAT (same as ₹660 / kg Fat). */
+export function effectiveKgFatRate(kg: number) {
+  if (kg > 0 && kg < 200) return kg * 10;
+  return kg;
+}
+
+export function fatPointRate(chart: Pick<RateChart, "kgFatRate" | "fatRate">) {
+  return effectiveKgFatRate(resolvedKgFatRate(chart)) / 100;
+}
+
+/** After 66→660 scaling, warn only if 6% FAT still pays under ₹20 / L. */
 export function isLowKgFatRate(kg: number) {
-  return kg > 0 && kg < 300;
+  return kg > 0 && (effectiveKgFatRate(kg) / 100) * 6 < 20;
 }
 
 function cellsLookLikeFatEqualsRate(cells: RateCell[]) {
@@ -96,8 +106,16 @@ function cellsLookLikeFatEqualsRate(cells: RateCell[]) {
   return hits / cells.length > 0.8;
 }
 
+function inferredPointRate(cells: RateCell[]) {
+  const sample = cells.filter((c) => c.fat > 0).slice(0, 8);
+  if (sample.length < 3) return null;
+  const ratios = sample.map((c) => c.rate / c.fat);
+  const avg = ratios.reduce((sum, n) => sum + n, 0) / ratios.length;
+  return ratios.every((n) => Math.abs(n - avg) < 0.05) ? avg : null;
+}
+
 export function kgFatLitreRate(chart: RateChart, fat: number) {
-  const perPoint = (chart.kgFatRate || chart.fatRate * 100 || 0) / 100;
+  const perPoint = fatPointRate(chart);
   return round2(fat * perPoint + (chart.base || 0));
 }
 
@@ -255,8 +273,7 @@ export function normalizeChart(chart: Partial<RateChart> & Pick<RateChart, "id">
   const kind: ChartMethod = chart.kind === "grid" ? "grid" : chart.kind === "fat-only" ? "fat-only" : "formula";
   const milk = milkKey(chart.milkType ?? "cow");
   const base = defaultChart(kind, milk);
-  const rawKg = chart.kgFatRate ?? (chart.fatRate ? chart.fatRate * 100 : base.kgFatRate);
-  const kgFatRate = kind === "fat-only" && milk === "buffalo" && isLowKgFatRate(rawKg) ? TYPICAL_KG_FAT.buffalo : rawKg;
+  const kgFatRate = chart.kgFatRate ?? (chart.fatRate ? chart.fatRate * 100 : base.kgFatRate);
   const next: RateChart = {
     ...base,
     ...chart,
@@ -265,19 +282,26 @@ export function normalizeChart(chart: Partial<RateChart> & Pick<RateChart, "id">
     cells: chart.cells ?? [],
     rules: chart.rules?.length ? chart.rules : base.rules,
     kgFatRate,
-    fatRate: kind === "fat-only" ? kgFatRate / 100 : (chart.fatRate ?? base.fatRate),
+    fatRate: kind === "fat-only" ? fatPointRate({ kgFatRate, fatRate: 0 }) : (chart.fatRate ?? base.fatRate),
     efuRate: chart.efuRate ?? base.efuRate,
     snfEfuFactor: chart.snfEfuFactor ?? base.snfEfuFactor,
     goodSnfMin: chart.goodSnfMin ?? base.goodSnfMin,
     fatMin: chart.fatMin ?? base.fatMin,
-    fatMax: chart.fatMax ?? base.fatMax,
+    fatMax: milk === "buffalo" ? Math.max(chart.fatMax ?? 0, base.fatMax) : (chart.fatMax ?? base.fatMax),
     fatStep: chart.fatStep ?? base.fatStep,
     snfMin: chart.snfMin ?? base.snfMin,
     snfMax: chart.snfMax ?? base.snfMax,
     snfStep: chart.snfStep ?? base.snfStep,
   };
-  if (kind === "fat-only" && milk === "buffalo" && (!next.cells.length || cellsLookLikeFatEqualsRate(next.cells))) {
-    next.cells = generateFatOnlyCells(next);
+  if (kind === "fat-only") {
+    const inferred = inferredPointRate(next.cells);
+    const staleGenerated =
+      resolvedKgFatRate(next) > 0 && inferred != null && Math.abs(inferred - fatPointRate(next)) > 0.05;
+    const maxCellFat = next.cells.reduce((m, c) => Math.max(m, c.fat), 0);
+    const rangeShort = !next.cells.length || maxCellFat < next.fatMax - 0.05;
+    if (!next.cells.length || cellsLookLikeFatEqualsRate(next.cells) || staleGenerated || rangeShort) {
+      next.cells = generateFatOnlyCells(next);
+    }
   }
   return next;
 }

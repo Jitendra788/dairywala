@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Pencil, Printer, Trash2 } from "lucide-react";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
-import { calcAmount, METHOD_LABEL, methodForMilk, pickChart, quoteRate, resolvedKgFatRate } from "@/lib/rate";
+import { calcAmount, fatPointRate, METHOD_LABEL, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnPrimary, Card, Field, Initials, MilkBadge, inputClass } from "@/components/ui";
 import type { MilkType, Shift } from "@/lib/types";
@@ -225,7 +225,7 @@ export function CollectionDesk() {
           </div>
           {method === "fat-only" && chart && Number(fat) ? (
             <p className="mt-2 text-[11px] text-white/75">
-              {Number(fat).toFixed(1)}% FAT × {formatInr(resolvedKgFatRate(chart) / 100)} = {formatInr(quote.base)} / L
+              {Number(fat).toFixed(1)}% FAT × {formatInr(fatPointRate(chart))} = {formatInr(quote.base)} / L
               {Number(qty) ? ` · ${Number(qty)} L = ${formatInr(amount)}` : ""}
             </p>
           ) : null}
