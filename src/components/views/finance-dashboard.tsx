@@ -137,7 +137,7 @@ export function EarningReportCard({
     <Card id="earning" className="p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">Earning report</p>
+          <p className="text-[11px] font-semibold text-primary">Earning report</p>
           <p className="mt-1 text-[13px] text-muted">Sales, purchases, expenses and earnings over time.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -176,7 +176,7 @@ export function ProfitLossCard({
     <Card id="pnl" className="p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">Profit & Loss</p>
+          <p className="text-[11px] font-semibold text-primary">Profit & Loss</p>
           <p className="mt-1 text-[13px] text-muted">Period: {formatDateRange(report.from, report.to)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -229,7 +229,7 @@ export function TodayMissionCard({ report }: { report: FinanceReport }) {
       <Card className="p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">Today’s mission</p>
+            <p className="text-[11px] font-semibold text-primary">Today’s mission</p>
             <h2 className="font-display text-lg">Delivery progress</h2>
           </div>
           <Link href="/customers/delivery" className="text-[12px] font-semibold text-primary">
@@ -269,7 +269,7 @@ export function TodayMissionCard({ report }: { report: FinanceReport }) {
       <Card className="p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">Today’s P&L</p>
+            <p className="text-[11px] font-semibold text-primary">Today’s P&L</p>
             <h2 className="font-display text-lg">Cash flow by channel</h2>
           </div>
           <Link href="/reports#earning" className="text-[12px] font-semibold text-primary">
@@ -298,7 +298,7 @@ export function TodayMissionCard({ report }: { report: FinanceReport }) {
 function Kpi({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className={`rounded-2xl px-3 py-2.5 ${accent ? "bg-emerald-50" : "bg-[#f7f1e6]"}`}>
-      <p className="text-[10px] tracking-[0.08em] text-muted uppercase">{label}</p>
+      <p className="text-[11px] font-medium text-muted">{label}</p>
       <p className="mt-1 font-display text-[22px] leading-none">{value}</p>
     </div>
   );

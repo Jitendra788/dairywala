@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { customerApi } from "@/lib/customers/client";
 import { formatDate, todayISO } from "@/lib/dates";
 import { formatInr, round2 } from "@/lib/money";
@@ -159,55 +159,57 @@ export function ExpensesView() {
         hint="Track all business expenses across categories. Dates show as dd/mm/yyyy."
         actions={
           <button type="button" className={btnPrimary} onClick={startAdd}>
-            + Add expense
+            <Plus size={16} />
+            Add expense
           </button>
         }
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="p-4">
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-muted uppercase">Total expenses</p>
+          <p className="text-[11px] font-medium text-muted">Total expenses</p>
           <p className="mt-1 font-display text-3xl">{formatInr(total)}</p>
           <p className="mt-1 text-[12px] text-muted">
             {formatDate(from)} – {formatDate(to)}
           </p>
         </Card>
         <Card className="p-4">
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-muted uppercase">Records</p>
+          <p className="text-[11px] font-medium text-muted">Records</p>
           <p className="mt-1 font-display text-3xl">{visible.length}</p>
           <p className="mt-1 text-[12px] text-muted">Individual expenses</p>
         </Card>
         <Card className="p-4">
-          <p className="text-[10px] font-semibold tracking-[0.12em] text-muted uppercase">This page</p>
+          <p className="text-[11px] font-medium text-muted">This page</p>
           <p className="mt-1 font-display text-3xl">{formatInr(total)}</p>
           <p className="mt-1 text-[12px] text-muted">Subtotal</p>
         </Card>
       </div>
 
       <Card className="p-4">
-        <div className="grid gap-3 md:grid-cols-5">
-          <Field label="From">
-            <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
-          </Field>
-          <Field label="To">
-            <input type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
-          </Field>
-          <Field label="Search">
-            <input
-              className={inputClass}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Category, person, remark…"
-            />
-          </Field>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={includeDeleted} onChange={(e) => setIncludeDeleted(e.target.checked)} />
-              Include deleted
-            </label>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <Field label="From">
+              <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
+            </Field>
+            <Field label="To">
+              <input type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
+            </Field>
+            <Field label="Search">
+              <input
+                className={inputClass}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Category, person, remark"
+              />
+            </Field>
           </div>
-          <div className="flex items-end">
-            <button type="button" className={`${btnGhost} w-full`} onClick={downloadCsv}>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-[#fbf7ef] px-3 py-2 text-sm">
+              <input type="checkbox" checked={includeDeleted} onChange={(e) => setIncludeDeleted(e.target.checked)} />
+              <span>Include deleted</span>
+            </label>
+            <button type="button" className={`${btnGhost} shrink-0`} onClick={downloadCsv}>
+              <Download size={15} />
               Download Excel
             </button>
           </div>
@@ -293,7 +295,7 @@ export function ExpensesView() {
         </div>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
+            <thead className="table-head text-muted">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Reference</th>
                 <th className="py-2.5 font-medium">Category</th>

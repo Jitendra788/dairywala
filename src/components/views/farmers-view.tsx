@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
-import { formatDate, formatDateRange } from "@/lib/dates";
 import { formatInr } from "@/lib/money";
-import { billRef, slipRef } from "@/lib/ref";
+import { FarmerLedger } from "@/components/farmer-ledger";
 import { useDairy } from "@/hooks/use-dairy";
 import {
   btnDanger,
@@ -365,88 +364,21 @@ export function FarmerProfile() {
         </button>
       </Card>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Stat label="Balance" value={formatInr(dairy.farmerBalance(farmer.id))} />
-        <Stat label="Slips" value={String(history.length)} />
-        <Stat label="Open bills" value={String(bills.filter((b) => b.status === "open").length)} />
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/payments?tab=history&farmer=${farmer.id}`} className={btnGhost}>
+          Payments history
+        </Link>
+        <Link href={`/payments?tab=advances&farmer=${farmer.id}`} className={btnGhost}>
+          Give advance
+        </Link>
       </div>
 
-      {bills.length ? (
-        <Card className="p-5">
-          <h2 className="font-display text-lg">Bills</h2>
-          <div className="table-scroll mt-3">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead className="table-head text-[10px] uppercase text-muted">
-                <tr>
-                  <th className="px-2 py-2 font-medium">Reference</th>
-                  <th className="py-2 font-medium">Period</th>
-                  <th className="py-2 font-medium">Net</th>
-                  <th className="py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bills.map((bill) => (
-                  <tr key={bill.id} className="border-t border-line/70">
-                    <td className="px-2 py-2 font-mono text-xs">
-                      <Link href={`/payments/bills/${bill.id}`} className="hover:text-primary">
-                        {billRef(bill.id)}
-                      </Link>
-                    </td>
-                    <td>{formatDateRange(bill.fromDate, bill.toDate)}</td>
-                    <td>{formatInr(bill.net)}</td>
-                    <td className="capitalize">{bill.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : null}
-
-      <Card className="p-5">
-        <h2 className="font-display text-lg">Collection history</h2>
-        <div className="table-scroll mt-3">
-        <table className="w-full min-w-[520px] text-left text-sm">
-          <thead className="table-head text-[10px] uppercase text-muted">
-            <tr>
-              <th className="px-2 py-2 font-medium">Reference</th>
-              <th className="py-2 font-medium">Date</th>
-              <th className="py-2 font-medium">Shift</th>
-              <th className="py-2 font-medium">L</th>
-              <th className="py-2 font-medium">FAT/SNF</th>
-              <th className="py-2 font-medium">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.slice(0, 40).map((e) => (
-              <tr key={e.id} className="border-t border-line/70">
-                <td className="px-2 py-2 font-mono text-xs">
-                  <Link href={`/collection/${e.id}`} className="hover:text-primary">
-                    {slipRef(e.id)}
-                  </Link>
-                </td>
-                <td>{formatDate(e.date)}</td>
-                <td>{e.shift}</td>
-                <td>{e.qty}</td>
-                <td>
-                  {e.fat} / {e.snf}
-                </td>
-                <td>{formatInr(e.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </Card>
+      <FarmerLedger
+        farmerName={farmer.name}
+        entries={history}
+        advances={dairy.advances.filter((a) => a.farmerId === farmer.id)}
+        bills={bills}
+      />
     </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="p-4">
-      <p className="text-[11px] uppercase tracking-wider text-muted">{label}</p>
-      <p className="mt-1 font-display text-2xl">{value}</p>
-    </Card>
   );
 }

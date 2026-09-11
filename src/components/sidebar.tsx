@@ -125,9 +125,10 @@ export function Sidebar({
   const paymentChildren: NavChild[] = [
     { href: "/payments", label: "Receive Payment", exact: true },
     { href: "/payments?tab=bills", label: "Farmer Payments" },
+    { href: "/payments?tab=advances", label: "Advances" },
     { href: "/customers/payments", label: "Customer Payments" },
     { href: "/payments?status=open", label: "Pending Payments" },
-    { href: "/payments?tab=history", label: "Payment History" },
+    { href: "/payments?tab=history", label: "Farmer History" },
   ];
 
   const rateChildren: NavChild[] = [
