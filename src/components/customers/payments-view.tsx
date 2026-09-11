@@ -124,6 +124,7 @@ export function CustomerPaymentsView() {
                   <div>
                     <p className="font-medium">{row.customer.name}</p>
                     <p className="text-[12px] text-muted">{formatDate(row.date)} · {row.mode}</p>
+                    <p className="font-mono text-[11px] text-muted">{row.reference || "—"}</p>
                   </div>
                   <p className="text-[13px] font-semibold">{formatInr(row.amount)}</p>
                 </div>

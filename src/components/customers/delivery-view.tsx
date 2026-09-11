@@ -5,6 +5,7 @@ import { customerApi } from "@/lib/customers/client";
 import type { DeliveryRow } from "@/lib/customers/types";
 import { formatInr, formatQty } from "@/lib/money";
 import { formatDate, todayISO } from "@/lib/dates";
+import { deliveryRef } from "@/lib/ref";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { btnGhost, btnPrimary, Card, Field, Initials, MilkBadge, inputClass, PageHeader } from "@/components/ui";
@@ -110,6 +111,7 @@ export function DeliveryView() {
                   <Initials name={row.customer.name} />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{row.customer.name}</p>
+                    <p className="font-mono text-[11px] text-muted">{deliveryRef(row.id)}</p>
                     <p className="font-mono text-[11px] text-muted">{row.customer.customerCode}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px]">
                       <MilkBadge type={row.customer.milkType} />
@@ -144,7 +146,8 @@ export function DeliveryView() {
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Customer</th>
+                <th className="px-4 py-2.5 font-medium">Reference</th>
+                <th className="py-2.5 font-medium">Customer</th>
                 <th className="py-2.5 font-medium">Milk</th>
                 <th className="py-2.5 font-medium">Regular</th>
                 <th className="py-2.5 font-medium">Rate</th>
@@ -154,19 +157,20 @@ export function DeliveryView() {
               </tr>
             </thead>
             {loading ? (
-              <LoadingRows cols={7} />
+              <LoadingRows cols={8} />
             ) : (
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <EmptyState title="No deliveries today" hint="Add an active customer or resume a paused subscription." />
                     </td>
                   </tr>
                 ) : (
                   rows.map((row) => (
                     <tr key={row.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 font-mono text-xs">{deliveryRef(row.id)}</td>
+                      <td className="py-2.5">
                         <span className="flex items-center gap-2">
                           <Initials name={row.customer.name} />
                           <span>

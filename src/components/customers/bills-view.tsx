@@ -5,6 +5,7 @@ import { customerApi } from "@/lib/customers/client";
 import type { BillRow } from "@/lib/customers/types";
 import { todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
+import { customerBillRef } from "@/lib/ref";
 import { useToast } from "@/components/toast";
 import { Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows } from "@/components/customers/shared";
@@ -64,6 +65,7 @@ export function MonthlyBillsView() {
             bills.map((bill) => (
               <div key={bill.id} className="px-4 py-3">
                 <p className="font-medium">{bill.customer.name}</p>
+                <p className="font-mono text-[11px] text-muted">{customerBillRef(bill.id, bill.year, bill.month)}</p>
                 <p className="font-mono text-[11px] text-muted">{bill.customer.customerCode}</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-[12px]">
                   <span>Delivered {formatQty(bill.totalDelivered)}</span>
@@ -80,7 +82,8 @@ export function MonthlyBillsView() {
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Customer</th>
+                <th className="px-4 py-2.5 font-medium">Reference</th>
+                <th className="py-2.5 font-medium">Customer</th>
                 <th className="py-2.5 font-medium">Delivered milk</th>
                 <th className="py-2.5 font-medium">Total amount</th>
                 <th className="py-2.5 font-medium">Skipped days</th>
@@ -90,19 +93,20 @@ export function MonthlyBillsView() {
               </tr>
             </thead>
             {loading ? (
-              <LoadingRows cols={7} />
+              <LoadingRows cols={8} />
             ) : (
               <tbody>
                 {bills.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <EmptyState title="No bill activity this month" hint="Deliver milk or record a payment to populate the monthly bill." />
                     </td>
                   </tr>
                 ) : (
                   bills.map((bill) => (
                     <tr key={bill.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 font-mono text-xs">{customerBillRef(bill.id, bill.year, bill.month)}</td>
+                      <td className="py-2.5">
                         <span className="block font-medium">{bill.customer.name}</span>
                         <span className="font-mono text-[11px] text-muted">{bill.customer.customerCode}</span>
                       </td>

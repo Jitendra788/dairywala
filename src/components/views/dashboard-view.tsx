@@ -8,9 +8,12 @@ import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerDashboardStats } from "@/lib/customers/types";
-import { todayISO } from "@/lib/dates";
+import { addMonths, endOfMonth, formatDate, startOfMonth, todayISO } from "@/lib/dates";
+import { slipRef } from "@/lib/ref";
 import { DairyLogo } from "@/components/dairy-brand";
 import { btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
+import { EarningReportCard, ProfitLossCard, TodayMissionCard } from "@/components/views/finance-dashboard";
+import type { FinanceGrain, FinanceReport } from "@/lib/finance/types";
 
 export function DashboardView() {
   const dairy = useDairy();
@@ -18,6 +21,10 @@ export function DashboardView() {
   const recent = dairy.entries.slice(0, 7);
   const totalShift = today.morning + today.evening || 1;
   const [customerStats, setCustomerStats] = useState<CustomerDashboardStats | null>(null);
+  const [monthReport, setMonthReport] = useState<FinanceReport | null>(null);
+  const [pnlReport, setPnlReport] = useState<FinanceReport | null>(null);
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [grain, setGrain] = useState<FinanceGrain>("month");
 
   useEffect(() => {
     customerApi<CustomerDashboardStats>(`/api/customers/stats?date=${todayISO()}`)
@@ -25,8 +32,18 @@ export function DashboardView() {
       .catch(() => setCustomerStats(null));
   }, []);
 
+  useEffect(() => {
+    const extra = includeDeleted ? "&includeDeleted=1" : "";
+    customerApi<FinanceReport>(`/api/finance?from=${startOfMonth()}&to=${endOfMonth()}${extra}`)
+      .then(setMonthReport)
+      .catch(() => setMonthReport(null));
+    customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}${extra}`)
+      .then(setPnlReport)
+      .catch(() => setPnlReport(null));
+  }, [includeDeleted]);
+
   return (
-    <div className="mx-auto flex min-h-0 max-w-6xl flex-col gap-4">
+    <div className="mx-auto flex min-h-0 max-w-7xl flex-col gap-4">
       <section className="relative overflow-hidden rounded-[28px] bg-primary px-3.5 py-3.5 text-white shadow-[0_16px_40px_rgba(24,122,72,0.28)] sm:px-5 sm:py-5">
         <div className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute right-16 -bottom-12 h-32 w-32 rounded-full bg-gold/20" />
@@ -65,6 +82,23 @@ export function DashboardView() {
         <Stat icon={<Users size={16} />} label="Evening" value={formatQty(today.evening)} hint={`${Math.round((today.evening / totalShift) * 100)}% of day`} />
         <Stat icon={<Wallet size={16} />} label="Payable" value={formatInr(dairy.payableTotal())} hint="After advances" />
       </div>
+
+      {monthReport ? (
+        <TodayMissionCard report={monthReport} />
+      ) : null}
+
+      {monthReport ? (
+        <EarningReportCard
+          report={monthReport}
+          includeDeleted={includeDeleted}
+          onIncludeDeleted={setIncludeDeleted}
+          periodLabel="This month"
+        />
+      ) : null}
+
+      {pnlReport ? (
+        <ProfitLossCard report={pnlReport} grain={grain} onGrain={setGrain} />
+      ) : null}
 
       {customerStats ? (
         <Card className="p-4">
@@ -125,7 +159,7 @@ export function DashboardView() {
                   <Initials name={f?.name ?? "F"} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{f?.name}</span>
-                    <span className="text-[11px] text-muted capitalize">{e.date.slice(5)} · {e.shift} · {e.qty} L</span>
+                    <span className="text-[11px] text-muted capitalize">{slipRef(e.id)} · {formatDate(e.date)} · {e.shift} · {e.qty} L</span>
                   </span>
                   <span className="shrink-0 text-right">
                     <MilkBadge type={e.milkType} />
@@ -138,7 +172,8 @@ export function DashboardView() {
           <table className="hidden w-full text-left text-[13px] md:table">
             <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Farmer</th>
+                <th className="px-4 py-2.5 font-medium">Reference</th>
+                <th className="py-2.5 font-medium">Farmer</th>
                 <th className="py-2.5 font-medium">When</th>
                 <th className="py-2.5 font-medium">Milk</th>
                 <th className="py-2.5 font-medium">L</th>
@@ -151,7 +186,12 @@ export function DashboardView() {
                 const f = dairy.farmerById(e.farmerId);
                 return (
                   <tr key={e.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 font-mono text-xs">
+                      <Link href={`/collection/${e.id}`} className="hover:text-primary">
+                        {slipRef(e.id)}
+                      </Link>
+                    </td>
+                    <td className="py-2.5">
                       <Link href={`/collection/${e.id}`} className="flex items-center gap-2 hover:text-primary">
                         <Initials name={f?.name ?? "F"} />
                         <span>
@@ -161,7 +201,7 @@ export function DashboardView() {
                       </Link>
                     </td>
                     <td className="capitalize text-muted">
-                      {e.date.slice(5)} · {e.shift}
+                      {formatDate(e.date)} · {e.shift}
                     </td>
                     <td>
                       <MilkBadge type={e.milkType} />

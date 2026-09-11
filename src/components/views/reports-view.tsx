@@ -1,15 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { todayISO } from "@/lib/dates";
+import { addMonths, endOfMonth, formatDateRange, startOfMonth, todayISO } from "@/lib/dates";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
+import { customerApi } from "@/lib/customers/client";
 import { Card, Field, inputClass, PageHeader } from "@/components/ui";
+import { EarningReportCard, ProfitLossCard } from "@/components/views/finance-dashboard";
+import type { FinanceGrain, FinanceReport } from "@/lib/finance/types";
 
 export function ReportsView() {
   const dairy = useDairy();
   const [fromDate, setFromDate] = useState(todayISO());
   const [toDate, setToDate] = useState(todayISO());
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [grain, setGrain] = useState<FinanceGrain>("month");
+  const [monthReport, setMonthReport] = useState<FinanceReport | null>(null);
+  const [pnlReport, setPnlReport] = useState<FinanceReport | null>(null);
 
   const rows = useMemo(
     () => dairy.entries.filter((e) => e.date >= fromDate && e.date <= toDate),
@@ -22,10 +29,20 @@ export function ReportsView() {
   const avgSnf = qty ? rows.reduce((s, e) => s + e.snf * e.qty, 0) / qty : 0;
 
   useEffect(() => {
+    const extra = includeDeleted ? "&includeDeleted=1" : "";
+    customerApi<FinanceReport>(`/api/finance?from=${startOfMonth()}&to=${endOfMonth()}${extra}`)
+      .then(setMonthReport)
+      .catch(() => setMonthReport(null));
+    customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}${extra}`)
+      .then(setPnlReport)
+      .catch(() => setPnlReport(null));
+  }, [includeDeleted]);
+
+  useEffect(() => {
     const id = window.location.hash.replace("#", "");
     if (!id) return;
     window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-  }, []);
+  }, [monthReport, pnlReport]);
 
   const byFarmer = new Map<string, { qty: number; amount: number }>();
   for (const e of rows) {
@@ -40,8 +57,18 @@ export function ReportsView() {
       <PageHeader
         kicker="रिपोर्ट"
         title="Milk reports"
-        hint="Date range se daily milk, quality aur farmer-wise statement."
+        hint={`Date range se daily milk, quality, earning aur farmer-wise statement. Showing ${formatDateRange(fromDate, toDate)}.`}
       />
+
+      {monthReport ? (
+        <EarningReportCard
+          report={monthReport}
+          includeDeleted={includeDeleted}
+          onIncludeDeleted={setIncludeDeleted}
+          periodLabel="This month"
+        />
+      ) : null}
+      {pnlReport ? <ProfitLossCard report={pnlReport} grain={grain} onGrain={setGrain} /> : null}
 
       <Card className="grid gap-3 p-5 md:grid-cols-2">
         <Field label="From">

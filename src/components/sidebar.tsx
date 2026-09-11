@@ -9,6 +9,7 @@ import {
   Droplets,
   LayoutDashboard,
   LogOut,
+  Receipt,
   PanelLeftClose,
   PanelLeftOpen,
   Settings2,
@@ -42,7 +43,7 @@ function defaultsForPath(pathname: string): Record<GroupKey, boolean> {
     rates,
     rateChart: rates,
     reports,
-    reportsMenu: reports || pathname.startsWith("/customers/ledger") || pathname.startsWith("/customers/walk-in"),
+    reportsMenu: reports || pathname.startsWith("/customers/ledger") || pathname.startsWith("/customers/walk-in") || pathname.startsWith("/expenses"),
     management: settings,
     settings,
   };
@@ -139,10 +140,13 @@ export function Sidebar({
 
   const reportChildren: NavChild[] = [
     { href: "/reports", label: "Daily Report", exact: true },
+    { href: "/reports#earning", label: "Earning Report" },
+    { href: "/reports#pnl", label: "Profit & Loss" },
     { href: "/reports#collection", label: "Milk Collection" },
     { href: "/reports#statement", label: "Farmer Statement" },
     { href: "/customers/ledger", label: "Customer Statement" },
     { href: "/customers/walk-in", label: "Sales Report" },
+    { href: "/expenses", label: "Expenses" },
   ];
 
   const settingChildren: NavChild[] = [
@@ -244,6 +248,14 @@ export function Sidebar({
           />
 
           <SectionLabel collapsed={collapsed}>Finance</SectionLabel>
+          <NavLink
+            href="/expenses"
+            active={pathname.startsWith("/expenses")}
+            collapsed={collapsed}
+            label="Expenses"
+            onClick={onClose}
+            icon={<Receipt size={16} strokeWidth={1.75} />}
+          />
           <Branch
             href="/payments"
             label="Payments"

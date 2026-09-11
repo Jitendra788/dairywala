@@ -7,7 +7,7 @@ import { Pause, Pencil, Play } from "lucide-react";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerMilkType, CustomerRow, CustomerStatus, CustomerType } from "@/lib/customers/types";
 import { formatInr, formatQty } from "@/lib/money";
-import { addDays, todayISO } from "@/lib/dates";
+import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
@@ -136,7 +136,7 @@ export function AllCustomersView() {
         method: "POST",
         body: JSON.stringify({ pauseFrom, resumeDate }),
       });
-      toast.push(`${pauseRow.name} paused till ${resumeDate}`);
+      toast.push(`${pauseRow.name} paused till ${formatDate(resumeDate)}`);
       setPauseRow(null);
       await load();
     } catch (e) {

@@ -9,7 +9,8 @@ import {
   Sun,
   UserRound,
 } from "lucide-react";
-import { currentShift, todayISO } from "@/lib/dates";
+import { currentShift, formatDate, todayISO } from "@/lib/dates";
+import { slipRef } from "@/lib/ref";
 import { round2 } from "@/lib/money";
 import { calcAmount, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
@@ -105,6 +106,7 @@ export function BuyMilkScreen() {
           onChange={(e) => setDate(e.target.value)}
           className="h-9 rounded-lg border border-line px-2 text-sm"
         />
+        <span className="text-sm text-muted">{formatDate(date)}</span>
         <span className="text-sm font-medium">
           Shift <span className="text-danger">*</span>
         </span>
@@ -316,6 +318,7 @@ export function BuyMilkScreen() {
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-2 font-medium">Sr No</th>
+                <th className="px-3 py-2 font-medium">Reference</th>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Type</th>
                 <th className="px-3 py-2 font-medium">Weight</th>
@@ -329,7 +332,7 @@ export function BuyMilkScreen() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-3 py-10 text-center text-muted">
+                  <td colSpan={10} className="px-3 py-10 text-center text-muted">
                     No records for this shift
                   </td>
                 </tr>
@@ -339,6 +342,7 @@ export function BuyMilkScreen() {
                   return (
                     <tr key={row.id} className="border-t border-line">
                       <td className="px-3 py-2">{i + 1}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{slipRef(row.id)}</td>
                       <td className="px-3 py-2">
                         {f?.code} - {f?.name}
                       </td>

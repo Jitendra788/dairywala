@@ -12,7 +12,8 @@ import type {
   SalePaymentStatus,
   WalkInTotals,
 } from "@/lib/customers/types";
-import { formatTime, todayISO } from "@/lib/dates";
+import { formatDate, formatTime, todayISO } from "@/lib/dates";
+import { saleRef } from "@/lib/ref";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -514,7 +515,8 @@ export function WalkInView() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium">{row.customer.name}</p>
-                    <p className="text-[12px] text-muted">{formatTime(row.createdAt)}</p>
+                    <p className="font-mono text-[11px] text-muted">{saleRef(row.id)}</p>
+                    <p className="text-[12px] text-muted">{formatDate(row.date)} · {formatTime(row.createdAt)}</p>
                   </div>
                   <SalePaymentBadge status={row.paymentStatus} />
                 </div>
@@ -535,7 +537,8 @@ export function WalkInView() {
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Customer</th>
+                <th className="px-4 py-2.5 font-medium">Reference</th>
+                <th className="py-2.5 font-medium">Customer</th>
                 <th className="py-2.5 font-medium">Milk type</th>
                 <th className="py-2.5 font-medium">Quantity</th>
                 <th className="py-2.5 font-medium">Rate</th>
@@ -546,19 +549,20 @@ export function WalkInView() {
               </tr>
             </thead>
             {loading ? (
-              <LoadingRows cols={8} />
+              <LoadingRows cols={9} />
             ) : (
               <tbody>
                 {sales.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <EmptyState title="No walk-in sales yet" hint="Upar se saved customer choose karo, phir sale save karo." />
                     </td>
                   </tr>
                 ) : (
                   sales.map((row) => (
                     <tr key={row.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 font-mono text-xs">{saleRef(row.id)}</td>
+                      <td className="py-2.5">
                         <span className="block font-medium">{row.customer.name}</span>
                         <span className="font-mono text-[11px] text-muted">{row.customer.customerCode}</span>
                       </td>
@@ -595,6 +599,8 @@ export function WalkInView() {
       >
         {viewing ? (
           <div className="space-y-1 text-sm text-ink">
+            <p>Reference · {saleRef(viewing.id)}</p>
+            <p>Date · {formatDate(viewing.date)} · {formatTime(viewing.createdAt)}</p>
             <p>{viewing.customer.customerCode} · {viewing.customer.mobile}</p>
             <p>{viewing.milkType || viewing.customer.milkType} · {formatQty(viewing.deliveredQty)} × {formatInr(viewing.rate)}</p>
             <p className="font-semibold">{formatInr(viewing.amount)}</p>

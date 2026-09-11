@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
+import { slipRef } from "@/lib/ref";
 import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnGhost, btnPrimary, Card } from "@/components/ui";
@@ -52,6 +53,7 @@ export function SlipView() {
       <Card className="print-slip p-6 text-center">
         <DairyLetterhead settings={dairy.settings} />
         <div className="my-4 border-t border-dashed border-line" />
+        <Row label="Reference" value={slipRef(entry.id)} />
         <Row label="Date" value={`${formatDate(entry.date)} · ${entry.shift}`} />
         <Row label="Farmer" value={`${farmer.code} · ${farmer.name}`} />
         <Row label="Milk" value={entry.milkType === "cow" ? "Cow / गाय" : "Buffalo / भैंस"} />

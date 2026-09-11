@@ -946,6 +946,9 @@ export async function recordPayment(
   const remaining = round2(await getOutstanding(dairyId, customer.id) - input.amount);
   const id = randomUUID();
   const ts = nowISO();
+  const reference =
+    cleanName(input.reference || "") ||
+    `PAY-${input.date.replace(/-/g, "")}-${id.slice(0, 8).toUpperCase()}`;
   await qrun(`INSERT INTO CustomerPayment (id, dairyId, customerId, date, amount, mode, reference, remainingBalance, createdAt)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, id,
       dairyId,
@@ -953,7 +956,7 @@ export async function recordPayment(
       input.date,
       round2(input.amount),
       input.mode,
-      cleanName(input.reference || ""),
+      reference,
       remaining,
       ts,);
   await refreshMonthlyBill(dairyId, customer.id, input.date);

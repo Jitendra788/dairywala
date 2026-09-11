@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerMilkType, CustomerRow, CustomerType, LedgerRow, SalePaymentStatus } from "@/lib/customers/types";
 import { addDays, formatDate, todayISO } from "@/lib/dates";
+import { ledgerRef } from "@/lib/ref";
 import { formatInr, formatQty } from "@/lib/money";
 import { useToast } from "@/components/toast";
 import { Card, Field, MilkBadge, inputClass, PageHeader, Select } from "@/components/ui";
@@ -106,6 +107,7 @@ export function MilkLedgerView() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium">{row.customer.name}</p>
+                    <p className="font-mono text-[11px] text-muted">{ledgerRef(row.id)}</p>
                     <p className="text-[12px] text-muted">{formatDate(row.date)}</p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       <CustomerTypeBadge type={row.customer.customerType} />
@@ -130,7 +132,8 @@ export function MilkLedgerView() {
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Date</th>
+                <th className="px-4 py-2.5 font-medium">Reference</th>
+                <th className="py-2.5 font-medium">Date</th>
                 <th className="py-2.5 font-medium">Customer</th>
                 <th className="py-2.5 font-medium">Customer Type</th>
                 <th className="py-2.5 font-medium">Milk Type</th>
@@ -143,19 +146,20 @@ export function MilkLedgerView() {
               </tr>
             </thead>
             {loading ? (
-              <LoadingRows cols={10} />
+              <LoadingRows cols={11} />
             ) : (
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>
+                    <td colSpan={11}>
                       <EmptyState title="Ledger is empty" hint="Deliver regular milk or save a walk-in sale — each posts one ledger line." />
                     </td>
                   </tr>
                 ) : (
                   rows.map((row) => (
                     <tr key={row.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                      <td className="px-4 py-2.5">{formatDate(row.date)}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs">{ledgerRef(row.id)}</td>
+                      <td>{formatDate(row.date)}</td>
                       <td>
                         <span className="block font-medium">{row.customer.name}</span>
                         <span className="font-mono text-[11px] text-muted">{row.customer.customerCode}</span>

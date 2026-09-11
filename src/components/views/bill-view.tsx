@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { formatDate, formatDateRange } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
+import { billRef, slipRef } from "@/lib/ref";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnDanger, btnPrimary, Card, confirmAction } from "@/components/ui";
 import { DairyLetterhead } from "@/components/dairy-brand";
@@ -56,12 +58,16 @@ export function BillView() {
         <DairyLetterhead settings={dairy.settings} kicker="Farmer bill" />
         <div className="mt-4 grid gap-1 text-sm">
           <p>
+            <span className="text-muted">Reference · </span>
+            {billRef(bill.id)}
+          </p>
+          <p>
             <span className="text-muted">Farmer · </span>
             {farmer.code} {farmer.name}
           </p>
           <p>
             <span className="text-muted">Period · </span>
-            {bill.fromDate} to {bill.toDate}
+            {formatDateRange(bill.fromDate, bill.toDate)}
           </p>
           <p>
             <span className="text-muted">Payout · </span>
@@ -73,6 +79,7 @@ export function BillView() {
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="text-[11px] uppercase text-muted">
             <tr>
+              <th className="pb-2">Ref</th>
               <th className="pb-2">Date</th>
               <th className="pb-2">Shift</th>
               <th className="pb-2">L</th>
@@ -84,7 +91,8 @@ export function BillView() {
           <tbody>
             {lines.map((e) => (
               <tr key={e.id} className="border-t border-line">
-                <td className="py-1.5">{e.date}</td>
+                <td className="py-1.5 font-mono text-[11px]">{slipRef(e.id)}</td>
+                <td className="py-1.5">{formatDate(e.date)}</td>
                 <td>{e.shift}</td>
                 <td>{e.qty}</td>
                 <td>{e.fat}</td>
@@ -102,7 +110,7 @@ export function BillView() {
           <Line label="Gross" value={formatInr(bill.gross)} />
           <Line label="Advance recovered" value={formatInr(bill.advance)} />
           <Line label="Net payable" value={formatInr(bill.net)} strong />
-          <Line label="Status" value={bill.status === "paid" ? `Paid ${bill.paidAt?.slice(0, 10)}` : "Open"} />
+          <Line label="Status" value={bill.status === "paid" ? `Paid ${formatDate(bill.paidAt ?? "")}` : "Open"} />
         </div>
       </Card>
     </div>

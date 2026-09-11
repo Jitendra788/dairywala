@@ -82,9 +82,11 @@ const CAMEL_FIELDS = [
   "snfMin",
   "snfMax",
   "snfStep",
+  "spentBy",
+  "deletedAt",
 ];
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const globalForDb = globalThis as unknown as {
   tonyCustomerDb?: DatabaseSync;
@@ -369,7 +371,20 @@ CREATE TABLE IF NOT EXISTS DairyAuth (
   isDefault INTEGER NOT NULL DEFAULT 1,
   updatedAt TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS Expense (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  date TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount DOUBLE PRECISION NOT NULL,
+  spentBy TEXT NOT NULL,
+  remark TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'paid',
+  deletedAt TEXT,
+  createdAt TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_farmer_dairy_code ON Farmer(dairyId, code);
+CREATE INDEX IF NOT EXISTS idx_expense_dairy_date ON Expense(dairyId, date);
 CREATE INDEX IF NOT EXISTS idx_collection_dairy_date ON CollectionEntry(dairyId, date);
 CREATE INDEX IF NOT EXISTS idx_collection_farmer ON CollectionEntry(dairyId, farmerId);
 CREATE INDEX IF NOT EXISTS idx_advance_farmer ON FarmerAdvance(dairyId, farmerId);

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
-import { addDays, todayISO } from "@/lib/dates";
+import { addDays, formatDate, formatDateRange, todayISO } from "@/lib/dates";
+import { advanceRef, billRef } from "@/lib/ref";
 import { formatInr, formatQty } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnGhost, btnPrimary, Card, Field, confirmAction, inputClass, PageHeader, Select } from "@/components/ui";
@@ -90,7 +91,8 @@ export function PaymentsView() {
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Farmer</th>
+                  <th className="px-4 py-2.5 font-medium">Reference</th>
+                  <th className="py-2.5 font-medium">Farmer</th>
                   <th className="py-2.5 font-medium">Period</th>
                   <th className="py-2.5 font-medium">Qty</th>
                   <th className="py-2.5 font-medium">Net</th>
@@ -101,7 +103,7 @@ export function PaymentsView() {
               <tbody>
                 {dairy.bills.filter((bill) => (pendingOnly ? bill.status === "open" : true)).length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted">
                       {pendingOnly ? "Koi pending bill nahi." : "Abhi koi bill nahi."}
                     </td>
                   </tr>
@@ -110,14 +112,13 @@ export function PaymentsView() {
                     const farmer = dairy.farmerById(bill.farmerId);
                     return (
                       <tr key={bill.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                        <td className="px-4 py-2.5">
+                        <td className="px-4 py-2.5 font-mono text-xs">{billRef(bill.id)}</td>
+                        <td className="py-2.5">
                           <Link href={`/payments/bills/${bill.id}`} className="hover:text-primary">
                             {farmer?.code} · {farmer?.name}
                           </Link>
                         </td>
-                        <td>
-                          {bill.fromDate} → {bill.toDate}
-                        </td>
+                        <td>{formatDateRange(bill.fromDate, bill.toDate)}</td>
                         <td>{formatQty(bill.qty)}</td>
                         <td className="font-semibold">{formatInr(bill.net)}</td>
                         <td className="capitalize">{bill.status}</td>
@@ -215,8 +216,9 @@ export function PaymentsView() {
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Date</th>
-                  <th className="py-2.5 font-medium">Farmer</th>
+                <th className="px-4 py-2.5 font-medium">Reference</th>
+                <th className="py-2.5 font-medium">Date</th>
+                <th className="py-2.5 font-medium">Farmer</th>
                   <th className="py-2.5 font-medium">Note</th>
                   <th className="py-2.5 font-medium">Amount</th>
                   <th className="py-2.5 font-medium">Status</th>
@@ -228,7 +230,8 @@ export function PaymentsView() {
                   const farmer = dairy.farmerById(a.farmerId);
                   return (
                     <tr key={a.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                      <td className="px-4 py-2.5">{a.date}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs">{advanceRef(a.id)}</td>
+                      <td>{formatDate(a.date)}</td>
                       <td>
                         {farmer?.code} · {farmer?.name}
                       </td>

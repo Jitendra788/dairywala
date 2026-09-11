@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
+import { formatDate, formatDateRange } from "@/lib/dates";
 import { formatInr } from "@/lib/money";
+import { billRef, slipRef } from "@/lib/ref";
 import { useDairy } from "@/hooks/use-dairy";
 import {
   btnDanger,
@@ -369,13 +371,46 @@ export function FarmerProfile() {
         <Stat label="Open bills" value={String(bills.filter((b) => b.status === "open").length)} />
       </div>
 
+      {bills.length ? (
+        <Card className="p-5">
+          <h2 className="font-display text-lg">Bills</h2>
+          <div className="table-scroll mt-3">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="table-head text-[10px] uppercase text-muted">
+                <tr>
+                  <th className="px-2 py-2 font-medium">Reference</th>
+                  <th className="py-2 font-medium">Period</th>
+                  <th className="py-2 font-medium">Net</th>
+                  <th className="py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bills.map((bill) => (
+                  <tr key={bill.id} className="border-t border-line/70">
+                    <td className="px-2 py-2 font-mono text-xs">
+                      <Link href={`/payments/bills/${bill.id}`} className="hover:text-primary">
+                        {billRef(bill.id)}
+                      </Link>
+                    </td>
+                    <td>{formatDateRange(bill.fromDate, bill.toDate)}</td>
+                    <td>{formatInr(bill.net)}</td>
+                    <td className="capitalize">{bill.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="p-5">
         <h2 className="font-display text-lg">Collection history</h2>
         <div className="table-scroll mt-3">
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="table-head text-[10px] uppercase text-muted">
             <tr>
-              <th className="px-2 py-2 font-medium">Date</th>
+              <th className="px-2 py-2 font-medium">Reference</th>
+              <th className="py-2 font-medium">Date</th>
               <th className="py-2 font-medium">Shift</th>
               <th className="py-2 font-medium">L</th>
               <th className="py-2 font-medium">FAT/SNF</th>
@@ -385,11 +420,12 @@ export function FarmerProfile() {
           <tbody>
             {history.slice(0, 40).map((e) => (
               <tr key={e.id} className="border-t border-line/70">
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 font-mono text-xs">
                   <Link href={`/collection/${e.id}`} className="hover:text-primary">
-                    {e.date}
+                    {slipRef(e.id)}
                   </Link>
                 </td>
+                <td>{formatDate(e.date)}</td>
                 <td>{e.shift}</td>
                 <td>{e.qty}</td>
                 <td>

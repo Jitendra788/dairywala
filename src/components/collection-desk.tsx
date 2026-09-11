@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Pencil, Printer, Trash2 } from "lucide-react";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
+import { slipRef } from "@/lib/ref";
 import { calcAmount, fatPointRate, METHOD_LABEL, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnPrimary, Card, Field, Initials, MilkBadge, inputClass } from "@/components/ui";
@@ -276,7 +277,7 @@ export function CollectionDesk() {
                       <Initials name={f?.name ?? "F"} />
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{f?.name}</span>
-                        <span className="text-[11px] text-muted">{row.qty} L · FAT {row.fat} · SNF {row.snf || "—"}</span>
+                        <span className="text-[11px] text-muted">{slipRef(row.id)} · {row.qty} L · FAT {row.fat} · SNF {row.snf || "—"}</span>
                       </span>
                     </Link>
                     <div className="shrink-0 text-right">
@@ -312,7 +313,8 @@ export function CollectionDesk() {
           <table className="hidden w-full text-left text-[13px] md:table">
             <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Farmer</th>
+                <th className="px-4 py-2.5 font-medium">Reference</th>
+                <th className="py-2.5 font-medium">Farmer</th>
                 <th className="py-2.5 font-medium">Milk</th>
                 <th className="py-2.5 font-medium">L</th>
                 <th className="py-2.5 font-medium">FAT</th>
@@ -324,7 +326,7 @@ export function CollectionDesk() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-14 text-center text-muted">
+                  <td colSpan={8} className="px-4 py-14 text-center text-muted">
                     Is shift mein koi slip nahi. Code daal ke save karo.
                   </td>
                 </tr>
@@ -333,7 +335,12 @@ export function CollectionDesk() {
                   const f = dairy.farmerById(row.farmerId);
                   return (
                     <tr key={row.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 font-mono text-xs">
+                        <Link href={`/collection/${row.id}`} className="hover:text-primary">
+                          {slipRef(row.id)}
+                        </Link>
+                      </td>
+                      <td className="py-2.5">
                         <Link href={`/collection/${row.id}`} className="flex items-center gap-2 hover:text-primary">
                           <Initials name={f?.name ?? "F"} />
                           <span>
