@@ -17,17 +17,23 @@ const fieldClass =
 
 type Option = { value: string; label: string; disabled?: boolean };
 
+function textOf(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (isValidElement(node)) return textOf((node.props as { children?: ReactNode }).children);
+  return "";
+}
+
 function readOptions(children: ReactNode): Option[] {
   const out: Option[] = [];
   Children.forEach(children, (child) => {
     if (!isValidElement(child) || child.type !== "option") return;
     const props = child.props as { value?: string | number; children?: ReactNode; disabled?: boolean };
+    const label = textOf(props.children).replace(/\s+/g, " ").trim();
     out.push({
       value: props.value == null ? "" : String(props.value),
-      label:
-        typeof props.children === "string" || typeof props.children === "number"
-          ? String(props.children)
-          : String(props.value ?? ""),
+      label: label || "Select",
       disabled: Boolean(props.disabled),
     });
   });

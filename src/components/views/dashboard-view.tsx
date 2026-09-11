@@ -9,6 +9,7 @@ import { useDairy } from "@/hooks/use-dairy";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerDashboardStats } from "@/lib/customers/types";
 import { addMonths, endOfMonth, formatDate, startOfMonth, todayISO } from "@/lib/dates";
+import { farmerCode, farmerName } from "@/lib/farmer-label";
 import { slipRef } from "@/lib/ref";
 import { DairyLogo } from "@/components/dairy-brand";
 import { btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
@@ -156,9 +157,9 @@ export function DashboardView() {
               const f = dairy.farmerById(e.farmerId);
               return (
                 <Link key={e.id} href={`/collection/${e.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-[#faf6ee]">
-                  <Initials name={f?.name ?? "F"} />
+                  <Initials name={farmerName(f)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{f?.name}</span>
+                    <span className="block truncate font-medium">{farmerName(f)}</span>
                     <span className="text-[11px] text-muted capitalize">{slipRef(e.id)} · {formatDate(e.date)} · {e.shift} · {e.qty} L</span>
                   </span>
                   <span className="shrink-0 text-right">
@@ -193,10 +194,10 @@ export function DashboardView() {
                     </td>
                     <td className="py-2.5">
                       <Link href={`/collection/${e.id}`} className="flex items-center gap-2 hover:text-primary">
-                        <Initials name={f?.name ?? "F"} />
+                        <Initials name={farmerName(f)} />
                         <span>
-                          <span className="block font-medium">{f?.name}</span>
-                          <span className="text-[11px] text-muted">{f?.code}</span>
+                          <span className="block font-medium">{farmerName(f)}</span>
+                          {farmerCode(f) ? <span className="text-[11px] text-muted">{farmerCode(f)}</span> : null}
                         </span>
                       </Link>
                     </td>

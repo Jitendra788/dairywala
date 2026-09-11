@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { addMonths, endOfMonth, formatDateRange, startOfMonth, todayISO } from "@/lib/dates";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
+import { farmerLabel } from "@/lib/farmer-label";
 import { customerApi } from "@/lib/customers/client";
 import { Card, Field, inputClass, PageHeader } from "@/components/ui";
 import { EarningReportCard, ProfitLossCard } from "@/components/views/finance-dashboard";
@@ -104,7 +105,7 @@ export function ReportsView() {
               return (
                 <tr key={farmerId} className="border-t border-line">
                   <td className="py-2.5">
-                    {f?.code} · {f?.name}
+                    {farmerLabel(f)}
                   </td>
                   <td>{formatQty(round2(tot.qty))}</td>
                   <td>{formatInr(tot.amount)}</td>

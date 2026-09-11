@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Pencil, Printer, Trash2 } from "lucide-react";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
+import { farmerCode, farmerName } from "@/lib/farmer-label";
 import { slipRef } from "@/lib/ref";
 import { calcAmount, fatPointRate, METHOD_LABEL, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
@@ -274,9 +275,9 @@ export function CollectionDesk() {
                 return (
                   <div key={row.id} className="flex items-start gap-3 px-4 py-3">
                     <Link href={`/collection/${row.id}`} className="flex min-w-0 flex-1 items-center gap-2">
-                      <Initials name={f?.name ?? "F"} />
+                      <Initials name={farmerName(f)} />
                       <span className="min-w-0">
-                        <span className="block truncate font-medium">{f?.name}</span>
+                        <span className="block truncate font-medium">{farmerName(f)}</span>
                         <span className="text-[11px] text-muted">{slipRef(row.id)} · {row.qty} L · FAT {row.fat} · SNF {row.snf || "—"}</span>
                       </span>
                     </Link>
@@ -342,10 +343,10 @@ export function CollectionDesk() {
                       </td>
                       <td className="py-2.5">
                         <Link href={`/collection/${row.id}`} className="flex items-center gap-2 hover:text-primary">
-                          <Initials name={f?.name ?? "F"} />
+                          <Initials name={farmerName(f)} />
                           <span>
-                            <span className="block font-medium">{f?.name}</span>
-                            <span className="text-[11px] text-muted">{f?.code}</span>
+                            <span className="block font-medium">{farmerName(f)}</span>
+                            {farmerCode(f) ? <span className="text-[11px] text-muted">{farmerCode(f)}</span> : null}
                           </span>
                         </Link>
                       </td>

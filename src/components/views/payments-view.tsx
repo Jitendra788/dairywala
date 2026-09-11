@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import { addDays, formatDate, formatDateRange, todayISO } from "@/lib/dates";
+import { farmerLabel } from "@/lib/farmer-label";
 import { farmerAdvanceSummary } from "@/lib/farmer-ledger";
 import { advanceRef, billRef } from "@/lib/ref";
 import { formatInr, formatQty, round2 } from "@/lib/money";
@@ -157,7 +158,7 @@ export function PaymentsView() {
                           </td>
                           <td className="py-2.5">
                             <Link href={`/payments?tab=history&farmer=${bill.farmerId}`} className="hover:text-primary">
-                              {farmer?.code} · {farmer?.name}
+                              {farmerLabel(farmer)}
                             </Link>
                           </td>
                           <td>{formatDateRange(bill.fromDate, bill.toDate)}</td>
@@ -219,7 +220,7 @@ export function PaymentsView() {
                 <Select className={inputClass} value={adv.farmerId} onChange={(e) => setAdv({ ...adv, farmerId: e.target.value })}>
                   {dairy.farmers.map((f) => (
                     <option key={f.id} value={f.id}>
-                      {f.code} · {f.name}
+                      {farmerLabel(f)}
                     </option>
                   ))}
                 </Select>
@@ -301,7 +302,7 @@ export function PaymentsView() {
                           <td>{formatDate(a.date)}</td>
                           <td>
                             <Link href={`/payments?tab=history&farmer=${a.farmerId}`} className="hover:text-primary">
-                              {farmer?.code} · {farmer?.name}
+                              {farmerLabel(farmer)}
                             </Link>
                           </td>
                           <td>{a.note}</td>
@@ -373,7 +374,7 @@ export function PaymentsView() {
               >
                 {dairy.farmers.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.code} · {f.name}
+                    {farmerLabel(f)}
                   </option>
                 ))}
               </Select>
@@ -386,7 +387,7 @@ export function PaymentsView() {
           </div>
           {selectedFarmer ? (
             <FarmerLedger
-              farmerName={selectedFarmer.name}
+              farmerName={farmerLabel(selectedFarmer)}
               entries={dairy.entries.filter((e) => e.farmerId === selectedFarmer.id)}
               advances={dairy.advances.filter((a) => a.farmerId === selectedFarmer.id)}
               bills={dairy.bills.filter((b) => b.farmerId === selectedFarmer.id)}

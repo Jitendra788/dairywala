@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
+import { farmerCode, farmerName } from "@/lib/farmer-label";
 import { formatInr } from "@/lib/money";
 import { FarmerLedger } from "@/components/farmer-ledger";
 import { useDairy } from "@/hooks/use-dairy";
@@ -184,10 +185,10 @@ export function FarmersView() {
           {rows.map((f) => (
             <div key={f.id} className="flex items-start gap-3 px-4 py-3">
               <Link href={`/farmers/${f.id}`} className="flex min-w-0 flex-1 items-center gap-2">
-                <Initials name={f.name} />
+                <Initials name={farmerName(f)} />
                 <span className="min-w-0">
-                  <span className="block truncate font-medium">{f.name}</span>
-                  <span className="font-mono text-[11px] text-muted">{f.code} · {f.phone || "—"}</span>
+                  <span className="block truncate font-medium">{farmerName(f)}</span>
+                  <span className="text-[11px] text-muted">{[farmerCode(f), f.phone].filter(Boolean).join(" · ") || "—"}</span>
                 </span>
               </Link>
               <div className="shrink-0 text-right">
@@ -219,10 +220,10 @@ export function FarmersView() {
               <tr key={f.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
                 <td className="px-4 py-2.5">
                   <Link href={`/farmers/${f.id}`} className="flex items-center gap-2 hover:text-primary">
-                    <Initials name={f.name} />
+                    <Initials name={farmerName(f)} />
                     <span>
-                      <span className="block font-medium">{f.name}</span>
-                      <span className="font-mono text-[11px] text-muted">{f.code}</span>
+                      <span className="block font-medium">{farmerName(f)}</span>
+                      {farmerCode(f) ? <span className="text-[11px] text-muted">{farmerCode(f)}</span> : null}
                     </span>
                   </Link>
                 </td>
@@ -284,8 +285,8 @@ export function FarmerProfile() {
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <PageHeader
-        kicker={`Code ${farmer.code}`}
-        title={farmer.name}
+        kicker={farmerCode(farmer) ? `Code ${farmerCode(farmer)}` : "Farmer"}
+        title={farmerName(farmer)}
         hint="Yahan se farmer update ya delete kar sakte ho."
         actions={
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">

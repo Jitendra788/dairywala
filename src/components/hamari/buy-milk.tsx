@@ -10,6 +10,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { currentShift, formatDate, todayISO } from "@/lib/dates";
+import { farmerLabel } from "@/lib/farmer-label";
 import { slipRef } from "@/lib/ref";
 import { round2 } from "@/lib/money";
 import { calcAmount, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
@@ -344,7 +345,7 @@ export function BuyMilkScreen() {
                       <td className="px-3 py-2">{i + 1}</td>
                       <td className="px-3 py-2 font-mono text-xs">{slipRef(row.id)}</td>
                       <td className="px-3 py-2">
-                        {f?.code} - {f?.name}
+                        {farmerLabel(f)}
                       </td>
                       <td className="px-3 py-2">
                         {row.milkType === "cow" ? (

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { formatDate, formatDateRange } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
+import { farmerLabel } from "@/lib/farmer-label";
 import { billRef, slipRef } from "@/lib/ref";
 import { useDairy } from "@/hooks/use-dairy";
 import { btnDanger, btnPrimary, Card, confirmAction } from "@/components/ui";
@@ -63,7 +64,7 @@ export function BillView() {
           </p>
           <p>
             <span className="text-muted">Farmer · </span>
-            {farmer.code} {farmer.name}
+            {farmerLabel(farmer)}
           </p>
           <p>
             <span className="text-muted">Period · </span>
