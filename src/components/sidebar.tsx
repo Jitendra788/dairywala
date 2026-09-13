@@ -24,6 +24,8 @@ import { logout } from "@/lib/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useDairy } from "@/hooks/use-dairy";
 import { DairyLogo } from "@/components/dairy-brand";
+import { useI18n } from "@/hooks/use-i18n";
+import type { DictKey } from "@/lib/i18n/dict";
 
 type GroupKey = "milk" | "customers" | "finance" | "payments" | "rates" | "rateChart" | "reports" | "reportsMenu" | "management" | "settings";
 
@@ -64,7 +66,8 @@ export function Sidebar({
   const searchParams = useSearchParams();
   const router = useRouter();
   const { settings, todayStats, bills } = useDairy();
-  const { username } = useAuth();
+  const { username, name } = useAuth();
+  const { t } = useI18n();
   const today = todayStats();
   const [online, setOnline] = useState(true);
   const [hash, setHash] = useState("");
@@ -112,50 +115,51 @@ export function Sidebar({
 
   const query = searchParams.toString();
 
+  const label = (key: DictKey) => t(key);
+
   const customerChildren: NavChild[] = [
-    { href: "/customers", label: "All Customers", exact: true },
-    { href: "/customers?type=regular", label: "Regular Customers" },
-    { href: "/customers/walk-in", label: "Daily / Walk-in" },
-    { href: "/customers/delivery", label: "Daily Milk Delivery" },
-    { href: "/customers/ledger", label: "Milk Ledger" },
-    { href: "/customers/payments", label: "Customer Payments" },
-    { href: "/customers/bills", label: "Monthly Bills" },
+    { href: "/customers", label: label("allCustomers"), exact: true },
+    { href: "/customers?type=regular", label: label("regularCustomers") },
+    { href: "/customers/walk-in", label: label("walkIn") },
+    { href: "/customers/delivery", label: label("dailyDelivery") },
+    { href: "/customers/ledger", label: label("milkLedger") },
+    { href: "/customers/payments", label: label("customerPayments") },
+    { href: "/customers/bills", label: label("monthlyBills") },
   ];
 
   const paymentChildren: NavChild[] = [
-    { href: "/payments", label: "Receive Payment", exact: true },
-    { href: "/payments?tab=bills", label: "Farmer Payments" },
-    { href: "/payments?tab=advances", label: "Advances" },
-    { href: "/customers/payments", label: "Customer Payments" },
-    { href: "/payments?status=open", label: "Pending Payments" },
-    { href: "/payments?tab=history", label: "Farmer History" },
+    { href: "/payments", label: label("receivePayment"), exact: true },
+    { href: "/payments?tab=bills", label: label("farmerPayments") },
+    { href: "/payments?tab=advances", label: label("advances") },
+    { href: "/customers/payments", label: label("customerPayments") },
+    { href: "/payments?status=open", label: label("pendingPayments") },
+    { href: "/payments?tab=history", label: label("farmerHistory") },
   ];
 
   const rateChildren: NavChild[] = [
-    { href: "/rate-charts", label: "Today's Rate", exact: true },
-    { href: "/rate-charts?milk=cow", label: "Cow Rate" },
-    { href: "/rate-charts?milk=buffalo", label: "Buffalo Rate" },
-    { href: "/rate-charts?method=grid", label: "FAT/SNF Rate" },
-    { href: "/rate-charts?view=history", label: "Rate History" },
+    { href: "/rate-charts", label: label("todaysRate"), exact: true },
+    { href: "/rate-charts?milk=cow", label: label("cowRate") },
+    { href: "/rate-charts?milk=buffalo", label: label("buffaloRate") },
+    { href: "/rate-charts?method=grid", label: label("fatSnfRate") },
+    { href: "/rate-charts?view=history", label: label("rateHistory") },
   ];
 
   const reportChildren: NavChild[] = [
-    { href: "/reports", label: "Daily Report", exact: true },
-    { href: "/reports#earning", label: "Earning Report" },
-    { href: "/reports#pnl", label: "Profit & Loss" },
-    { href: "/reports#collection", label: "Milk Collection" },
-    { href: "/reports#statement", label: "Farmer Statement" },
-    { href: "/customers/ledger", label: "Customer Statement" },
-    { href: "/customers/walk-in", label: "Sales Report" },
-    { href: "/expenses", label: "Expenses" },
+    { href: "/reports", label: label("dailyReport"), exact: true },
+    { href: "/reports#pnl", label: label("profitLoss") },
+    { href: "/reports#collection", label: label("milkCollection") },
+    { href: "/reports#statement", label: label("farmerStatement") },
+    { href: "/customers/ledger", label: label("customerStatement") },
+    { href: "/customers/walk-in", label: label("salesReport") },
+    { href: "/expenses", label: label("navExpenses") },
   ];
 
   const settingChildren: NavChild[] = [
-    { href: "/settings#profile", label: "Dairy Profile" },
-    { href: "/settings#account", label: "Users & Staff" },
-    { href: "/rate-charts", label: "Milk Settings" },
-    { href: "/payments", label: "Payment Settings" },
-    { href: "/settings#data", label: "Backup" },
+    { href: "/settings#profile", label: label("dairyProfile") },
+    { href: "/settings#account", label: label("usersStaff") },
+    { href: "/rate-charts", label: label("milkSettings") },
+    { href: "/payments", label: label("paymentSettings") },
+    { href: "/settings#data", label: label("backup") },
   ];
 
   return (
@@ -177,7 +181,7 @@ export function Sidebar({
               className="shadow-[0_0_0_4px_rgba(24,122,72,0.28)]"
             />
             <span className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
-              <span className="block truncate font-display text-[18px] leading-none text-white">{settings.dairyName || "Dairy desk"}</span>
+              <span className="block truncate font-display text-[18px] leading-none text-white">{settings.dairyName || t("dairyDesk")}</span>
               <span className="mt-1 block truncate text-[10px] text-white/65">{settings.centerName}</span>
             </span>
           </Link>
@@ -185,7 +189,7 @@ export function Sidebar({
             type="button"
             className="ml-auto rounded-md p-1 text-sidebar-fg/70 lg:hidden"
             onClick={onClose}
-            aria-label="Close menu"
+            aria-label={t("closeMenu")}
           >
             <X size={16} />
           </button>
@@ -193,34 +197,34 @@ export function Sidebar({
 
         <div className={`mx-2.5 mb-2 shrink-0 rounded-xl border border-white/10 bg-white/6 ${collapsed ? "lg:mx-2 lg:px-1.5 lg:py-2" : "px-2.5 py-2"}`}>
           <div className={`flex items-center justify-between ${collapsed ? "lg:justify-center" : ""}`}>
-            <p className={`text-[10px] font-semibold tracking-[0.12em] text-white/70 uppercase ${collapsed ? "lg:hidden" : ""}`}>Today</p>
+            <p className={`text-[10px] font-semibold tracking-[0.12em] text-white/70 uppercase ${collapsed ? "lg:hidden" : ""}`}>{t("today")}</p>
             <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-amber-400"}`} />
           </div>
           <p className={`mt-0.5 font-display leading-none text-white ${collapsed ? "lg:mt-0 lg:text-center lg:text-[13px]" : "text-[20px]"}`}>
             {formatQty(today.qty)}
           </p>
           <p className={`mt-0.5 text-[10px] text-white/55 ${collapsed ? "lg:hidden" : ""}`}>
-            {today.slips} slips · {today.farmers} farmers
+            {t("slipsFarmers", { slips: today.slips, farmers: today.farmers })}
           </p>
         </div>
 
         <nav className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-1">
-          <SectionLabel collapsed={collapsed}>Main</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{t("navMain")}</SectionLabel>
           <NavLink
             href="/"
             active={pathname === "/"}
             collapsed={collapsed}
-            label="Dashboard"
+            label={t("navDashboard")}
             onClick={onClose}
             icon={<LayoutDashboard size={16} strokeWidth={1.75} />}
           />
 
-          <SectionLabel collapsed={collapsed}>Milk Operations</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{t("navMilk")}</SectionLabel>
           <NavLink
             href="/collection"
             active={pathname.startsWith("/collection")}
             collapsed={collapsed}
-            label="Collection"
+            label={t("navCollection")}
             onClick={onClose}
             icon={<Droplets size={16} strokeWidth={1.75} />}
             badge={today.slips}
@@ -229,13 +233,13 @@ export function Sidebar({
             href="/farmers"
             active={pathname.startsWith("/farmers")}
             collapsed={collapsed}
-            label="Farmers"
+            label={t("navFarmers")}
             onClick={onClose}
             icon={<Users size={16} strokeWidth={1.75} />}
           />
           <Branch
             href="/customers"
-            label="Customers"
+            label={t("navCustomers")}
             icon={<UserRound size={16} strokeWidth={1.75} />}
             active={pathname.startsWith("/customers")}
             open={groups.customers}
@@ -248,18 +252,18 @@ export function Sidebar({
             hash={hash}
           />
 
-          <SectionLabel collapsed={collapsed}>Finance</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{t("navFinance")}</SectionLabel>
           <NavLink
             href="/expenses"
             active={pathname.startsWith("/expenses")}
             collapsed={collapsed}
-            label="Expenses"
+            label={t("navExpenses")}
             onClick={onClose}
             icon={<Receipt size={16} strokeWidth={1.75} />}
           />
           <Branch
             href="/payments"
-            label="Payments"
+            label={t("navPayments")}
             icon={<Wallet size={16} strokeWidth={1.75} />}
             active={pathname === "/payments" || pathname.startsWith("/payments/")}
             open={groups.payments}
@@ -273,10 +277,10 @@ export function Sidebar({
             badge={unpaidBills}
           />
 
-          <SectionLabel collapsed={collapsed}>Rate & Calculation</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{t("navRate")}</SectionLabel>
           <Branch
             href="/rate-charts"
-            label="Rate Chart"
+            label={t("navRateChart")}
             icon={<Table2 size={16} strokeWidth={1.75} />}
             active={pathname.startsWith("/rate-charts")}
             open={groups.rateChart}
@@ -289,10 +293,10 @@ export function Sidebar({
             hash={hash}
           />
 
-          <SectionLabel collapsed={collapsed}>Reports</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{t("navReports")}</SectionLabel>
           <Branch
             href="/reports"
-            label="Reports"
+            label={t("navReportsItem")}
             icon={<BarChart3 size={16} strokeWidth={1.75} />}
             active={pathname.startsWith("/reports")}
             open={groups.reportsMenu}
@@ -305,10 +309,10 @@ export function Sidebar({
             hash={hash}
           />
 
-          <SectionLabel collapsed={collapsed}>Management</SectionLabel>
+          <SectionLabel collapsed={collapsed}>{t("navManagement")}</SectionLabel>
           <Branch
             href="/settings"
-            label="Settings"
+            label={t("navSettings")}
             icon={<Settings2 size={16} strokeWidth={1.75} />}
             active={pathname.startsWith("/settings")}
             open={groups.settings}
@@ -328,23 +332,23 @@ export function Sidebar({
               {(username || "AD").slice(0, 2).toUpperCase()}
             </span>
             <span className={`min-w-0 flex-1 ${collapsed ? "lg:hidden" : ""}`}>
-              <span className="block truncate text-[12px] font-semibold text-white">{username || "Admin"}</span>
+              <span className="block truncate text-[12px] font-semibold text-white">{name || username || "Admin"}</span>
               <span className="flex items-center gap-1 text-[10px] text-white/60">
                 <span className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-amber-400"}`} />
-                {online ? "Online" : "Offline"} · Admin
+                {online ? t("online") : t("offline")} · {t("owner")}
               </span>
             </span>
             <Link
               href="/settings"
               onClick={onClose}
-              title="Settings"
+              title={t("settings")}
               className={`rounded-md p-1 text-white/70 hover:bg-white/10 hover:text-white ${collapsed ? "lg:hidden" : ""}`}
             >
               <Settings2 size={13} />
             </Link>
             <button
               type="button"
-              title="Logout"
+              title={t("logout")}
               className={`rounded-md p-1 text-white/70 hover:bg-white/10 hover:text-white ${collapsed ? "lg:hidden" : ""}`}
               onClick={() => {
                 logout();
@@ -360,10 +364,10 @@ export function Sidebar({
             type="button"
             className="hidden w-full items-center justify-center gap-2 rounded-lg py-1 text-[11px] text-white/55 hover:bg-white/6 hover:text-white lg:flex"
             onClick={onToggleCollapse}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? t("expand") : t("collapse")}
           >
             {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-            {collapsed ? null : <span>Collapse</span>}
+            {collapsed ? null : <span>{t("collapse")}</span>}
           </button>
         </div>
       </aside>

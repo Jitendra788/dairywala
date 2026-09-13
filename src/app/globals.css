@@ -34,6 +34,7 @@ html,
 body {
   height: 100%;
   overflow: hidden;
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -44,13 +45,13 @@ body {
     radial-gradient(800px 380px at 0% 100%, rgba(24, 122, 72, 0.08), transparent 50%),
     var(--background);
   color: var(--foreground);
-  font-family: var(--font-dm-sans), "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-dm-sans), var(--font-noto-devanagari), "Nirmala UI", "Segoe UI", system-ui, sans-serif;
   word-spacing: 0.08em;
   font-kerning: normal;
 }
 
 .font-display {
-  font-family: var(--font-fraunces), Georgia, serif;
+  font-family: var(--font-fraunces), var(--font-noto-devanagari), "Nirmala UI", Georgia, serif;
   word-spacing: 0.12em;
 }
 
@@ -88,6 +89,24 @@ span {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  max-width: 100%;
+}
+
+.chip-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-row > * {
+  flex: 0 0 auto;
 }
 
 button,
@@ -104,8 +123,16 @@ a,
   input[type="number"],
   input[type="tel"],
   input[type="search"],
-  input:not([type]) {
+  input[type="email"],
+  input[type="password"],
+  input:not([type]),
+  textarea {
     min-height: 44px;
+    font-size: 16px !important;
+  }
+
+  h1.font-display {
+    overflow-wrap: anywhere;
   }
 }
 

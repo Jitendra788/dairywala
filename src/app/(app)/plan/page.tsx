@@ -10,9 +10,9 @@ export default function PlanPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
           Module-wise clone
         </p>
-        <h1 className="font-display text-4xl tracking-tight">Tony Dairy plan</h1>
+        <h1 className="font-display text-4xl tracking-tight">DudhSetu plan</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
-          Hamari Dairy ke public workflow ko Tony Dairy ke Next.js modules mein map
+          Hamari Dairy ke public workflow ko DudhSetu ke Next.js modules mein map
           kiya gaya hai. Har module ke screens, tables aur work flow uske page par
           hain. Pehla working loop: collection → rate → slip → bill → payout.
         </p>

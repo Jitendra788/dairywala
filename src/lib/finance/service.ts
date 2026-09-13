@@ -242,11 +242,11 @@ export async function financeReport(
 
   const todaySales = await qget(
     `SELECT
-        COALESCE(SUM(CASE WHEN IFNULL(source, 'subscription') = 'subscription' AND status IN ('delivered','partial','extra') AND IFNULL(s.deliveryTime, '06:00') < '15:00' THEN d.amount ELSE 0 END), 0) AS morningSales,
-        COALESCE(SUM(CASE WHEN IFNULL(source, 'subscription') = 'subscription' AND status IN ('delivered','partial','extra') AND IFNULL(s.deliveryTime, '06:00') >= '15:00' THEN d.amount ELSE 0 END), 0) AS eveningSales,
-        COALESCE(SUM(CASE WHEN IFNULL(source, 'subscription') = 'walkin' THEN d.amount ELSE 0 END), 0) AS counterSales
+        COALESCE(SUM(CASE WHEN IFNULL(d.source, 'subscription') = 'subscription' AND d.status IN ('delivered','partial','extra') AND IFNULL(s.deliveryTime, '06:00') < '15:00' THEN d.amount ELSE 0 END), 0) AS morningSales,
+        COALESCE(SUM(CASE WHEN IFNULL(d.source, 'subscription') = 'subscription' AND d.status IN ('delivered','partial','extra') AND IFNULL(s.deliveryTime, '06:00') >= '15:00' THEN d.amount ELSE 0 END), 0) AS eveningSales,
+        COALESCE(SUM(CASE WHEN IFNULL(d.source, 'subscription') = 'walkin' THEN d.amount ELSE 0 END), 0) AS counterSales
      FROM DailyMilkDelivery d
-     LEFT JOIN CustomerSubscription s ON s.customerId = d.customerId
+     LEFT JOIN CustomerSubscription s ON s.customerId = d.customerId AND s.dairyId = d.dairyId
      WHERE d.dairyId = ? AND d.date = ?`,
     dairyId,
     today,
@@ -274,7 +274,7 @@ export async function financeReport(
         COALESCE(SUM(CASE WHEN IFNULL(s.deliveryTime, '06:00') >= '15:00' THEN 1 ELSE 0 END), 0) AS eveningTotal,
         COALESCE(SUM(CASE WHEN IFNULL(s.deliveryTime, '06:00') >= '15:00' AND d.status IN ('delivered','partial','extra') THEN 1 ELSE 0 END), 0) AS eveningDone
      FROM DailyMilkDelivery d
-     LEFT JOIN CustomerSubscription s ON s.customerId = d.customerId
+     LEFT JOIN CustomerSubscription s ON s.customerId = d.customerId AND s.dairyId = d.dairyId
      WHERE d.dairyId = ? AND d.date = ? AND IFNULL(d.source, 'subscription') = 'subscription'`,
     dairyId,
     today,

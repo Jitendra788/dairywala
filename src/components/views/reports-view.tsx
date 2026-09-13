@@ -7,16 +7,14 @@ import { useDairy } from "@/hooks/use-dairy";
 import { farmerLabel } from "@/lib/farmer-label";
 import { customerApi } from "@/lib/customers/client";
 import { Card, Field, inputClass, PageHeader } from "@/components/ui";
-import { EarningReportCard, ProfitLossCard } from "@/components/views/finance-dashboard";
+import { ProfitLossCard } from "@/components/views/finance-dashboard";
 import type { FinanceGrain, FinanceReport } from "@/lib/finance/types";
 
 export function ReportsView() {
   const dairy = useDairy();
   const [fromDate, setFromDate] = useState(todayISO());
   const [toDate, setToDate] = useState(todayISO());
-  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [grain, setGrain] = useState<FinanceGrain>("month");
-  const [monthReport, setMonthReport] = useState<FinanceReport | null>(null);
   const [pnlReport, setPnlReport] = useState<FinanceReport | null>(null);
 
   const rows = useMemo(
@@ -30,20 +28,16 @@ export function ReportsView() {
   const avgSnf = qty ? rows.reduce((s, e) => s + e.snf * e.qty, 0) / qty : 0;
 
   useEffect(() => {
-    const extra = includeDeleted ? "&includeDeleted=1" : "";
-    customerApi<FinanceReport>(`/api/finance?from=${startOfMonth()}&to=${endOfMonth()}${extra}`)
-      .then(setMonthReport)
-      .catch(() => setMonthReport(null));
-    customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}${extra}`)
+    customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}`)
       .then(setPnlReport)
       .catch(() => setPnlReport(null));
-  }, [includeDeleted]);
+  }, []);
 
   useEffect(() => {
     const id = window.location.hash.replace("#", "");
     if (!id) return;
     window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-  }, [monthReport, pnlReport]);
+  }, [pnlReport]);
 
   const byFarmer = new Map<string, { qty: number; amount: number }>();
   for (const e of rows) {
@@ -61,14 +55,6 @@ export function ReportsView() {
         hint={`Date range se daily milk, quality, earning aur farmer-wise statement. Showing ${formatDateRange(fromDate, toDate)}.`}
       />
 
-      {monthReport ? (
-        <EarningReportCard
-          report={monthReport}
-          includeDeleted={includeDeleted}
-          onIncludeDeleted={setIncludeDeleted}
-          periodLabel="This month"
-        />
-      ) : null}
       {pnlReport ? <ProfitLossCard report={pnlReport} grain={grain} onGrain={setGrain} /> : null}
 
       <Card className="grid gap-3 p-5 md:grid-cols-2">
@@ -89,7 +75,24 @@ export function ReportsView() {
 
       <Card id="statement" className="p-5">
         <h2 className="font-display text-xl">Farmer statement</h2>
-        <div className="table-scroll mt-3">
+        <div className="mt-3 divide-y divide-line/70 md:hidden">
+          {[...byFarmer.entries()].map(([farmerId, tot]) => {
+            const f = dairy.farmerById(farmerId);
+            return (
+              <div key={farmerId} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{farmerLabel(f)}</p>
+                  <p className="text-[11px] text-muted">{formatQty(round2(tot.qty))}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[13px] font-semibold">{formatInr(tot.amount)}</p>
+                  <p className="text-[11px] text-muted">{formatInr(dairy.farmerBalance(farmerId))}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="table-scroll mt-3 hidden md:block">
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="text-[11px] uppercase tracking-[0.12em] text-muted">
             <tr>

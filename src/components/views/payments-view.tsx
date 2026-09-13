@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, Banknote, Pencil, Trash2, UserRound, Users } from "lucide-react";
 import { addDays, formatDate, formatDateRange, todayISO } from "@/lib/dates";
 import { farmerLabel } from "@/lib/farmer-label";
 import { farmerAdvanceSummary } from "@/lib/farmer-ledger";
+import { useI18n } from "@/hooks/use-i18n";
 import { advanceRef, billRef } from "@/lib/ref";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
@@ -17,24 +18,29 @@ type Tab = "bills" | "advances" | "history";
 
 export function PaymentsView() {
   const dairy = useDairy();
+  const { t } = useI18n();
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<Tab>("bills");
+  const tabParam = searchParams.get("tab");
+  const pendingOnly = searchParams.get("status") === "open";
+  const view: "hub" | Tab =
+    tabParam === "advances" || tabParam === "history" ? tabParam : tabParam === "bills" || pendingOnly ? "bills" : "hub";
+
   const [fromDate, setFromDate] = useState(addDays(todayISO(), -9));
   const [toDate, setToDate] = useState(todayISO());
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [farmerId, setFarmerId] = useState(dairy.farmers[0]?.id ?? "");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [busy, setBusy] = useState("");
+  const [showMore, setShowMore] = useState(false);
   const [adv, setAdv] = useState({
     farmerId: dairy.farmers[0]?.id ?? "",
     amount: "",
-    note: "Cattle feed",
+    note: "",
     date: todayISO(),
   });
 
   useEffect(() => {
-    const next = searchParams.get("tab");
-    if (next === "advances" || next === "bills" || next === "history") setTab(next);
     const farmer = searchParams.get("farmer");
     if (farmer && dairy.farmers.some((f) => f.id === farmer)) {
       setFarmerId(farmer);
@@ -47,7 +53,6 @@ export function PaymentsView() {
     if (!adv.farmerId && dairy.farmers[0]) setAdv((prev) => ({ ...prev, farmerId: dairy.farmers[0].id }));
   }, [dairy.farmers, farmerId, adv.farmerId]);
 
-  const pendingOnly = searchParams.get("status") === "open";
   const bills = dairy.bills.filter((bill) => (pendingOnly ? bill.status === "open" : true));
   const unbilled = useMemo(
     () => dairy.entries.filter((e) => !e.billId && e.date >= fromDate && e.date <= toDate),
@@ -57,98 +62,199 @@ export function PaymentsView() {
   const openAdvance = dairy.advances.filter((a) => !a.recovered);
   const selectedFarmer = dairy.farmerById(farmerId);
 
+  if (view === "hub") {
+    return (
+      <div className="mx-auto max-w-4xl space-y-5">
+        <PageHeader kicker={t("payHubKicker")} title={t("payHubTitle")} hint={t("payHubHint")} />
+        <Tip>
+          <p className="font-semibold text-foreground">{t("howTo")}</p>
+          <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+            <li>{t("payStep1")}</li>
+            <li>{t("payStep2")}</li>
+            <li>{t("payStep3")}</li>
+          </ol>
+        </Tip>
+        <div className="grid gap-3 md:grid-cols-3">
+          <HubCard
+            href="/payments?tab=bills"
+            icon={<Users size={20} />}
+            title={t("farmerPayCard")}
+            text={t("farmerPayCardHint")}
+            action={t("farmerPayOpen")}
+          />
+          <HubCard
+            href="/customers/payments"
+            icon={<UserRound size={20} />}
+            title={t("customerPayCard")}
+            text={t("customerPayCardHint")}
+            action={t("customerPayOpen")}
+          />
+          <HubCard
+            href="/payments?tab=advances"
+            icon={<Banknote size={20} />}
+            title={t("advanceCard")}
+            text={t("advanceCardHint")}
+            action={t("giveAdvance")}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-5">
       <PageHeader
-        kicker="बिल व भुगतान"
-        title="Billing & payments"
-        hint="Bill, advance (open / cleared) aur ek farmer ki complete history yahin."
+        kicker={t("payHubKicker")}
+        title={view === "advances" ? t("advanceTitle") : view === "history" ? t("farmerHistory") : t("farmerPayTitle")}
+        hint={view === "advances" ? t("advanceHint") : view === "history" ? t("farmerPayHint") : t("farmerPayHint")}
+        actions={
+          <Link href="/payments" className={btnGhost}>
+            {t("backPayments")}
+          </Link>
+        }
       />
 
-      <div className="flex flex-wrap gap-2">
-        {([
-          ["bills", "Bills"],
-          ["advances", "Advances"],
-          ["history", "Farmer history"],
-        ] as const).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            className={`${tab === key ? btnPrimary : btnGhost} flex-1 sm:flex-none`}
-            onClick={() => setTab(key)}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="chip-row">
+        <Link href="/payments?tab=bills" className={`${view === "bills" ? btnPrimary : btnGhost}`}>
+          {t("farmerPayments")}
+        </Link>
+        <Link href="/customers/payments" className={btnGhost}>
+          {t("customerPayments")}
+        </Link>
+        <Link href="/payments?tab=advances" className={`${view === "advances" ? btnPrimary : btnGhost}`}>
+          {t("advances")}
+        </Link>
+        <Link href="/payments?tab=history" className={`${view === "history" ? btnPrimary : btnGhost}`}>
+          {t("farmerHistory")}
+        </Link>
       </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {message ? <p className="text-sm text-primary">{message}</p> : null}
 
-      {tab === "bills" ? (
+      {view === "bills" ? (
         <>
+          <Tip>{t("farmerPayHint")}</Tip>
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-            <Mini label="Unbilled slips" value={String(unbilled.length)} hint={formatQty(unbilled.reduce((s, e) => s + e.qty, 0))} />
-            <Mini label="Open bills" value={String(dairy.bills.filter((b) => b.status === "open").length)} hint={formatInr(dairy.bills.filter((b) => b.status === "open").reduce((s, b) => s + b.net, 0))} />
-            <Mini label="Advance open" value={formatInr(advSummary.open)} hint={`${advSummary.openCount} not cleared`} warn={advSummary.open > 0} />
-            <Mini label="Advance cleared" value={formatInr(advSummary.recovered)} hint="Already cut from bills" />
+            <Mini label={t("unbilledSlips")} value={String(unbilled.length)} hint={formatQty(unbilled.reduce((s, e) => s + e.qty, 0))} />
+            <Mini label={t("openBills")} value={String(dairy.bills.filter((b) => b.status === "open").length)} hint={formatInr(dairy.bills.filter((b) => b.status === "open").reduce((s, b) => s + b.net, 0))} />
+            <Mini label={t("advanceOpenAmt")} value={formatInr(advSummary.open)} hint={`${advSummary.openCount}`} warn={advSummary.open > 0} />
+            <Mini label={t("advanceCleared")} value={formatInr(advSummary.recovered)} hint={t("advanceCleared")} />
           </div>
           <Card className="p-5">
             <div className="grid gap-3 md:grid-cols-4">
-              <Field label="From">
+              <Field label={t("from")}>
                 <input type="date" className={inputClass} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
               </Field>
-              <Field label="To">
+              <Field label={t("to")}>
                 <input type="date" className={inputClass} value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </Field>
               <div className="flex flex-col justify-end text-sm text-muted">
-                Period {formatDateRange(fromDate, toDate)}
+                {t("period")} {formatDateRange(fromDate, toDate)}
               </div>
               <div className="flex items-end">
                 <button
                   type="button"
                   className={`${btnPrimary} w-full`}
-                  onClick={async () => {
-                    const created = await dairy.generateBills(fromDate, toDate);
-                    const cut = round2(created.reduce((s, b) => s + b.advance, 0));
-                    setMessage(
-                      created.length
-                        ? `${created.length} bills. Advance cleared ${formatInr(cut)}.`
-                        : "Is period mein unbilled milk nahi.",
-                    );
+                  disabled={busy === "bills"}
+                  onClick={() => {
+                    setBusy("bills");
+                    setError("");
+                    void dairy
+                      .generateBills(fromDate, toDate)
+                      .then((created) => {
+                        const cut = round2(created.reduce((s, b) => s + b.advance, 0));
+                        setMessage(created.length ? t("billsMade", { n: created.length, amt: formatInr(cut) }) : t("noMilkPeriod"));
+                      })
+                      .catch((e) => setError(e instanceof Error ? e.message : t("dashboardClosed")))
+                      .finally(() => setBusy(""));
                   }}
                 >
-                  Generate bills
+                  {busy === "bills" ? t("generating") : t("generateBills")}
                 </button>
               </div>
             </div>
           </Card>
 
           <Card className="overflow-hidden p-0">
-            <div className="table-scroll">
-              <table className="w-full min-w-[880px] text-left text-sm">
+            <div className="divide-y divide-line/70 md:hidden">
+              {bills.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-muted">{pendingOnly ? t("noPendingBills") : t("noBills")}</p>
+              ) : (
+                bills.map((bill) => {
+                  const farmer = dairy.farmerById(bill.farmerId);
+                  const rowBusy = busy === bill.id;
+                  return (
+                    <div key={bill.id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <Link href={`/payments?tab=history&farmer=${bill.farmerId}`} className="block truncate font-medium">
+                            {farmerLabel(farmer)}
+                          </Link>
+                          <p className="text-[11px] text-muted">{formatDateRange(bill.fromDate, bill.toDate)}</p>
+                          <p className="font-mono text-[11px] text-muted">{billRef(bill.id)}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[15px] font-semibold">{formatInr(bill.net)}</p>
+                          <p className="text-[11px] text-muted">{bill.status === "paid" ? t("paid") : t("unpaid")}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex gap-2">
+                        {bill.status === "open" ? (
+                          <>
+                            <button
+                              type="button"
+                              className={`${btnPrimary} flex-1`}
+                              disabled={rowBusy}
+                              onClick={() => {
+                                setBusy(bill.id);
+                                setError("");
+                                void dairy
+                                  .markBillPaid(bill.id)
+                                  .catch((e) => setError(e instanceof Error ? e.message : t("dashboardClosed")))
+                                  .finally(() => setBusy(""));
+                              }}
+                            >
+                              {rowBusy ? t("paying") : t("payNow")}
+                            </button>
+                            <Link href={`/payments/bills/${bill.id}`} className={`${btnGhost} flex-1`}>
+                              {t("view")}
+                            </Link>
+                          </>
+                        ) : (
+                          <Link href={`/payments/bills/${bill.id}`} className={`${btnGhost} w-full`}>
+                            {t("view")}
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="table-scroll hidden md:block">
+              <table className="w-full min-w-[920px] text-left text-sm">
                 <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
                   <tr>
-                    <th className="px-4 py-2.5 font-medium">Reference</th>
-                    <th className="py-2.5 font-medium">Farmer</th>
-                    <th className="py-2.5 font-medium">Period</th>
-                    <th className="py-2.5 font-medium">Qty</th>
-                    <th className="py-2.5 font-medium">Gross</th>
-                    <th className="py-2.5 font-medium">Advance cleared</th>
-                    <th className="py-2.5 font-medium">Net</th>
-                    <th className="py-2.5 font-medium">Status</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Action</th>
+                    <th className="px-4 py-2.5 font-medium">{t("reference")}</th>
+                    <th className="py-2.5 font-medium">{t("farmer")}</th>
+                    <th className="py-2.5 font-medium">{t("period")}</th>
+                    <th className="py-2.5 font-medium">{t("amount")}</th>
+                    <th className="py-2.5 font-medium">{t("advanceCleared")}</th>
+                    <th className="py-2.5 font-medium">{t("colStatus")}</th>
+                    <th className="px-4 py-2.5 font-medium text-right">{t("payNow")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bills.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-muted">
-                        {pendingOnly ? "Koi pending bill nahi." : "Abhi koi bill nahi."}
+                      <td colSpan={7} className="px-4 py-8 text-center text-muted">
+                        {pendingOnly ? t("noPendingBills") : t("noBills")}
                       </td>
                     </tr>
                   ) : (
                     bills.map((bill) => {
                       const farmer = dairy.farmerById(bill.farmerId);
+                      const rowBusy = busy === bill.id;
                       return (
                         <tr key={bill.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
                           <td className="px-4 py-2.5 font-mono text-xs">
@@ -162,32 +268,43 @@ export function PaymentsView() {
                             </Link>
                           </td>
                           <td>{formatDateRange(bill.fromDate, bill.toDate)}</td>
-                          <td>{formatQty(bill.qty)}</td>
-                          <td>{formatInr(bill.gross)}</td>
+                          <td className="font-semibold">{formatInr(bill.net)}</td>
                           <td className={bill.advance ? "font-semibold text-amber-800" : "text-muted"}>
                             {bill.advance ? `−${formatInr(bill.advance)}` : "—"}
                           </td>
-                          <td className="font-semibold">{formatInr(bill.net)}</td>
-                          <td className="capitalize">{bill.status === "paid" ? `Paid ${formatDate(bill.paidAt ?? "")}` : "Unpaid"}</td>
+                          <td className="capitalize">{bill.status === "paid" ? `${t("paid")} ${formatDate(bill.paidAt ?? "")}` : t("unpaid")}</td>
                           <td className="px-4 text-right">
                             {bill.status === "open" ? (
-                              <button
-                                type="button"
-                                className="rounded-lg p-1.5 text-muted hover:bg-red-50 hover:text-danger"
-                                onClick={async () => {
-                                  if (!confirmAction("Unpaid bill delete karein? Slips unbilled ho jayengi, advance wapas open.")) return;
-                                  try {
-                                    await dairy.deleteBill(bill.id);
-                                  } catch (e) {
-                                    setError(e instanceof Error ? e.message : "Delete fail");
-                                  }
-                                }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  className={btnPrimary}
+                                  disabled={rowBusy}
+                                  onClick={() => {
+                                    setBusy(bill.id);
+                                    setError("");
+                                    void dairy
+                                      .markBillPaid(bill.id)
+                                      .catch((e) => setError(e instanceof Error ? e.message : t("dashboardClosed")))
+                                      .finally(() => setBusy(""));
+                                  }}
+                                >
+                                  {rowBusy ? t("paying") : t("payNow")}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-lg p-2 text-muted hover:bg-red-50 hover:text-danger"
+                                  onClick={() => {
+                                    if (!confirmAction(t("confirmDeleteBill"))) return;
+                                    void dairy.deleteBill(bill.id).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             ) : (
                               <Link href={`/payments?tab=history&farmer=${bill.farmerId}`} className="text-[11px] text-primary">
-                                History
+                                {t("history")}
                               </Link>
                             )}
                           </td>
@@ -202,21 +319,18 @@ export function PaymentsView() {
         </>
       ) : null}
 
-      {tab === "advances" ? (
+      {view === "advances" ? (
         <>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-            <Mini label="Advance given" value={formatInr(advSummary.given)} hint={`${advSummary.count} records`} />
-            <Mini label="Still open" value={formatInr(advSummary.open)} hint={`${advSummary.openCount} farmers se recover`} warn={advSummary.open > 0} />
-            <Mini label="Cleared on bills" value={formatInr(advSummary.recovered)} hint="Bill generate ke time cut" />
-            <Mini label="Open records" value={String(openAdvance.length)} hint="Edit / delete allowed" />
+          <Tip>{t("advanceHint")}</Tip>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+            <Mini label={t("advanceCard")} value={formatInr(advSummary.given)} hint={`${advSummary.count}`} />
+            <Mini label={t("advanceOpenAmt")} value={formatInr(advSummary.open)} hint={`${openAdvance.length}`} warn={advSummary.open > 0} />
+            <Mini label={t("advanceCleared")} value={formatInr(advSummary.recovered)} hint={t("advanceCleared")} />
           </div>
           <Card className="p-5">
-            <h2 className="mb-1 font-display text-lg">{editingId ? "Update advance" : "Give advance"}</h2>
-            <p className="mb-3 text-[13px] text-muted">
-              Advance farmer ko cash/feed. Bill generate hone par open advance automatically clear ho jata hai.
-            </p>
-            <div className="grid gap-3 md:grid-cols-5">
-              <Field label="Farmer">
+            <h2 className="mb-3 font-display text-lg">{editingId ? t("edit") : t("giveAdvance")}</h2>
+            <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_auto]">
+              <Field label={t("farmer")}>
                 <Select className={inputClass} value={adv.farmerId} onChange={(e) => setAdv({ ...adv, farmerId: e.target.value })}>
                   {dairy.farmers.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -225,72 +339,101 @@ export function PaymentsView() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Amount">
+              <Field label={t("amount")}>
                 <input className={inputClass} inputMode="decimal" value={adv.amount} onChange={(e) => setAdv({ ...adv, amount: e.target.value })} />
               </Field>
-              <Field label="Note">
-                <input className={inputClass} value={adv.note} onChange={(e) => setAdv({ ...adv, note: e.target.value })} />
-              </Field>
-              <Field label="Date">
-                <input type="date" className={inputClass} value={adv.date} onChange={(e) => setAdv({ ...adv, date: e.target.value })} />
-              </Field>
-              <div className="flex items-end gap-2">
+              <div className="flex items-end">
                 <button
                   type="button"
-                  className={`${btnPrimary} w-full`}
-                  disabled={!adv.farmerId || !Number(adv.amount)}
-                  onClick={async () => {
+                  className={`${btnPrimary} w-full min-w-36`}
+                  disabled={!adv.farmerId || !Number(adv.amount) || busy === "adv"}
+                  onClick={() => {
+                    setBusy("adv");
                     setError("");
-                    try {
-                      if (editingId) {
-                        await dairy.updateAdvance(editingId, {
+                    const work = editingId
+                      ? dairy.updateAdvance(editingId, {
                           farmerId: adv.farmerId,
                           amount: Number(adv.amount),
                           note: adv.note,
                           date: adv.date,
+                        })
+                      : dairy.addAdvance({
+                          farmerId: adv.farmerId,
+                          amount: Number(adv.amount),
+                          note: adv.note || "Advance",
+                          date: adv.date,
                         });
+                    void work
+                      .then(() => {
                         setEditingId(null);
-                        setMessage("Advance update ho gaya.");
-                      } else {
-                        await dairy.addAdvance({
-                          farmerId: adv.farmerId,
-                          amount: Number(adv.amount),
-                          note: adv.note,
-                          date: adv.date,
-                        });
-                        setMessage("Advance save ho gaya — status Open. Bill generate par clear hoga.");
-                      }
-                      setFarmerId(adv.farmerId);
-                      setAdv({ ...adv, amount: "" });
-                    } catch (e) {
-                      setError(e instanceof Error ? e.message : "Save fail");
-                    }
+                        setFarmerId(adv.farmerId);
+                        setAdv({ ...adv, amount: "", note: "" });
+                        setMessage(editingId ? t("advanceUpdated") : t("advanceSaved"));
+                      })
+                      .catch((e) => setError(e instanceof Error ? e.message : t("save")))
+                      .finally(() => setBusy(""));
                   }}
                 >
-                  {editingId ? "Update" : "Add"}
+                  {busy === "adv" ? t("saving") : editingId ? t("save") : t("giveAdvance")}
                 </button>
               </div>
             </div>
+            <button type="button" className="mt-2 text-[12px] font-semibold text-primary" onClick={() => setShowMore((v) => !v)}>
+              {showMore ? t("lessOptions") : t("moreOptions")}
+            </button>
+            {showMore ? (
+              <div className="mt-2 grid gap-3 md:grid-cols-2">
+                <Field label={t("noteOptional")}>
+                  <input className={inputClass} value={adv.note} onChange={(e) => setAdv({ ...adv, note: e.target.value })} />
+                </Field>
+                <Field label={t("paymentDate")}>
+                  <input type="date" className={inputClass} value={adv.date} onChange={(e) => setAdv({ ...adv, date: e.target.value })} />
+                </Field>
+              </div>
+            ) : null}
           </Card>
           <Card className="overflow-hidden p-0">
-            <div className="table-scroll">
+            <div className="divide-y divide-line/70 md:hidden">
+              {dairy.advances.length === 0 ? (
+                <p className="px-4 py-8 text-center text-sm text-muted">{t("noAdvance")}</p>
+              ) : (
+                dairy.advances.map((a) => {
+                  const farmer = dairy.farmerById(a.farmerId);
+                  return (
+                    <div key={a.id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{farmerLabel(farmer)}</p>
+                          <p className="text-[11px] text-muted">{formatDate(a.date)} · {a.note || "—"}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[15px] font-semibold">{formatInr(a.amount)}</p>
+                          <p className="text-[11px] text-muted">{a.recovered ? t("advanceCleared") : t("unpaid")}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="table-scroll hidden md:block">
               <table className="w-full min-w-[800px] text-left text-sm">
                 <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
                   <tr>
-                    <th className="px-4 py-2.5 font-medium">Reference</th>
-                    <th className="py-2.5 font-medium">Date</th>
-                    <th className="py-2.5 font-medium">Farmer</th>
-                    <th className="py-2.5 font-medium">Note</th>
-                    <th className="py-2.5 font-medium">Amount</th>
-                    <th className="py-2.5 font-medium">Status</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Action</th>
+                    <th className="px-4 py-2.5 font-medium">{t("reference")}</th>
+                    <th className="py-2.5 font-medium">{t("paymentDate")}</th>
+                    <th className="py-2.5 font-medium">{t("farmer")}</th>
+                    <th className="py-2.5 font-medium">{t("noteOptional")}</th>
+                    <th className="py-2.5 font-medium">{t("amount")}</th>
+                    <th className="py-2.5 font-medium">{t("colStatus")}</th>
+                    <th className="px-4 py-2.5 font-medium text-right" />
                   </tr>
                 </thead>
                 <tbody>
                   {dairy.advances.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                        Koi advance nahi.
+                        {t("noAdvance")}
                       </td>
                     </tr>
                   ) : (
@@ -310,11 +453,12 @@ export function PaymentsView() {
                           <td>
                             {a.recovered ? (
                               <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                Cleared{a.billId ? ` · ${billRef(a.billId)}` : ""}
+                                {t("advanceCleared")}
+                                {a.billId ? ` · ${billRef(a.billId)}` : ""}
                               </span>
                             ) : (
                               <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                                Open
+                                {t("unpaid")}
                               </span>
                             )}
                           </td>
@@ -325,6 +469,7 @@ export function PaymentsView() {
                               disabled={a.recovered}
                               onClick={() => {
                                 setEditingId(a.id);
+                                setShowMore(true);
                                 setAdv({
                                   farmerId: a.farmerId,
                                   amount: String(a.amount),
@@ -339,14 +484,11 @@ export function PaymentsView() {
                               type="button"
                               className="rounded-lg p-1.5 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
                               disabled={a.recovered}
-                              onClick={async () => {
-                                if (!confirmAction("Advance delete karein?")) return;
-                                try {
-                                  await dairy.deleteAdvance(a.id);
+                              onClick={() => {
+                                if (!confirmAction(t("confirmDeleteAdvance"))) return;
+                                void dairy.deleteAdvance(a.id).then(() => {
                                   if (editingId === a.id) setEditingId(null);
-                                } catch (e) {
-                                  setError(e instanceof Error ? e.message : "Delete fail");
-                                }
+                                }).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
                               }}
                             >
                               <Trash2 size={14} />
@@ -363,15 +505,11 @@ export function PaymentsView() {
         </>
       ) : null}
 
-      {tab === "history" ? (
+      {view === "history" ? (
         <Card className="space-y-4 p-4 sm:p-5">
           <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-            <Field label="Farmer">
-              <Select
-                className={inputClass}
-                value={farmerId}
-                onChange={(e) => setFarmerId(e.target.value)}
-              >
+            <Field label={t("farmer")}>
+              <Select className={inputClass} value={farmerId} onChange={(e) => setFarmerId(e.target.value)}>
                 {dairy.farmers.map((f) => (
                   <option key={f.id} value={f.id}>
                     {farmerLabel(f)}
@@ -381,7 +519,7 @@ export function PaymentsView() {
             </Field>
             {selectedFarmer ? (
               <Link href={`/farmers/${selectedFarmer.id}`} className="text-sm font-semibold text-primary">
-                Open farmer profile →
+                {t("openFarmer")} →
               </Link>
             ) : null}
           </div>
@@ -393,12 +531,45 @@ export function PaymentsView() {
               bills={dairy.bills.filter((b) => b.farmerId === selectedFarmer.id)}
             />
           ) : (
-            <p className="text-sm text-muted">Pehle farmer add karo.</p>
+            <p className="text-sm text-muted">{t("navFarmers")}</p>
           )}
         </Card>
       ) : null}
     </div>
   );
+}
+
+function HubCard({
+  href,
+  icon,
+  title,
+  text,
+  action,
+}: {
+  href: string;
+  icon: ReactNode;
+  title: string;
+  text: string;
+  action: string;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch
+      className="flex min-h-[168px] flex-col rounded-2xl border border-line bg-card p-4 shadow-[0_8px_30px_rgba(22,48,36,0.05)] transition-transform duration-75 active:scale-[0.99] hover:border-primary/40"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-primary">{icon}</span>
+      <p className="mt-3 font-display text-[22px] leading-none">{title}</p>
+      <p className="mt-2 flex-1 text-[13px] text-muted">{text}</p>
+      <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-primary">
+        {action} <ArrowRight size={14} />
+      </span>
+    </Link>
+  );
+}
+
+function Tip({ children }: { children: ReactNode }) {
+  return <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-[13px] text-foreground/80">{children}</div>;
 }
 
 function Mini({ label, value, hint, warn }: { label: string; value: string; hint: string; warn?: boolean }) {

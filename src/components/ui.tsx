@@ -21,7 +21,7 @@ export function PageHeader({
             {kicker}
           </p>
         ) : null}
-        <h1 className="font-display text-[24px] leading-tight tracking-tight break-words sm:text-[28px] sm:leading-none">
+        <h1 className="font-display text-[22px] leading-tight tracking-tight break-words sm:text-[28px] sm:leading-none">
           {title}
         </h1>
         {hint ? <p className="mt-1.5 max-w-xl text-[13px] text-muted">{hint}</p> : null}
@@ -106,13 +106,13 @@ export const inputClass =
   "w-full min-w-0 rounded-xl border border-line bg-[#fbf7ef] px-3 py-2.5 text-base outline-none transition-shadow focus:border-primary focus:bg-white focus:shadow-[0_0_0_3px_rgba(24,122,72,0.12)] md:py-2 md:text-sm";
 
 export const btnPrimary =
-  "inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold whitespace-nowrap text-white shadow-[0_6px_16px_rgba(24,122,72,0.28)] hover:bg-primary-dark disabled:opacity-50 sm:py-2";
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold whitespace-nowrap text-white shadow-[0_6px_16px_rgba(24,122,72,0.28)] transition-[transform,background-color] duration-75 hover:bg-primary-dark active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 sm:min-h-0 sm:py-2";
 
 export const btnInverse =
   "inline-flex items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold whitespace-nowrap text-primary shadow-none hover:bg-emerald-50 disabled:opacity-50 sm:py-2";
 
 export const btnGhost =
-  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-line bg-card px-4 py-2.5 text-sm font-medium hover:bg-[#f7f1e6] sm:py-2";
+  "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-line bg-card px-4 py-2.5 text-sm font-medium transition-[transform,background-color] duration-75 hover:bg-[#f7f1e6] active:scale-[0.98] sm:min-h-0 sm:py-2";
 
 export const btnDanger =
   "inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-danger hover:bg-red-100";

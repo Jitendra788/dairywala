@@ -4,7 +4,7 @@ import type { DairyState, RateChart, Settings } from "@/lib/types";
 
 export function defaultSettings(): Settings {
   return {
-    dairyName: "Tony Dairy",
+    dairyName: "DudhSetu",
     centerName: "Collection Centre",
     phone: "",
     address: "",

@@ -84,7 +84,7 @@ export function HamariSidebar({ open, onClose }: { open: boolean; onClose: () =>
         <div className="flex items-center gap-2 px-3 py-4">
           <LogoMark />
           <div>
-            <p className="text-sm font-semibold text-white">Tony Dairy</p>
+            <p className="text-sm font-semibold text-white">DudhSetu</p>
             <p className="text-[10px] text-sidebar-fg/60">Milk collection</p>
           </div>
           <button type="button" className="ml-auto lg:hidden" onClick={onClose} aria-label="Close">

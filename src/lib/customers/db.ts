@@ -84,9 +84,45 @@ const CAMEL_FIELDS = [
   "snfStep",
   "spentBy",
   "deletedAt",
+  "passwordHash",
+  "emailVerifiedAt",
+  "lastLoginAt",
+  "dairyName",
+  "codeHash",
+  "expiresAt",
+  "collectionQty",
+  "collectionAmount",
+  "customerPaid",
+  "walkInPaid",
+  "farmers",
+  "customers",
+  "otpCode",
+  "otpExpiresAt",
+  "passwordPlain",
+  "planId",
+  "planName",
+  "planStatus",
+  "planExpiresAt",
+  "userLimit",
+  "customerLimit",
+  "trialDays",
+  "priceMonthly",
+  "todayQty",
+  "staffCount",
+  "lastDevice",
+  "oldValue",
+  "newValue",
+  "lastUpdate",
+  "readAt",
+  "refId",
+  "couponCode",
+  "dairyName",
+  "userName",
+  "startsAt",
+  "trialEndsAt",
 ];
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 8;
 
 const globalForDb = globalThis as unknown as {
   tonyCustomerDb?: DatabaseSync;
@@ -383,6 +419,137 @@ CREATE TABLE IF NOT EXISTS Expense (
   deletedAt TEXT,
   createdAt TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS PlatformUser (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  passwordHash TEXT NOT NULL,
+  role TEXT NOT NULL,
+  status TEXT NOT NULL,
+  category TEXT NOT NULL,
+  dairyId TEXT,
+  dairyName TEXT NOT NULL,
+  emailVerifiedAt TEXT,
+  lastLoginAt TEXT,
+  passwordPlain TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS EmailVerify (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  codeHash TEXT NOT NULL,
+  otpCode TEXT,
+  expiresAt TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformPlan (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  priceMonthly DOUBLE PRECISION NOT NULL,
+  userLimit INTEGER NOT NULL,
+  customerLimit INTEGER NOT NULL,
+  trialDays INTEGER NOT NULL,
+  features TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS PlatformSubscription (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL UNIQUE,
+  planId TEXT NOT NULL,
+  status TEXT NOT NULL,
+  trialEndsAt TEXT,
+  startsAt TEXT NOT NULL,
+  expiresAt TEXT,
+  couponCode TEXT,
+  discount DOUBLE PRECISION NOT NULL DEFAULT 0,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformPayment (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  subscriptionId TEXT NOT NULL,
+  amount DOUBLE PRECISION NOT NULL,
+  method TEXT NOT NULL,
+  status TEXT NOT NULL,
+  note TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformCoupon (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  discount DOUBLE PRECISION NOT NULL,
+  kind TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  expiresAt TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformStaff (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  role TEXT NOT NULL,
+  status TEXT NOT NULL,
+  lastLoginAt TEXT,
+  lastDevice TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformPermission (
+  role TEXT NOT NULL,
+  module TEXT NOT NULL,
+  allowed INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (role, module)
+);
+CREATE TABLE IF NOT EXISTS PlatformAudit (
+  id TEXT PRIMARY KEY,
+  actor TEXT NOT NULL,
+  dairyId TEXT,
+  dairyName TEXT,
+  module TEXT NOT NULL,
+  action TEXT NOT NULL,
+  oldValue TEXT,
+  newValue TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformTicket (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT,
+  dairyName TEXT,
+  userName TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  priority TEXT NOT NULL,
+  status TEXT NOT NULL,
+  message TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformNotice (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  refId TEXT,
+  readAt TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformBackup (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  bytes INTEGER NOT NULL DEFAULT 0,
+  note TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformSetting (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS PlatformDairyMeta (
+  dairyId TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'active',
+  location TEXT NOT NULL DEFAULT ''
+);
 CREATE INDEX IF NOT EXISTS idx_farmer_dairy_code ON Farmer(dairyId, code);
 CREATE INDEX IF NOT EXISTS idx_expense_dairy_date ON Expense(dairyId, date);
 CREATE INDEX IF NOT EXISTS idx_collection_dairy_date ON CollectionEntry(dairyId, date);
@@ -402,6 +569,21 @@ async function migratePostgres() {
     DEFAULT_DAIRY_NAME,
     now,
   ]);
+  try {
+    await neonSql().query(`ALTER TABLE EmailVerify ADD COLUMN IF NOT EXISTS otpCode TEXT`);
+  } catch {
+    // already exists
+  }
+  try {
+    await neonSql().query(`ALTER TABLE PlatformUser ADD COLUMN IF NOT EXISTS passwordPlain TEXT`);
+  } catch {
+    // already exists
+  }
+  try {
+    await neonSql().query(`ALTER TABLE PlatformUser ADD COLUMN IF NOT EXISTS lastDevice TEXT`);
+  } catch {
+    // already exists
+  }
 }
 
 function ensureColumn(db: DatabaseSync, table: string, column: string, def: string) {
@@ -425,6 +607,9 @@ function migrateSqlite(db: DatabaseSync) {
   ensureColumn(db, "DailyMilkDelivery", "paymentMode", "TEXT");
   ensureColumn(db, "DailyMilkDelivery", "paidAmount", "REAL NOT NULL DEFAULT 0");
   const now = new Date().toISOString();
+  ensureColumn(db, "EmailVerify", "otpCode", "TEXT");
+  ensureColumn(db, "PlatformUser", "passwordPlain", "TEXT");
+  ensureColumn(db, "PlatformUser", "lastDevice", "TEXT");
   db.prepare(`INSERT OR IGNORE INTO Dairy (id, name, createdAt) VALUES (?, ?, ?)`).run(
     DEFAULT_DAIRY_ID,
     DEFAULT_DAIRY_NAME,

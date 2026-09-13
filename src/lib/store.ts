@@ -14,7 +14,8 @@ import type {
   Shift,
 } from "@/lib/types";
 
-let state: DairyState = emptyDeskState();
+const emptyState = emptyDeskState();
+let state: DairyState = emptyState;
 let hydrated = false;
 let hydratePromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
@@ -49,7 +50,13 @@ export function getSnapshot() {
 }
 
 export function getServerSnapshot() {
-  return emptyDeskState();
+  return emptyState;
+}
+
+export function resetDesk() {
+  hydrated = false;
+  hydratePromise = null;
+  apply(emptyState);
 }
 
 export function hydrateDairy() {
@@ -158,7 +165,26 @@ export function deleteBill(id: string) {
 }
 
 export function addAdvance(input: { farmerId: string; amount: number; note: string; date: string }) {
-  return postOp<Advance>("addAdvance", input);
+  const prev = state;
+  apply({
+    ...state,
+    advances: [
+      {
+        id: `tmp-${Date.now()}`,
+        farmerId: input.farmerId,
+        amount: input.amount,
+        note: input.note,
+        date: input.date,
+        recovered: false,
+        billId: null,
+      },
+      ...state.advances,
+    ],
+  });
+  return postOp<Advance>("addAdvance", input).catch((err) => {
+    apply(prev);
+    throw err;
+  });
 }
 
 export function generateBills(fromDate: string, toDate: string) {
@@ -166,7 +192,15 @@ export function generateBills(fromDate: string, toDate: string) {
 }
 
 export function markBillPaid(id: string) {
-  return postOp("markBillPaid", { id });
+  const prev = state;
+  apply({
+    ...state,
+    bills: state.bills.map((bill) => (bill.id === id ? { ...bill, status: "paid", paidAt: todayISO() } : bill)),
+  });
+  return postOp("markBillPaid", { id }).catch((err) => {
+    apply(prev);
+    throw err;
+  });
 }
 
 export function updateSettings(patch: Partial<Settings>) {

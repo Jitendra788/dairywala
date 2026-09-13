@@ -169,13 +169,18 @@ async function insertSettings(dairyId: string, settings: Settings) {
   );
 }
 
+function chartRowId(dairyId: string, id: string) {
+  if (id === "chart-cow" || id === "chart-buffalo") return `${dairyId}-${id}`;
+  return id;
+}
+
 async function insertChart(dairyId: string, chart: RateChart) {
   await qrun(
-    `INSERT INTO RateChart
+    `INSERT OR IGNORE INTO RateChart
       (id, dairyId, name, kind, milkType, fatCoeff, snfCoeff, base, fatRate, kgFatRate, efuRate, snfEfuFactor,
        goodSnfMin, fatMin, fatMax, fatStep, snfMin, snfMax, snfStep, cells, rules, active)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    chart.id,
+    chartRowId(dairyId, chart.id),
     dairyId,
     chart.name,
     chart.kind,

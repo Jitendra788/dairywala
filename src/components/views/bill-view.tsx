@@ -7,6 +7,7 @@ import { formatInr, formatQty } from "@/lib/money";
 import { farmerLabel } from "@/lib/farmer-label";
 import { billRef, slipRef } from "@/lib/ref";
 import { useDairy } from "@/hooks/use-dairy";
+import { useI18n } from "@/hooks/use-i18n";
 import { btnDanger, btnPrimary, Card, confirmAction } from "@/components/ui";
 import { DairyLetterhead } from "@/components/dairy-brand";
 
@@ -14,6 +15,7 @@ export function BillView() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const dairy = useDairy();
+  const { t } = useI18n();
   const bill = dairy.bills.find((b) => b.id === id);
   const farmer = bill ? dairy.farmerById(bill.farmerId) : undefined;
   const lines = dairy.entries.filter((e) => e.billId === id);
@@ -21,7 +23,7 @@ export function BillView() {
   if (!bill || !farmer) {
     return (
       <Card className="mx-auto max-w-lg p-8 text-center">
-        Bill nahi mili. <Link href="/payments" className="text-primary">Payments</Link>
+        {t("billMissing")} <Link href="/payments" className="text-primary">{t("backPayments")}</Link>
       </Card>
     );
   }
@@ -30,28 +32,28 @@ export function BillView() {
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex flex-wrap gap-3 print:hidden">
         <button type="button" className={btnPrimary} onClick={() => window.print()}>
-          Print bill
+          {t("printBill")}
         </button>
         {bill.status === "open" ? (
           <>
             <button type="button" className={btnPrimary} onClick={() => void dairy.markBillPaid(bill.id)}>
-              Mark paid
+              {t("markPaid")}
             </button>
             <button
               type="button"
               className={btnDanger}
               onClick={async () => {
-                if (!confirmAction("Bill delete karein?")) return;
+                if (!confirmAction(t("deleteBill"))) return;
                 await dairy.deleteBill(bill.id);
-                router.push("/payments");
+                router.push("/payments?tab=bills");
               }}
             >
-              Delete bill
+              {t("deleteBill")}
             </button>
           </>
         ) : null}
-        <Link href="/payments" className="self-center text-sm text-primary">
-          All bills
+        <Link href="/payments?tab=bills" className="self-center text-sm text-primary">
+          {t("allBills")}
         </Link>
       </div>
 

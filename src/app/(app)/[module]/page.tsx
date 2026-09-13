@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps) {
   const { module: slug } = await params;
   const mod = getModule(slug);
   return {
-    title: mod ? `${mod.name} — Tony Dairy` : "Tony Dairy",
+    title: mod ? `${mod.name} — DudhSetu` : "DudhSetu",
   };
 }
 

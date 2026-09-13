@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { CustomerError } from "@/lib/customers/errors";
+import { DEFAULT_DAIRY_ID } from "@/lib/customers/context";
 import { assertDairy, qget, qrun } from "@/lib/customers/db";
 
 export type PublicAuth = {
@@ -20,10 +21,22 @@ async function ensureAuth(dairyId: string) {
   await assertDairy(dairyId);
   const row = await qget(`SELECT * FROM DairyAuth WHERE dairyId = ?`, dairyId);
   if (row) {
+    const isDefault = flag(row.isDefault);
+    if (dairyId === DEFAULT_DAIRY_ID && isDefault && String(row.username).toLowerCase() === "admin") {
+      const now = new Date().toISOString();
+      await qrun(
+        `UPDATE DairyAuth SET username = ?, passwordHash = ?, updatedAt = ? WHERE dairyId = ?`,
+        "tony",
+        sha256("tony"),
+        now,
+        dairyId,
+      );
+      return { username: "tony", passwordHash: sha256("tony"), isDefault: true, updatedAt: now };
+    }
     return {
       username: String(row.username),
       passwordHash: String(row.passwordHash),
-      isDefault: flag(row.isDefault),
+      isDefault,
       updatedAt: String(row.updatedAt),
     };
   }

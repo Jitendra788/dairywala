@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { formatDate, formatDateRange } from "@/lib/dates";
@@ -90,7 +89,7 @@ export function SparkLines({
 
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full min-w-[420px]">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-32 w-full min-w-0 sm:h-40">
         <line x1={pad} y1={height - pad} x2={width - pad} y2={height - pad} stroke="#e5ddd0" />
         {LINES.map((line) => (
           <path key={line.key} d={path(line.key)} fill="none" stroke={line.color} strokeWidth="2" />
@@ -116,49 +115,6 @@ export function SparkLines({
         ))}
       </div>
     </div>
-  );
-}
-
-export function EarningReportCard({
-  report,
-  includeDeleted,
-  onIncludeDeleted,
-  periodLabel,
-  periodControl,
-}: {
-  report: FinanceReport;
-  includeDeleted: boolean;
-  onIncludeDeleted: (value: boolean) => void;
-  periodLabel: string;
-  periodControl?: ReactNode;
-}) {
-  const t = report.totals;
-  return (
-    <Card id="earning" className="p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold text-primary">Earning report</p>
-          <p className="mt-1 text-[13px] text-muted">Sales, purchases, expenses and earnings over time.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-[12px] text-muted">
-            <input type="checkbox" checked={includeDeleted} onChange={(e) => onIncludeDeleted(e.target.checked)} />
-            Include deleted
-          </label>
-          {periodControl}
-          <span className="rounded-full bg-[#f4ead6] px-2.5 py-1 text-[11px] font-medium">{periodLabel}</span>
-        </div>
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Subscription sale" value={formatInr(t.subscription)} />
-        <Kpi label="Counter sales" value={formatInr(t.counter)} />
-        <Kpi label="Total purchase" value={formatInr(t.purchase)} />
-        <Kpi label="Net earning" value={formatInr(t.earning)} accent />
-      </div>
-      <div className="mt-4">
-        <SparkLines series={report.series} />
-      </div>
-    </Card>
   );
 }
 
@@ -232,8 +188,8 @@ export function TodayMissionCard({ report }: { report: FinanceReport }) {
             <p className="text-[11px] font-semibold text-primary">Today’s mission</p>
             <h2 className="font-display text-lg">Delivery progress</h2>
           </div>
-          <Link href="/customers/delivery" className="text-[12px] font-semibold text-primary">
-            Open delivery list →
+          <Link href="/customers/delivery" className="shrink-0 text-[12px] font-semibold text-primary">
+            Open →
           </Link>
         </div>
         <div className="mt-4 flex items-center gap-5">
@@ -272,7 +228,7 @@ export function TodayMissionCard({ report }: { report: FinanceReport }) {
             <p className="text-[11px] font-semibold text-primary">Today’s P&L</p>
             <h2 className="font-display text-lg">Cash flow by channel</h2>
           </div>
-          <Link href="/reports#earning" className="text-[12px] font-semibold text-primary">
+          <Link href="/reports#pnl" className="text-[12px] font-semibold text-primary">
             Full report →
           </Link>
         </div>

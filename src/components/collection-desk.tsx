@@ -127,7 +127,7 @@ export function CollectionDesk() {
   return (
     <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
       <Card className="flex flex-col p-4">
-        <div className="flex gap-1.5">
+        <div className="flex flex-col gap-1.5 sm:flex-row">
           <Toggle
             value={shift}
             onChange={setShift}

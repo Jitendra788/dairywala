@@ -1,7 +1,7 @@
 import { CustomerError } from "@/lib/customers/errors";
 
 export const DEFAULT_DAIRY_ID = "tony-dairy";
-export const DEFAULT_DAIRY_NAME = "Tony Dairy";
+export const DEFAULT_DAIRY_NAME = "DudhSetu";
 
 const DAIRY_RE = /^[a-zA-Z0-9_-]{3,64}$/;
 

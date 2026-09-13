@@ -8,10 +8,12 @@ import { LogOut, Settings2, UserRound } from "lucide-react";
 import { logout } from "@/lib/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useDairy } from "@/hooks/use-dairy";
+import { useI18n } from "@/hooks/use-i18n";
 
 export function UserMenu() {
-  const { username } = useAuth();
+  const { username, name, email } = useAuth();
   const dairy = useDairy();
+  const { t } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -42,7 +44,7 @@ export function UserMenu() {
         type="button"
         className="flex items-center gap-2 rounded-full"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Account menu"
+        aria-label={t("accountMenu")}
       >
         <span className="hidden max-w-28 truncate text-[13px] font-medium lg:block">
           {username || dairy.settings.dairyName}
@@ -61,8 +63,8 @@ export function UserMenu() {
           <div className="flex items-center gap-2 rounded-xl bg-[#f7f1e6] px-3 py-2">
             <UserRound size={16} className="shrink-0 text-primary" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{username}</p>
-              <p className="truncate text-[11px] text-muted">{dairy.settings.dairyName}</p>
+              <p className="truncate text-sm font-semibold">{name || username}</p>
+              <p className="truncate text-[11px] text-muted">{email || dairy.settings.dairyName}</p>
             </div>
           </div>
           <Link
@@ -70,7 +72,7 @@ export function UserMenu() {
             onClick={() => setOpen(false)}
             className="mt-1 flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-[#f7f1e6]"
           >
-            <Settings2 size={15} /> Settings / password
+            <Settings2 size={15} /> {t("settingsPassword")}
           </Link>
           <button
             type="button"
@@ -81,7 +83,7 @@ export function UserMenu() {
               router.replace("/login");
             }}
           >
-            <LogOut size={15} /> Logout
+            <LogOut size={15} /> {t("logout")}
           </button>
         </div>,
             document.body,

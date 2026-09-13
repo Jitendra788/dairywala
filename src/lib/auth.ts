@@ -1,4 +1,5 @@
 import { customerApi } from "@/lib/customers/client";
+import { resetDesk } from "@/lib/store";
 
 export type AuthRecord = {
   username: string;
@@ -8,12 +9,19 @@ export type AuthRecord = {
 
 export type AuthSession = {
   username: string;
+  email?: string;
+  name?: string;
+  dairyId?: string;
+  dairyName?: string;
+  role?: "platform_admin" | "dairy_owner";
+  impersonating?: boolean;
   loggedInAt: string;
   remember: boolean;
 };
 
 const SESSION_KEY = "tony-dairy-session";
 const SESSION_COOKIE = "td_session";
+const ADMIN_RESUME = "td_admin_resume";
 const OLD_KEYS = ["tony-dairy-auth", "tony-dairy-session", "tony-dairy-auth-admin-reset"];
 
 const listeners = new Set<() => void>();
@@ -78,6 +86,8 @@ function writeSession(session: AuthSession) {
   clearCookie(SESSION_COOKIE);
   if (session.remember) writeCookie(SESSION_COOKIE, raw, 30);
   else sessionStorage.setItem(SESSION_KEY, raw);
+  clearCookie("td_dairy");
+  if (session.dairyId) writeCookie("td_dairy", session.dairyId, 30);
   cachedRaw = raw;
   cachedSession = session;
   emit();
@@ -115,17 +125,37 @@ export async function ensureDefaultAuth() {
 }
 
 export async function login(username: string, password: string, remember: boolean) {
-  const auth = await customerApi<AuthRecord & { username: string }>("/api/auth", {
+  const auth = await customerApi<
+    AuthRecord & {
+      username: string;
+      email?: string;
+      name?: string;
+      dairyId?: string;
+      role?: AuthSession["role"];
+      needVerify?: boolean;
+    }
+  >("/api/auth", {
     method: "POST",
     body: JSON.stringify({ op: "login", username, password }),
   });
+  if (auth.needVerify) {
+    const err = new Error("Pehle email verify karo") as Error & { needVerify: true; email: string };
+    err.needVerify = true;
+    err.email = auth.email || username;
+    throw err;
+  }
   cachedAuth = {
     username: auth.username,
     isDefault: auth.isDefault,
     updatedAt: auth.updatedAt ?? new Date().toISOString(),
   };
+  resetDesk();
   writeSession({
     username: auth.username,
+    email: auth.email,
+    name: auth.name,
+    dairyId: auth.dairyId,
+    role: auth.role,
     loggedInAt: new Date().toISOString(),
     remember,
   });
@@ -134,10 +164,97 @@ export async function login(username: string, password: string, remember: boolea
 export function logout() {
   sessionStorage.removeItem(SESSION_KEY);
   clearCookie(SESSION_COOKIE);
+  clearCookie("td_dairy");
+  clearCookie(ADMIN_RESUME);
   localStorage.removeItem(SESSION_KEY);
   cachedRaw = null;
   cachedSession = null;
+  resetDesk();
   emit();
+}
+
+export function startImpersonation(dairy: {
+  dairyId: string;
+  username: string;
+  email?: string;
+  name?: string;
+  dairyName?: string;
+}) {
+  const admin = readSession();
+  if (!admin || admin.role !== "platform_admin" || admin.impersonating) {
+    throw new Error("Super admin session nahi mili");
+  }
+  writeCookie(ADMIN_RESUME, JSON.stringify(admin), 1);
+  resetDesk();
+  writeSession({
+    username: dairy.username,
+    email: dairy.email,
+    name: dairy.name,
+    dairyId: dairy.dairyId,
+    dairyName: dairy.dairyName,
+    role: "dairy_owner",
+    impersonating: true,
+    loggedInAt: new Date().toISOString(),
+    remember: false,
+  });
+}
+
+export function stopImpersonation() {
+  const raw = readCookie(ADMIN_RESUME);
+  clearCookie(ADMIN_RESUME);
+  resetDesk();
+  if (!raw) {
+    logout();
+    return false;
+  }
+  try {
+    writeSession(JSON.parse(raw) as AuthSession);
+    return true;
+  } catch {
+    logout();
+    return false;
+  }
+}
+
+export async function signupAccount(input: {
+  name: string;
+  email: string;
+  password: string;
+  dairyName: string;
+  category: string;
+}) {
+  return customerApi<{ email: string; emailed: boolean; code?: string; message: string }>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "signup", ...input }),
+  });
+}
+
+export async function verifyAccount(email: string, code: string) {
+  return customerApi<{ email: string; dairyId: string }>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "verify", email, code }),
+  });
+}
+
+export async function requestPasswordReset(email: string) {
+  return customerApi<{ emailed: boolean; message: string }>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "forgot", email }),
+  });
+}
+
+export async function resetAccountPassword(email: string, code: string, password: string) {
+  return customerApi<{ ok: boolean; email: string }>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "reset", email, code, password }),
+  });
+}
+
+export async function resendVerifyCode(email: string) {
+  return customerApi<{ email: string; emailed: boolean; code?: string; message: string }>("/api/auth", {
+    method: "POST",
+    body: JSON.stringify({ op: "resend", email }),
+  });
 }
 
 export async function changePassword(current: string, next: string) {

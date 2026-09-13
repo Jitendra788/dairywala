@@ -3,8 +3,9 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Droplets, FileSpreadsheet, TrendingUp, Users, Wallet } from "lucide-react";
-import { formatInr, formatQty } from "@/lib/money";
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, Clock3, Droplets, FileSpreadsheet, TrendingUp, Users, Wallet } from "lucide-react";
+import { useI18n } from "@/hooks/use-i18n";
+import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerDashboardStats } from "@/lib/customers/types";
@@ -13,19 +14,24 @@ import { farmerCode, farmerName } from "@/lib/farmer-label";
 import { slipRef } from "@/lib/ref";
 import { DairyLogo } from "@/components/dairy-brand";
 import { btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
-import { EarningReportCard, ProfitLossCard, TodayMissionCard } from "@/components/views/finance-dashboard";
+import { ProfitLossCard, TodayMissionCard } from "@/components/views/finance-dashboard";
 import type { FinanceGrain, FinanceReport } from "@/lib/finance/types";
 
 export function DashboardView() {
   const dairy = useDairy();
+  const { t } = useI18n();
   const today = dairy.todayStats();
   const recent = dairy.entries.slice(0, 7);
   const totalShift = today.morning + today.evening || 1;
   const [customerStats, setCustomerStats] = useState<CustomerDashboardStats | null>(null);
   const [monthReport, setMonthReport] = useState<FinanceReport | null>(null);
   const [pnlReport, setPnlReport] = useState<FinanceReport | null>(null);
-  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [grain, setGrain] = useState<FinanceGrain>("month");
+  const openBills = dairy.bills.filter((bill) => bill.status === "open");
+  const farmerPending = round2(openBills.reduce((sum, bill) => sum + bill.net, 0));
+  const farmerDebit = dairy.payableTotal();
+  const customerCredit = customerStats?.pending.amount ?? 0;
+  const customerPendingCount = customerStats?.pending.count ?? 0;
 
   useEffect(() => {
     customerApi<CustomerDashboardStats>(`/api/customers/stats?date=${todayISO()}`)
@@ -34,14 +40,13 @@ export function DashboardView() {
   }, []);
 
   useEffect(() => {
-    const extra = includeDeleted ? "&includeDeleted=1" : "";
-    customerApi<FinanceReport>(`/api/finance?from=${startOfMonth()}&to=${endOfMonth()}${extra}`)
+    customerApi<FinanceReport>(`/api/finance?from=${startOfMonth()}&to=${endOfMonth()}`)
       .then(setMonthReport)
       .catch(() => setMonthReport(null));
-    customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}${extra}`)
+    customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}`)
       .then(setPnlReport)
       .catch(() => setPnlReport(null));
-  }, [includeDeleted]);
+  }, []);
 
   return (
     <div className="mx-auto flex min-h-0 max-w-7xl flex-col gap-4">
@@ -57,7 +62,7 @@ export function DashboardView() {
             />
             <div className="min-w-0">
               <p className="text-[10px] tracking-[0.16em] text-white/70 uppercase sm:text-[11px] sm:tracking-[0.18em]">{dairy.settings.centerName || "Collection"}</p>
-              <h1 className="mt-0.5 font-display text-[26px] leading-tight sm:mt-1 sm:text-[34px] sm:leading-none">{dairy.settings.dairyName}</h1>
+              <h1 className="mt-0.5 font-display text-[24px] leading-tight break-words sm:mt-1 sm:text-[34px] sm:leading-none">{dairy.settings.dairyName}</h1>
               <p className="mt-1 text-[13px] text-white/75 sm:mt-2 sm:text-sm">Aaj ka collection live desk par.</p>
             </div>
           </div>
@@ -70,31 +75,52 @@ export function DashboardView() {
             </Link>
           </div>
         </div>
-        <div className="relative mt-4 grid grid-cols-3 gap-1.5 text-sm sm:mt-5 sm:gap-3">
+        <div className="relative mt-4 grid grid-cols-2 gap-1.5 text-sm sm:mt-5 sm:grid-cols-4 sm:gap-3">
           <HeroMini label="Value" value={formatInr(today.amount)} />
-          <HeroMini label="FAT / SNF" value={`${today.avgFat} / ${today.avgSnf}`} />
-          <HeroMini label="Payable" value={formatInr(dairy.payableTotal())} />
+          <HeroMini label={t("dashPendingPay")} value={formatInr(farmerPending)} />
+          <HeroMini label={t("dashCredit")} value={formatInr(customerCredit)} />
+          <HeroMini label={t("dashDebit")} value={formatInr(farmerDebit)} />
         </div>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="space-y-2">
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">{t("dashMoney")}</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <MoneyCard
+            href="/payments?status=open"
+            icon={<Clock3 size={16} />}
+            label={t("dashPendingPay")}
+            value={formatInr(farmerPending)}
+            hint={t("dashPendingHint", { n: openBills.length })}
+            tone="pending"
+          />
+          <MoneyCard
+            href="/customers/payments"
+            icon={<ArrowDownLeft size={16} />}
+            label={t("dashCredit")}
+            value={formatInr(customerCredit)}
+            hint={`${t("dashToReceive")} · ${t("dashCreditHint", { n: customerPendingCount })}`}
+            tone="credit"
+          />
+          <MoneyCard
+            href="/payments?tab=bills"
+            icon={<ArrowUpRight size={16} />}
+            label={t("dashDebit")}
+            value={formatInr(farmerDebit)}
+            hint={t("dashToPay")}
+            tone="debit"
+          />
+        </div>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Stat icon={<Droplets size={16} />} label="Slips" value={String(today.slips)} hint={`${today.farmers} farmers`} />
         <Stat icon={<TrendingUp size={16} />} label="Morning" value={formatQty(today.morning)} hint={`${Math.round((today.morning / totalShift) * 100)}% of day`} />
         <Stat icon={<Users size={16} />} label="Evening" value={formatQty(today.evening)} hint={`${Math.round((today.evening / totalShift) * 100)}% of day`} />
-        <Stat icon={<Wallet size={16} />} label="Payable" value={formatInr(dairy.payableTotal())} hint="After advances" />
       </div>
 
       {monthReport ? (
         <TodayMissionCard report={monthReport} />
-      ) : null}
-
-      {monthReport ? (
-        <EarningReportCard
-          report={monthReport}
-          includeDeleted={includeDeleted}
-          onIncludeDeleted={setIncludeDeleted}
-          periodLabel="This month"
-        />
       ) : null}
 
       {pnlReport ? (
@@ -125,7 +151,7 @@ export function DashboardView() {
       <div className="grid gap-3 md:grid-cols-3">
         {[
           { href: "/collection", title: "Collect", text: "Code, qty, FAT/SNF, slip", icon: Droplets },
-          { href: "/payments", title: "Bill & pay", text: "Cycle, advance, payout", icon: Wallet },
+          { href: "/payments", title: "Pay & collect", text: "Farmer, customer, advance", icon: Wallet },
           { href: "/reports", title: "Reports", text: "Milk and farmer statement", icon: FileSpreadsheet },
         ].map((item) => (
           <Link
@@ -230,6 +256,42 @@ function MiniStat({ label, value, hint }: { label: string; value: string; hint: 
       <p className="font-display text-[20px] leading-none">{value}</p>
       <p className="mt-1 text-[10px] text-muted">{hint}</p>
     </div>
+  );
+}
+
+function MoneyCard({
+  href,
+  icon,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  tone: "pending" | "credit" | "debit";
+}) {
+  const skin =
+    tone === "credit"
+      ? "border-emerald-200 bg-emerald-50/80 text-primary"
+      : tone === "debit"
+        ? "border-red-200 bg-red-50 text-danger"
+        : "border-amber-200 bg-amber-50 text-amber-800";
+  return (
+    <Link
+      href={href}
+      className={`rounded-2xl border p-3.5 shadow-[0_8px_24px_rgba(22,48,36,0.04)] transition-transform duration-75 active:scale-[0.99] ${skin}`}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold tracking-[0.12em] uppercase opacity-80">{label}</p>
+        {icon}
+      </div>
+      <p className="mt-1.5 font-display text-[26px] leading-none text-foreground">{value}</p>
+      <p className="mt-1.5 text-[11px] text-muted">{hint}</p>
+    </Link>
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { getAuthServerSnapshot, getSessionSnapshot, subscribeAuth } from "@/lib/auth";
 import {
   addAdvance,
   addChart,
@@ -33,10 +34,12 @@ import {
 
 export function useDairy() {
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const session = useSyncExternalStore(subscribeAuth, getSessionSnapshot, getAuthServerSnapshot);
 
   useEffect(() => {
+    if (!session) return;
     void hydrateDairy();
-  }, []);
+  }, [session]);
 
   return {
     ...state,
