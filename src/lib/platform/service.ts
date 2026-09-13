@@ -279,19 +279,36 @@ export async function verifyEmail(emailRaw: string, code: string) {
   return { email, dairyId };
 }
 
+export function superAdminUser() {
+  return (process.env.SUPER_ADMIN_USER || "admin").trim().toLowerCase();
+}
+
+export function superAdminPass() {
+  return (process.env.SUPER_ADMIN_PASS || "admin12345").trim();
+}
+
+export async function migrateSuperAdminPassword() {
+  const version = await qget(`SELECT value FROM PlatformSetting WHERE key = 'adminPasswordVersion'`);
+  if (str(version?.value) === "2") return;
+  const hash = sha256(superAdminPass());
+  await qrun(`INSERT OR IGNORE INTO PlatformSetting (key, value) VALUES ('adminPasswordHash', ?)`, hash);
+  await qrun(`UPDATE PlatformSetting SET value = ? WHERE key = 'adminPasswordHash'`, hash);
+  await qrun(`INSERT OR IGNORE INTO PlatformSetting (key, value) VALUES ('adminPasswordVersion', '2')`);
+  await qrun(`UPDATE PlatformSetting SET value = '2' WHERE key = 'adminPasswordVersion'`);
+}
+
 async function checkSuperAdmin(username: string, password: string) {
+  await migrateSuperAdminPassword();
   const user = username.trim().toLowerCase();
   const pass = password.trim();
-  const expectedUser = (process.env.SUPER_ADMIN_USER || "admin").trim().toLowerCase();
-  if (user !== expectedUser) return false;
+  if (user !== superAdminUser()) return false;
   const stored = await qget(`SELECT value FROM PlatformSetting WHERE key = 'adminPasswordHash'`);
   if (stored?.value) return sha256(pass) === str(stored.value);
-  const expectedPass = (process.env.SUPER_ADMIN_PASS || "admin12345").trim();
-  return pass === expectedPass;
+  return pass === superAdminPass();
 }
 
 export async function changeSuperAdminPassword(current: string, next: string) {
-  if (!(await checkSuperAdmin("admin", current.trim()))) {
+  if (!(await checkSuperAdmin(superAdminUser(), current.trim()))) {
     throw new CustomerError("Current password galat hai");
   }
   const password = next.trim();

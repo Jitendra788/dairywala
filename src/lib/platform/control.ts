@@ -21,7 +21,7 @@ import type {
   TicketStatus,
 } from "@/lib/platform/types";
 import { PLATFORM_MODULES, STAFF_ROLES } from "@/lib/platform/types";
-import { deletePlatformUser, listPlatformUsers, wipeDairyRows } from "@/lib/platform/service";
+import { deletePlatformUser, listPlatformUsers, migrateSuperAdminPassword, wipeDairyRows } from "@/lib/platform/service";
 
 function nowISO() {
   return new Date().toISOString();
@@ -93,6 +93,7 @@ async function pushNotice(kind: string, title: string, body: string, refId = "")
 
 export async function ensurePlatformControl() {
   if (seeded) return;
+  await migrateSuperAdminPassword();
   const ready = await qget(`SELECT id FROM PlatformPlan LIMIT 1`);
   if (ready) {
     seeded = true;
