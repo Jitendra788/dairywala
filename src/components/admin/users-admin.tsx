@@ -110,7 +110,7 @@ export function UsersAdmin() {
                 {staff.map((s) => (
                   <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
                     <span>{s.name} · {s.role} · {s.dairyName}</span>
-                    <button type="button" className={btnDanger} onClick={() => void platformAct({ op: "staffDelete", id: s.id }).then(reload)}>Delete</button>
+                    <button type="button" className={btnDanger} onClick={() => void platformAct({ op: "staffDelete", id: s.id }).then(() => reload())}>Delete</button>
                   </li>
                 ))}
               </ul>
@@ -136,7 +136,7 @@ export function UsersAdmin() {
                             <button
                               type="button"
                               className={allowed ? btnPrimary : btnGhost}
-                              onClick={() => void platformAct({ op: "permission", role, module: mod, allowed: !allowed }).then(reload)}
+                              onClick={() => void platformAct({ op: "permission", role, module: mod, allowed: !allowed }).then(() => reload())}
                             >
                               {allowed ? "On" : "Off"}
                             </button>

@@ -84,7 +84,7 @@ export function SupportAdmin() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <AdminStatus status={t.status} />
                     {(["open", "progress", "resolved", "closed"] as const).map((st) => (
-                      <button key={st} type="button" className={btnGhost} onClick={() => void platformAct({ op: "ticketStatus", id: t.id, status: st }).then(reload)}>{st}</button>
+                      <button key={st} type="button" className={btnGhost} onClick={() => void platformAct({ op: "ticketStatus", id: t.id, status: st }).then(() => reload())}>{st}</button>
                     ))}
                   </div>
                 </li>
@@ -107,7 +107,7 @@ export function NoticesAdmin() {
           <p className="text-[10px] font-semibold tracking-[0.16em] text-primary uppercase">Alerts</p>
           <h1 className="font-display text-[26px] leading-none">{t("notifications")}</h1>
         </div>
-        <button type="button" className={btnGhost} onClick={() => void platformAct({ op: "noticeRead", id: "", all: true }).then(reload)}>Mark all read</button>
+        <button type="button" className={btnGhost} onClick={() => void platformAct({ op: "noticeRead", id: "", all: true }).then(() => reload())}>Mark all read</button>
       </div>
       {loading ? <LoadingState /> : error ? <p className="text-sm text-danger">{error}</p> : (
         <Panel title={t("inbox")}>
@@ -121,7 +121,7 @@ export function NoticesAdmin() {
                       <p className="text-muted">{n.body}</p>
                       <p className="text-[11px] text-muted">{n.kind} · {formatDate(n.createdAt)}</p>
                     </div>
-                    {!n.readAt ? <button type="button" className={btnGhost} onClick={() => void platformAct({ op: "noticeRead", id: n.id }).then(reload)}>Read</button> : null}
+                    {!n.readAt ? <button type="button" className={btnGhost} onClick={() => void platformAct({ op: "noticeRead", id: n.id }).then(() => reload())}>Read</button> : null}
                   </div>
                 </li>
               ))}
