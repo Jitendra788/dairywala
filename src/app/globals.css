@@ -30,6 +30,12 @@
   --font-display: var(--font-fraunces);
 }
 
+#ds-pop {
+  position: relative;
+  z-index: 400;
+  isolation: isolate;
+}
+
 html,
 body {
   height: 100%;

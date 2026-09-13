@@ -239,7 +239,7 @@ export function AllCustomersView() {
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        <div className="grid grid-cols-2 gap-2 border-b border-line p-3 sm:gap-3 sm:p-4 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2 border-b border-line p-3 sm:grid-cols-2 sm:gap-3 sm:p-4 xl:grid-cols-5">
           <input className={`${inputClass} col-span-2 md:col-span-1`} placeholder="Search ID, name, mobile" value={q} onChange={(e) => setQ(e.target.value)} />
           <Select className={inputClass} value={type} onChange={(e) => setType(e.target.value as typeof type)}>
             <option value="all">All customer types</option>

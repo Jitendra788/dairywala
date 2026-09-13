@@ -54,7 +54,7 @@ export function MilkLedgerView() {
         title="Milk Ledger"
         hint="Regular subscription deliveries and daily / walk-in purchases share the same ledger."
       />
-      <Card className="grid gap-3 p-4 md:grid-cols-3 xl:grid-cols-6">
+      <Card className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-6">
         <Field label="From">
           <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
         </Field>

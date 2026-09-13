@@ -5,7 +5,7 @@ import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import type { PlatformAudit, PlatformBackupRow, PlatformHealth, PlatformNotice, PlatformTicket } from "@/lib/platform/types";
 import { useToast } from "@/components/toast";
-import { btnGhost, btnPrimary, inputClass } from "@/components/ui";
+import { btnGhost, btnPrimary, inputClass, Select } from "@/components/ui";
 import { AdminStatus, BarChart, EmptyState, LineChart, LoadingState, Panel, platformAct, usePlatform } from "@/components/admin/admin-kit";
 import { useI18n } from "@/hooks/use-i18n";
 
@@ -64,9 +64,9 @@ export function SupportAdmin() {
           <input className={inputClass} placeholder="Dairy" value={form.dairyName} onChange={(e) => setForm((f) => ({ ...f, dairyName: e.target.value }))} />
           <input className={inputClass} placeholder="User" value={form.userName} onChange={(e) => setForm((f) => ({ ...f, userName: e.target.value }))} />
           <input className={inputClass} placeholder="Subject" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} />
-          <select className={inputClass} value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}>
-            {["low", "medium", "high", "urgent"].map((p) => <option key={p}>{p}</option>)}
-          </select>
+          <Select className={inputClass} value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}>
+            {["low", "medium", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}
+          </Select>
           <textarea className={`${inputClass} sm:col-span-2`} rows={3} placeholder="Message" value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} />
           <button type="button" className={btnPrimary} onClick={() => void platformAct({ op: "ticketSave", ...form }).then(() => { push("Ticket opened"); setForm({ dairyName: "", userName: "", subject: "", priority: "medium", message: "" }); void reload(); })}>Create</button>
         </div>

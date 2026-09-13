@@ -5,7 +5,7 @@ import { formatDate } from "@/lib/dates";
 import { formatInr } from "@/lib/money";
 import type { PlatformPaymentRow, PlatformPlan, PlatformSubscription, PlatformUser } from "@/lib/platform/types";
 import { useToast } from "@/components/toast";
-import { btnPrimary, inputClass } from "@/components/ui";
+import { btnPrimary, inputClass, Select } from "@/components/ui";
 import { AdminStatus, EmptyState, LoadingState, Panel, platformAct, usePlatform } from "@/components/admin/admin-kit";
 import { useI18n } from "@/hooks/use-i18n";
 
@@ -94,15 +94,15 @@ export function SubscriptionsAdmin({ tab = "plans" }: { tab?: string }) {
 
       <Panel title="Manual renewal / coupon">
         <div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <select className={inputClass} value={dairyId} onChange={(e) => setDairyId(e.target.value)}>
+          <Select className={inputClass} value={dairyId} onChange={(e) => setDairyId(e.target.value)}>
             <option value="">Dairy</option>
             {(dairies.data?.users || []).filter((d) => d.dairyId).map((d) => (
               <option key={d.id} value={d.dairyId || ""}>{d.dairyName}</option>
             ))}
-          </select>
-          <select className={inputClass} value={planId} onChange={(e) => setPlanId(e.target.value)}>
+          </Select>
+          <Select className={inputClass} value={planId} onChange={(e) => setPlanId(e.target.value)}>
             {(subs.data?.plans || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          </Select>
           <input className={inputClass} placeholder="Coupon e.g. WELCOME20" value={coupon} onChange={(e) => setCoupon(e.target.value)} />
           <button
             type="button"

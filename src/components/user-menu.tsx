@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Settings2, UserRound } from "lucide-react";
+import { popRoot } from "@/lib/pop-root";
 import { logout } from "@/lib/auth";
 import { useAuth } from "@/hooks/use-auth";
 import { useDairy } from "@/hooks/use-dairy";
@@ -57,7 +58,7 @@ export function UserMenu() {
         ? createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[80] w-[min(16rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-card p-2 shadow-[0_16px_40px_rgba(18,40,30,0.16)]"
+              className="fixed w-[min(16rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-card p-2 shadow-[0_20px_50px_rgba(18,40,30,0.22)]"
               style={{ top: box.top, right: box.right }}
             >
           <div className="flex items-center gap-2 rounded-xl bg-[#f7f1e6] px-3 py-2">
@@ -86,7 +87,7 @@ export function UserMenu() {
             <LogOut size={15} /> {t("logout")}
           </button>
         </div>,
-            document.body,
+            popRoot(),
           )
         : null}
     </div>

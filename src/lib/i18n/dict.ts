@@ -1,5 +1,8 @@
 export type Lang = "en" | "hi";
 
+export const LANG_KEY = "ds_lang_v2";
+export const DEFAULT_LANG: Lang = "en";
+
 export const dict = {
   en: {
     language: "Language",

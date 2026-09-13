@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
+import { popRoot } from "@/lib/pop-root";
 
 const fieldClass =
   "w-full min-w-0 rounded-xl border border-line bg-[#fbf7ef] px-3 py-2.5 text-base outline-none transition-shadow focus:border-primary focus:bg-white focus:shadow-[0_0_0_3px_rgba(24,122,72,0.12)] md:py-2 md:text-sm";
@@ -63,15 +64,17 @@ export function Select({
     const el = btnRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const gap = 4;
-    const spaceBelow = window.innerHeight - r.bottom - 12;
-    const spaceAbove = r.top - 12;
-    const openUp = spaceBelow < 168 && spaceAbove > spaceBelow;
-    const maxH = Math.min(280, Math.max(132, openUp ? spaceAbove : spaceBelow));
+    const gap = 6;
+    const spaceBelow = window.innerHeight - r.bottom - 16;
+    const spaceAbove = r.top - 16;
+    const openUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+    const maxH = Math.min(320, Math.max(140, openUp ? spaceAbove : spaceBelow));
+    const width = Math.max(r.width, 200);
+    const left = Math.min(Math.max(8, r.left), window.innerWidth - width - 8);
     setBox({
       top: openUp ? Math.max(8, r.top - maxH - gap) : r.bottom + gap,
-      left: Math.min(r.left, window.innerWidth - r.width - 8),
-      width: r.width,
+      left,
+      width,
       maxH,
     });
   }
@@ -90,20 +93,11 @@ export function Select({
 
   useEffect(() => {
     if (!open) return;
-    function onDoc(e: MouseEvent) {
-      const t = e.target as Node;
-      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
-      setOpen(false);
-    }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   const current = options.find((o) => o.value === String(value));
@@ -124,32 +118,39 @@ export function Select({
       </button>
       {open
         ? createPortal(
-            <div
-              ref={menuRef}
-              role="listbox"
-              className="fixed z-[80] overflow-auto rounded-xl border border-line bg-card py-1 shadow-[0_16px_40px_rgba(18,40,30,0.18)]"
-              style={{ top: box.top, left: box.left, width: Math.max(box.width, 160), maxHeight: box.maxH }}
-            >
-              {options.map((opt) => (
-                <button
-                  key={opt.value || "empty"}
-                  type="button"
-                  role="option"
-                  disabled={opt.disabled}
-                  aria-selected={opt.value === String(value)}
-                  className={`flex w-full px-3 py-2.5 text-left text-sm hover:bg-[#f7f1e6] disabled:opacity-50 ${
-                    opt.value === String(value) ? "bg-emerald-50 font-medium text-primary" : ""
-                  }`}
-                  onClick={() => {
-                    onChange({ target: { value: opt.value } });
-                    setOpen(false);
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>,
-            document.body,
+            <>
+              <button type="button" className="fixed inset-0 cursor-default bg-transparent" aria-label="Close" onClick={() => setOpen(false)} />
+              <div
+                ref={menuRef}
+                role="listbox"
+                className="fixed overflow-auto rounded-xl border border-line bg-card py-1 shadow-[0_20px_50px_rgba(18,40,30,0.22)]"
+                style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxH }}
+              >
+                {options.length === 0 ? (
+                  <p className="px-3 py-2.5 text-sm text-muted">No options</p>
+                ) : (
+                  options.map((opt) => (
+                    <button
+                      key={opt.value || "empty"}
+                      type="button"
+                      role="option"
+                      disabled={opt.disabled}
+                      aria-selected={opt.value === String(value)}
+                      className={`flex min-h-11 w-full px-3 py-2.5 text-left text-sm hover:bg-[#f7f1e6] disabled:opacity-50 ${
+                        opt.value === String(value) ? "bg-emerald-50 font-medium text-primary" : ""
+                      }`}
+                      onClick={() => {
+                        onChange({ target: { value: opt.value } });
+                        setOpen(false);
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))
+                )}
+              </div>
+            </>,
+            popRoot(),
           )
         : null}
     </>

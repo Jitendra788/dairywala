@@ -101,7 +101,7 @@ export function Drawer({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[70] flex justify-end bg-black/40">
+    <div className="fixed inset-0 z-[280] flex justify-end bg-black/40">
       <button type="button" className="h-full flex-1" aria-label="Close" onClick={onClose} />
       <aside className="flex h-full w-full max-w-none flex-col overflow-y-auto border-l border-line bg-card p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[-12px_0_40px_rgba(18,40,30,0.12)] sm:max-w-md">
         <div className="mb-3 flex items-center justify-between gap-2">

@@ -98,7 +98,7 @@ export function CustomerPaymentsView() {
         {t("customerPayHint")}
       </div>
       <Card className="p-5">
-        <div className="grid gap-3 md:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Field label={t("customer")}>
             <Select className={inputClass} value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
               {customers.map((c) => (

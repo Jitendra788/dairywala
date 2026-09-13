@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           onToggleCollapse={() => setCollapsed((value) => !value)}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="relative z-30 flex min-h-14 shrink-0 items-center gap-1.5 border-b border-line bg-card px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:gap-3 sm:px-4">
+          <header className="relative z-40 flex min-h-14 shrink-0 items-center gap-1.5 border-b border-line bg-card px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:gap-3 sm:px-4">
             <button
               type="button"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground lg:hidden"
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <UserMenu />
             </div>
           </header>
-          <main className="relative z-0 min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[max(16px,env(safe-area-inset-bottom))]">
             {children}
           </main>
         </div>

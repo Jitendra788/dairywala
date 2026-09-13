@@ -5,7 +5,7 @@ import { formatDate } from "@/lib/dates";
 import type { PlatformPermission, PlatformStaff, PlatformUser } from "@/lib/platform/types";
 import { PLATFORM_MODULES, STAFF_ROLES } from "@/lib/platform/types";
 import { useToast } from "@/components/toast";
-import { btnDanger, btnGhost, btnPrimary, inputClass } from "@/components/ui";
+import { btnDanger, btnGhost, btnPrimary, inputClass, Select } from "@/components/ui";
 import { AdminStatus, EmptyState, LoadingState, Panel, platformAct, usePlatform } from "@/components/admin/admin-kit";
 import { useI18n } from "@/hooks/use-i18n";
 
@@ -91,18 +91,18 @@ export function UsersAdmin() {
           </Panel>
           <Panel title={t("addStaff")}>
             <div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
-              <select className={inputClass} value={form.dairyId} onChange={(e) => setForm((f) => ({ ...f, dairyId: e.target.value }))}>
+              <Select className={inputClass} value={form.dairyId} onChange={(e) => setForm((f) => ({ ...f, dairyId: e.target.value }))}>
                 <option value="">Dairy</option>
                 {dairies.filter((d) => d.dairyId).map((d) => (
                   <option key={d.id} value={d.dairyId || ""}>{d.dairyName}</option>
                 ))}
-              </select>
+              </Select>
               <input className={inputClass} placeholder="Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
               <input className={inputClass} placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
               <input className={inputClass} placeholder="Phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-              <select className={inputClass} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
+              <Select className={inputClass} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
                 {STAFF_ROLES.filter((r) => r !== "super_admin" && r !== "dairy_owner").map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              </Select>
               <button type="button" className={btnPrimary} onClick={() => void saveStaff()}>Add staff</button>
             </div>
             {staff.length ? (

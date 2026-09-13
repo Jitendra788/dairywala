@@ -24,7 +24,7 @@ export function ConfirmDialog({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[280] flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-4">
       <div className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-card p-5 shadow-[0_20px_50px_rgba(18,40,30,0.18)]">
         <h2 className="font-display text-xl">{title}</h2>
         <div className="mt-3 text-sm text-muted">{children}</div>

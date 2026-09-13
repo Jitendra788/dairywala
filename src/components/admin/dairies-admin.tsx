@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/hooks/use-i18n";
 import type { DictKey } from "@/lib/i18n/dict";
 import { useToast } from "@/components/toast";
-import { btnDanger, btnGhost, btnPrimary, inputClass } from "@/components/ui";
+import { btnDanger, btnGhost, btnPrimary, inputClass, Select } from "@/components/ui";
 import {
   AdminStatus,
   Drawer,
@@ -227,11 +227,11 @@ export function DairiesAdmin({ status = "all" }: { status?: string }) {
                     <input className={inputClass} value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} />
                   </label>
                 ))}
-                <select className={inputClass} value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+                <Select className={inputClass} value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
                   {DAIRY_CATEGORIES.map((item) => (
-                    <option key={item}>{item}</option>
+                    <option key={item} value={item}>{item}</option>
                   ))}
-                </select>
+                </Select>
                 <div className="flex gap-2">
                   <button type="button" className={btnPrimary} disabled={busy !== ""} onClick={() => void run("edit", open.id, form)}>Save</button>
                   <button type="button" className={btnGhost} onClick={() => setEditing(false)}>Back</button>

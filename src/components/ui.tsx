@@ -58,10 +58,10 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="block">
-      <span className="text-[11px] font-medium text-muted">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
+    <div className="block min-w-0">
+      <span className="block truncate text-[11px] font-medium text-muted">{label}</span>
+      <div className="mt-1 min-w-0">{children}</div>
+    </div>
   );
 }
 

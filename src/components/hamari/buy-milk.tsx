@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { popRoot } from "@/lib/pop-root";
 import {
   CloudUpload,
   Moon,
@@ -33,6 +35,7 @@ export function BuyMilkScreen() {
   const [snf, setSnf] = useState("");
   const [milkType, setMilkType] = useState<MilkType>("cow");
   const [menuId, setMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const [shortcuts, setShortcuts] = useState(false);
 
   const farmer = dairy.farmerByCode(code);
@@ -359,39 +362,59 @@ export function BuyMilkScreen() {
                       <td className="px-3 py-2">{row.snf}</td>
                       <td className="px-3 py-2">{row.rate.toFixed(1)}</td>
                       <td className="px-3 py-2">{row.amount.toFixed(1)}</td>
-                      <td className="relative px-3 py-2">
-                        <button type="button" onClick={() => setMenuId(menuId === row.id ? null : row.id)}>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (menuId === row.id) {
+                              setMenuId(null);
+                              return;
+                            }
+                            const r = e.currentTarget.getBoundingClientRect();
+                            setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+                            setMenuId(row.id);
+                          }}
+                        >
                           <MoreVertical size={16} className="text-slate-400" />
                         </button>
-                        {menuId === row.id ? (
-                          <div className="absolute right-3 z-10 w-28 rounded-lg border border-line bg-card py-1 text-xs shadow-lg">
-                            <button
-                              type="button"
-                              className="block w-full px-3 py-1.5 text-left hover:bg-slate-50"
-                              onClick={() => {
-                                setCode(f?.code ?? "");
-                                setWeight(String(row.qty));
-                                setFat(String(row.fat));
-                                setSnf(String(row.snf));
-                                setMilkType(row.milkType);
-                                setMenuId(null);
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="block w-full px-3 py-1.5 text-left text-danger hover:bg-slate-50 disabled:opacity-40"
-                              disabled={Boolean(row.billId)}
-                              onClick={() => {
-                                void dairy.deleteCollection(row.id);
-                                setMenuId(null);
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        ) : null}
+                        {menuId === row.id
+                          ? createPortal(
+                              <>
+                                <button type="button" className="fixed inset-0 cursor-default bg-transparent" aria-label="Close" onClick={() => setMenuId(null)} />
+                                <div
+                                  className="fixed w-28 rounded-lg border border-line bg-card py-1 text-xs shadow-lg"
+                                  style={{ top: menuPos.top, right: menuPos.right }}
+                                >
+                                  <button
+                                    type="button"
+                                    className="block w-full px-3 py-1.5 text-left hover:bg-slate-50"
+                                    onClick={() => {
+                                      setCode(f?.code ?? "");
+                                      setWeight(String(row.qty));
+                                      setFat(String(row.fat));
+                                      setSnf(String(row.snf));
+                                      setMilkType(row.milkType);
+                                      setMenuId(null);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="block w-full px-3 py-1.5 text-left text-danger hover:bg-slate-50 disabled:opacity-40"
+                                    disabled={Boolean(row.billId)}
+                                    onClick={() => {
+                                      void dairy.deleteCollection(row.id);
+                                      setMenuId(null);
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </>,
+                              popRoot(),
+                            )
+                          : null}
                       </td>
                     </tr>
                   );

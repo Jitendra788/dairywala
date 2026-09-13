@@ -1,27 +1,29 @@
 "use client";
 
-import { dict, type DictKey, type Lang } from "@/lib/i18n/dict";
+import { DEFAULT_LANG, LANG_KEY, dict, type DictKey, type Lang } from "@/lib/i18n/dict";
 
-const KEY = "ds_lang";
 const listeners = new Set<() => void>();
 
-function readLang(): Lang {
-  if (typeof window === "undefined") return "hi";
-  const saved = localStorage.getItem(KEY) || "";
-  if (saved === "en" || saved === "hi") return saved;
-  const cookie = document.cookie.split(";").find((p) => p.trim().startsWith(`${KEY}=`));
-  const value = cookie?.split("=")[1]?.trim();
-  return value === "en" ? "en" : "hi";
+function parseLang(value: string | null | undefined): Lang | null {
+  return value === "en" || value === "hi" ? value : null;
 }
 
-let current: Lang = "hi";
+function readLang(): Lang {
+  if (typeof window === "undefined") return DEFAULT_LANG;
+  const saved = parseLang(localStorage.getItem(LANG_KEY));
+  if (saved) return saved;
+  const cookie = document.cookie.split(";").find((p) => p.trim().startsWith(`${LANG_KEY}=`));
+  return parseLang(cookie?.split("=")[1]?.trim()) ?? DEFAULT_LANG;
+}
+
+let current: Lang = DEFAULT_LANG;
 
 export function getLang() {
   return current;
 }
 
 export function getLangSnapshot() {
-  if (typeof window === "undefined") return "hi" as Lang;
+  if (typeof window === "undefined") return DEFAULT_LANG;
   current = readLang();
   return current;
 }
@@ -32,13 +34,13 @@ export function subscribeLang(fn: () => void) {
 }
 
 export function setLang(next: Lang) {
+  if (next === readLang()) return;
   current = next;
-  if (typeof window !== "undefined") {
-    localStorage.setItem(KEY, next);
-    document.cookie = `${KEY}=${next}; path=/; max-age=31536000; samesite=lax`;
-    document.documentElement.lang = next === "hi" ? "hi" : "en";
-  }
-  listeners.forEach((fn) => fn());
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LANG_KEY, next);
+  document.cookie = `${LANG_KEY}=${next}; path=/; max-age=31536000; samesite=lax`;
+  document.documentElement.lang = next;
+  window.location.reload();
 }
 
 export function translate(lang: Lang, key: DictKey, vars?: Record<string, string | number>) {
@@ -53,5 +55,9 @@ export function translate(lang: Lang, key: DictKey, vars?: Record<string, string
 
 if (typeof window !== "undefined") {
   current = readLang();
-  document.documentElement.lang = current === "hi" ? "hi" : "en";
+  document.documentElement.lang = current;
+  window.addEventListener("storage", (event) => {
+    if (event.key !== LANG_KEY) return;
+    window.location.reload();
+  });
 }
