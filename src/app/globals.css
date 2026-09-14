@@ -75,8 +75,8 @@ body {
 }
 
 .table-head th {
-  letter-spacing: 0.02em !important;
-  word-spacing: 0.28em !important;
+  letter-spacing: 0 !important;
+  word-spacing: normal !important;
   text-transform: none !important;
   font-size: 11px !important;
   font-weight: 600;
@@ -88,7 +88,7 @@ a,
 th,
 p,
 span {
-  word-spacing: 0.16em;
+  word-spacing: 0.04em;
 }
 
 .table-scroll {
@@ -100,11 +100,19 @@ span {
 
 .chip-row {
   display: flex;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
   padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+@media (min-width: 640px) {
+  .chip-row {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
 }
 
 .chip-row::-webkit-scrollbar {
@@ -119,6 +127,7 @@ button,
 a,
 [role="button"] {
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @media (max-width: 639px) {
@@ -131,10 +140,15 @@ a,
   input[type="search"],
   input[type="email"],
   input[type="password"],
-  input:not([type]),
+  input:not([type]):not(.money-input),
   textarea {
     min-height: 44px;
     font-size: 16px !important;
+  }
+
+  .money-input {
+    min-height: 0;
+    font-size: 34px !important;
   }
 
   h1.font-display {

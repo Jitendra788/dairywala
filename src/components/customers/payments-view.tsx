@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerRow, PaymentMode, PaymentRow } from "@/lib/customers/types";
-import { formatDate, todayISO } from "@/lib/dates";
+import { formatDateTime, todayISO } from "@/lib/dates";
 import { formatInr } from "@/lib/money";
 import { useI18n } from "@/hooks/use-i18n";
 import { useToast } from "@/components/toast";
-import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
+import { AppList, AppRow, btnGhost, btnPrimary, Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows } from "@/components/customers/shared";
 
 export function CustomerPaymentsView() {
@@ -97,7 +97,7 @@ export function CustomerPaymentsView() {
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-[13px] text-foreground/80">
         {t("customerPayHint")}
       </div>
-      <Card className="p-5">
+      <Card className="p-4 sm:p-5">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Field label={t("customer")}>
             <Select className={inputClass} value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
@@ -112,7 +112,17 @@ export function CustomerPaymentsView() {
             <input type="date" className={inputClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
           <Field label={t("amount")}>
-            <input type="number" min="1" className={inputClass} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            <div className="flex items-center gap-2 rounded-2xl border border-line bg-[#fbf7ef] px-4 py-3 focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(24,122,72,0.12)] sm:hidden">
+              <span className="text-lg font-semibold text-muted">₹</span>
+              <input
+                className="money-input w-full min-w-0 bg-transparent font-display text-[34px] leading-none outline-none"
+                inputMode="decimal"
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                placeholder="0"
+              />
+            </div>
+            <input type="number" min="1" className={`${inputClass} hidden sm:block`} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </Field>
           <Field label={t("paymentMode")}>
             <Select className={inputClass} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value as PaymentMode })}>
@@ -136,27 +146,27 @@ export function CustomerPaymentsView() {
         </div>
       </Card>
       <Card className="overflow-hidden p-0">
-        <div className="divide-y divide-line/70 md:hidden">
+        <AppList>
           {loading ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">{t("loading")}</p>
+            <p className="px-3 py-8 text-center text-sm text-muted">{t("loading")}</p>
           ) : payments.length === 0 ? (
             <EmptyState title={t("noCustomerPay")} hint={t("customerPayHint")} />
           ) : (
             payments.map((row) => (
-              <div key={row.id} className="px-4 py-3">
+              <AppRow key={row.id}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{row.customer.name}</p>
-                    <p className="text-[12px] text-muted">{formatDate(row.date)} · {row.mode}</p>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{row.customer.name}</p>
+                    <p className="text-[12px] text-muted">{formatDateTime(row.createdAt || row.date)} · {row.mode}</p>
                     <p className="font-mono text-[11px] text-muted">{row.reference || "—"}</p>
                   </div>
-                  <p className="text-[13px] font-semibold">{formatInr(row.amount)}</p>
+                  <p className="text-[16px] font-semibold tabular-nums">{formatInr(row.amount)}</p>
                 </div>
                 <p className="mt-1 text-[12px] text-muted">{t("remaining")} {formatInr(row.remainingBalance)}</p>
-              </div>
+              </AppRow>
             ))
           )}
-        </div>
+        </AppList>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
@@ -182,7 +192,7 @@ export function CustomerPaymentsView() {
                 ) : (
                   payments.map((row) => (
                     <tr key={row.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                      <td className="px-4 py-2.5">{formatDate(row.date)}</td>
+                      <td className="px-4 py-2.5">{formatDateTime(row.createdAt || row.date)}</td>
                       <td>
                         <span className="block font-medium">{row.customer.name}</span>
                         <span className="font-mono text-[11px] text-muted">{row.customer.customerCode}</span>

@@ -13,7 +13,7 @@ import { addMonths, endOfMonth, formatDate, startOfMonth, todayISO } from "@/lib
 import { farmerCode, farmerName } from "@/lib/farmer-label";
 import { slipRef } from "@/lib/ref";
 import { DairyLogo } from "@/components/dairy-brand";
-import { btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
+import { AppList, AppRow, btnInverse, Card, Initials, MilkBadge } from "@/components/ui";
 import { ProfitLossCard, TodayMissionCard } from "@/components/views/finance-dashboard";
 import type { FinanceGrain, FinanceReport } from "@/lib/finance/types";
 
@@ -178,24 +178,26 @@ export function DashboardView() {
           </Link>
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="divide-y divide-line/70 md:hidden">
+          <AppList>
             {recent.map((e) => {
               const f = dairy.farmerById(e.farmerId);
               return (
-                <Link key={e.id} href={`/collection/${e.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-[#faf6ee]">
-                  <Initials name={farmerName(f)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{farmerName(f)}</span>
-                    <span className="text-[11px] text-muted capitalize">{slipRef(e.id)} · {formatDate(e.date)} · {e.shift} · {e.qty} L</span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    <MilkBadge type={e.milkType} />
-                    <span className="mt-1 block text-[13px] font-semibold">{formatInr(e.amount)}</span>
-                  </span>
-                </Link>
+                <AppRow key={e.id} className="p-0">
+                  <Link href={`/collection/${e.id}`} className="flex items-center gap-3 p-3.5">
+                    <Initials name={farmerName(f)} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{farmerName(f)}</span>
+                      <span className="text-[11px] text-muted capitalize">{slipRef(e.id)} · {formatDate(e.date)} · {e.shift} · {e.qty} L</span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <MilkBadge type={e.milkType} />
+                      <span className="mt-1 block text-[15px] font-semibold tabular-nums">{formatInr(e.amount)}</span>
+                    </span>
+                  </Link>
+                </AppRow>
               );
             })}
-          </div>
+          </AppList>
           <table className="hidden w-full text-left text-[13px] md:table">
             <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
               <tr>

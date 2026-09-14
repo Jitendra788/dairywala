@@ -17,7 +17,7 @@ import { saleRef } from "@/lib/ref";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { btnGhost, btnPrimary, Card, Field, Initials, MilkBadge, inputClass, PageHeader, Select } from "@/components/ui";
+import { AppList, AppRow, btnGhost, btnPrimary, Card, Field, Initials, MilkBadge, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows, SalePaymentBadge } from "@/components/customers/shared";
 
 type SaleForm = {
@@ -504,17 +504,17 @@ export function WalkInView() {
         <div className="border-b border-line px-4 py-3">
           <h2 className="font-display text-lg">Today’s walk-in list</h2>
         </div>
-        <div className="divide-y divide-line/70 md:hidden">
+        <AppList>
           {loading ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
+            <p className="px-3 py-8 text-center text-sm text-muted">Loading…</p>
           ) : sales.length === 0 ? (
             <EmptyState title="No walk-in sales yet" hint="Upar se saved customer choose karo, phir sale save karo." />
           ) : (
             sales.map((row) => (
-              <div key={row.id} className="px-4 py-3">
+              <AppRow key={row.id}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{row.customer.name}</p>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{row.customer.name}</p>
                     <p className="font-mono text-[11px] text-muted">{saleRef(row.id)}</p>
                     <p className="text-[12px] text-muted">{formatDate(row.date)} · {formatTime(row.createdAt)}</p>
                   </div>
@@ -523,16 +523,16 @@ export function WalkInView() {
                 <p className="mt-2 text-[12px] text-muted">
                   <MilkBadge type={row.milkType || row.customer.milkType} /> · {formatQty(row.deliveredQty)} · {formatInr(row.rate)}
                 </p>
-                <p className="mt-1 font-semibold">{formatInr(row.amount)}</p>
+                <p className="mt-1 text-[15px] font-semibold tabular-nums">{formatInr(row.amount)}</p>
                 <div className="mt-2 flex gap-1">
                   <IconBtn label="View" onClick={() => setViewing(row)}><Eye size={14} /></IconBtn>
                   <IconBtn label="Edit" onClick={() => fillFromSale(row)}><Pencil size={14} /></IconBtn>
                   <IconBtn label="Delete" onClick={() => setDeleting(row)}><Trash2 size={14} /></IconBtn>
                 </div>
-              </div>
+              </AppRow>
             ))
           )}
-        </div>
+        </AppList>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">

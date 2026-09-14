@@ -60,6 +60,7 @@ export function handleCreateCustomer(request: Request) {
       name: strField(body, "name"),
       mobile: strField(body, "mobile"),
       address: strField(body, "address"),
+      customerCode: strField(body, "customerCode") || undefined,
       milkType: strField(body, "milkType") as CustomerMilkType,
       customerType: CUSTOMER_TYPES.includes(customerType) ? customerType : "regular",
       dailyQty: body.dailyQty == null || body.dailyQty === "" ? undefined : numField(body, "dailyQty"),

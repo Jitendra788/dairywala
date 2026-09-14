@@ -164,9 +164,9 @@ export function Sidebar({
 
   return (
     <>
-      <div className={`fixed inset-0 z-30 bg-black/45 lg:hidden ${open ? "block" : "hidden"}`} onClick={onClose} />
+      <div className={`fixed inset-0 z-50 bg-black/45 lg:hidden ${open ? "block" : "hidden"}`} onClick={onClose} />
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-dvh shrink-0 flex-col overflow-hidden text-sidebar-fg lg:static ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh shrink-0 flex-col overflow-hidden text-sidebar-fg lg:static ${
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${collapsed ? "w-[min(236px,88vw)] lg:w-[72px]" : "w-[min(260px,88vw)] lg:w-[260px]"} transition-[width,transform] duration-200 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]`}
         style={{

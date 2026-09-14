@@ -31,10 +31,20 @@ export function formatDateRange(from: string, to: string) {
 
 export function formatTime(iso: string) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("en-IN", {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+export function formatDateTime(value: string) {
+  if (!value) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return formatDate(value);
+  return `${formatDate(value)}, ${formatTime(value)}`;
 }
 
 export function toDMY(iso: string) {

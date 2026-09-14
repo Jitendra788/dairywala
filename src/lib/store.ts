@@ -177,6 +177,7 @@ export function addAdvance(input: { farmerId: string; amount: number; note: stri
         date: input.date,
         recovered: false,
         billId: null,
+        createdAt: new Date().toISOString(),
       },
       ...state.advances,
     ],
@@ -195,7 +196,7 @@ export function markBillPaid(id: string) {
   const prev = state;
   apply({
     ...state,
-    bills: state.bills.map((bill) => (bill.id === id ? { ...bill, status: "paid", paidAt: todayISO() } : bill)),
+    bills: state.bills.map((bill) => (bill.id === id ? { ...bill, status: "paid", paidAt: new Date().toISOString() } : bill)),
   });
   return postOp("markBillPaid", { id }).catch((err) => {
     apply(prev);

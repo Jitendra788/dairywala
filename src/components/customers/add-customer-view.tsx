@@ -9,13 +9,14 @@ import { btnGhost, btnPrimary, Card, Field, inputClass, PageHeader, Select } fro
 import type { CustomerMilkType, CustomerStatus, CustomerType, PaymentCycle } from "@/lib/customers/types";
 
 const empty = {
+  customerCode: "",
   name: "",
   mobile: "",
   address: "",
   milkType: "buffalo" as CustomerMilkType,
   customerType: "regular" as CustomerType,
   dailyQty: "2",
-  rate: "60",
+  rate: "",
   startDate: todayISO(),
   deliveryTime: "06:30",
   paymentCycle: "monthly" as PaymentCycle,
@@ -33,7 +34,10 @@ export function AddCustomerView() {
 
   useEffect(() => {
     customerApi<{ nextCode: string }>("/api/customers")
-      .then((data) => setNextCode(data.nextCode))
+      .then((data) => {
+        setNextCode(data.nextCode);
+        setForm((current) => (current.customerCode ? current : { ...current, customerCode: data.nextCode }));
+      })
       .catch(() => undefined);
   }, []);
 
@@ -73,13 +77,6 @@ export function AddCustomerView() {
         hint="Regular customers get a daily subscription. Daily / walk-in customers are saved once and billed only when they buy milk."
       />
       <Card className="p-5">
-        <div className="mb-4 flex items-center justify-between rounded-2xl bg-[#f7f1e6] px-4 py-3">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted uppercase">Customer ID</p>
-            <p className="font-display text-2xl">{nextCode}</p>
-          </div>
-          <p className="max-w-[200px] text-right text-[12px] text-muted">Generated automatically on save</p>
-        </div>
         <div className="mb-4 grid grid-cols-2 gap-2">
           {(["regular", "walkin"] as const).map((type) => (
             <button
@@ -98,13 +95,21 @@ export function AddCustomerView() {
           ))}
         </div>
         <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Customer code">
+            <input
+              className={inputClass}
+              value={form.customerCode}
+              onChange={(e) => setForm({ ...form, customerCode: e.target.value })}
+              placeholder={nextCode}
+            />
+          </Field>
           <Field label="Customer name">
             <input className={inputClass} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ramesh" />
           </Field>
           <Field label="Mobile (optional)">
             <input className={inputClass} value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="9876502001" inputMode="numeric" />
           </Field>
-          <Field label={walkin ? "Address (optional)" : "Address"}>
+          <Field label="Address (optional)">
             <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="House / street / village" />
           </Field>
           <Field label="Milk type">
@@ -128,16 +133,16 @@ export function AddCustomerView() {
               <Field label="Daily quantity (L)">
                 <input className={inputClass} type="number" min="0.1" step="0.1" value={form.dailyQty} onChange={(e) => setForm({ ...form, dailyQty: e.target.value })} />
               </Field>
-              <Field label="Milk rate (₹/L)">
-                <input className={inputClass} type="number" min="1" step="0.5" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+              <Field label="Milk rate (₹/L) (optional)">
+                <input className={inputClass} type="number" min="0" step="0.5" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
               </Field>
-              <Field label="Delivery start date">
+              <Field label="Delivery start date (optional)">
                 <input className={inputClass} type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
               </Field>
-              <Field label="Delivery time">
+              <Field label="Delivery time (optional)">
                 <input className={inputClass} type="time" value={form.deliveryTime} onChange={(e) => setForm({ ...form, deliveryTime: e.target.value })} />
               </Field>
-              <Field label="Payment cycle">
+              <Field label="Payment cycle (optional)">
                 <Select className={inputClass} value={form.paymentCycle} onChange={(e) => setForm({ ...form, paymentCycle: e.target.value as PaymentCycle })}>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -145,7 +150,7 @@ export function AddCustomerView() {
                   <option value="monthly">Monthly</option>
                 </Select>
               </Field>
-              <Field label="Status">
+              <Field label="Status (optional)">
                 <Select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CustomerStatus })}>
                   <option value="active">Active</option>
                   <option value="paused">Paused</option>
@@ -157,7 +162,12 @@ export function AddCustomerView() {
         </div>
         {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <button type="button" className={btnPrimary} disabled={busy} onClick={() => void save()}>
+          <button
+            type="button"
+            className={btnPrimary}
+            disabled={busy || !form.customerCode.trim() || form.name.trim().length < 2 || (!walkin && !(Number(form.dailyQty) > 0))}
+            onClick={() => void save()}
+          >
             {busy ? "Saving…" : walkin ? "Create and sell milk" : "Create customer"}
           </button>
           <button type="button" className={btnGhost} onClick={() => router.push("/customers")}>

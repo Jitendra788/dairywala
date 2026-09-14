@@ -7,7 +7,7 @@ import { todayISO } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import { customerBillRef } from "@/lib/ref";
 import { useToast } from "@/components/toast";
-import { Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
+import { AppList, AppRow, Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows } from "@/components/customers/shared";
 
 export function MonthlyBillsView() {
@@ -56,14 +56,14 @@ export function MonthlyBillsView() {
         </Field>
       </Card>
       <Card className="overflow-hidden p-0">
-        <div className="divide-y divide-line/70 md:hidden">
+        <AppList>
           {loading ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
+            <p className="px-3 py-8 text-center text-sm text-muted">Loading…</p>
           ) : bills.length === 0 ? (
             <EmptyState title="No bill activity this month" hint="Deliver milk or record a payment to populate the monthly bill." />
           ) : (
             bills.map((bill) => (
-              <div key={bill.id} className="px-4 py-3">
+              <AppRow key={bill.id}>
                 <p className="font-medium">{bill.customer.name}</p>
                 <p className="font-mono text-[11px] text-muted">{customerBillRef(bill.id, bill.year, bill.month)}</p>
                 <p className="font-mono text-[11px] text-muted">{bill.customer.customerCode}</p>
@@ -73,11 +73,11 @@ export function MonthlyBillsView() {
                   <span>Skipped {bill.skippedDays}</span>
                   <span>Paid {formatInr(bill.paidAmount)}</span>
                 </div>
-                <p className="mt-2 text-[13px] font-semibold">Due {formatInr(bill.outstanding)}</p>
-              </div>
+                <p className="mt-2 text-[15px] font-semibold tabular-nums">Due {formatInr(bill.outstanding)}</p>
+              </AppRow>
             ))
           )}
-        </div>
+        </AppList>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">

@@ -8,6 +8,8 @@ import { formatInr, round2 } from "@/lib/money";
 import { expenseRef } from "@/lib/ref";
 import { useToast } from "@/components/toast";
 import {
+  AppList,
+  AppRow,
   btnGhost,
   btnPrimary,
   Card,
@@ -260,23 +262,23 @@ export function ExpensesView() {
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        <div className="divide-y divide-line/70 md:hidden">
+        <AppList>
           {loading ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
+            <p className="px-3 py-8 text-center text-sm text-muted">Loading…</p>
           ) : visible.length === 0 ? (
             <EmptyState title="No expenses" hint="Add fuel, salary, rent or any dairy cost." />
           ) : (
             visible.map((row) => (
-              <div key={row.id} className={`px-4 py-3 ${row.deletedAt ? "opacity-50" : ""}`}>
+              <AppRow key={row.id} className={row.deletedAt ? "opacity-50" : ""}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium">{row.category}</p>
                     <p className="font-mono text-[11px] text-muted">{expenseRef(row.id)}</p>
                     <p className="text-[12px] text-muted">
                       {formatDate(row.date)} · {row.spentBy || "—"} · {row.status}
                     </p>
                   </div>
-                  <p className="text-[13px] font-semibold">{formatInr(row.amount)}</p>
+                  <p className="text-[16px] font-semibold tabular-nums">{formatInr(row.amount)}</p>
                 </div>
                 {row.remark ? <p className="mt-1 text-[12px] text-muted">{row.remark}</p> : null}
                 {!row.deletedAt ? (
@@ -289,10 +291,10 @@ export function ExpensesView() {
                     </button>
                   </div>
                 ) : null}
-              </div>
+              </AppRow>
             ))
           )}
-        </div>
+        </AppList>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="table-head text-muted">

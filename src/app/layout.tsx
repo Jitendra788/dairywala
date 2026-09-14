@@ -10,6 +10,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#187a48",
 };
 
 const sans = DM_Sans({
@@ -35,6 +36,11 @@ const hindi = Noto_Sans_Devanagari({
 export const metadata: Metadata = {
   title: "DudhSetu",
   description: "Milk collection, billing and dairy management",
+  appleWebApp: {
+    capable: true,
+    title: "DudhSetu",
+    statusBarStyle: "default",
+  },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

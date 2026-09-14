@@ -9,6 +9,8 @@ import { formatInr } from "@/lib/money";
 import { FarmerLedger } from "@/components/farmer-ledger";
 import { useDairy } from "@/hooks/use-dairy";
 import {
+  AppList,
+  AppRow,
   btnDanger,
   btnGhost,
   btnPrimary,
@@ -117,7 +119,7 @@ export function FarmersView() {
               Close
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
             <Field label="Code">
               <input className={inputClass} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
             </Field>
@@ -152,7 +154,7 @@ export function FarmersView() {
             </Field>
           </div>
           {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <button type="button" className={btnPrimary} onClick={save} disabled={!form.code || !form.name}>
               {editingId ? "Update farmer" : "Save farmer"}
             </button>
@@ -180,11 +182,11 @@ export function FarmersView() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <div className="divide-y divide-line/70 md:hidden">
-          {rows.length === 0 ? <p className="px-4 py-10 text-center text-sm text-muted">Koi farmer nahi mila.</p> : null}
+        <AppList>
+          {rows.length === 0 ? <p className="px-3 py-10 text-center text-sm text-muted">Koi farmer nahi mila.</p> : null}
           {rows.map((f) => (
-            <div key={f.id} className="flex items-start gap-3 px-4 py-3">
-              <Link href={`/farmers/${f.id}`} className="flex min-w-0 flex-1 items-center gap-2">
+            <AppRow key={f.id} className="flex items-start gap-3">
+              <Link href={`/farmers/${f.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                 <Initials name={farmerName(f)} />
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{farmerName(f)}</span>
@@ -192,8 +194,8 @@ export function FarmersView() {
                 </span>
               </Link>
               <div className="shrink-0 text-right">
-                <p className="text-[13px] font-semibold">{formatInr(dairy.farmerBalance(f.id))}</p>
-                <div className="mt-1">
+                <p className="text-[15px] font-semibold tabular-nums">{formatInr(dairy.farmerBalance(f.id))}</p>
+                <div className="mt-1.5">
                   <button type="button" className="mr-1 rounded-lg p-1.5 text-muted hover:bg-[#f4ead6] hover:text-primary" onClick={() => startEdit(f)} aria-label="Edit">
                     <Pencil size={14} />
                   </button>
@@ -202,9 +204,9 @@ export function FarmersView() {
                   </button>
                 </div>
               </div>
-            </div>
+            </AppRow>
           ))}
-        </div>
+        </AppList>
         <table className="hidden w-full text-left text-sm md:table">
           <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
             <tr>
@@ -315,7 +317,7 @@ export function FarmerProfile() {
 
       <Card className="p-5">
         <h2 className="font-display text-lg">Update details</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <Field label="Code">
             <input className={inputClass} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
           </Field>
@@ -376,6 +378,7 @@ export function FarmerProfile() {
 
       <FarmerLedger
         farmerName={farmer.name}
+        farmerId={farmer.id}
         entries={history}
         advances={dairy.advances.filter((a) => a.farmerId === farmer.id)}
         bills={bills}

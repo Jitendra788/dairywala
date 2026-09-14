@@ -235,6 +235,11 @@ export async function peekNextCustomerCode(dairyId: string) {
   return await nextCustomerCode(dairyId);
 }
 
+async function assertCodeFree(dairyId: string, code: string, exceptId?: string) {
+  const row = await qget(`SELECT id FROM Customer WHERE dairyId = ? AND customerCode = ?`, dairyId, code);
+  if (row && str(row.id) !== exceptId) throw new CustomerError("This customer code already exists");
+}
+
 export function isPausedOn(sub: CustomerSubscription, date: string) {
   if (sub.status === "stopped") return false;
   if (!sub.pauseFrom) return sub.status === "paused";
@@ -372,10 +377,10 @@ function validateCreate(input: CreateCustomerInput) {
   const name = cleanName(input.name || "");
   const mobile = optionalMobile(input.mobile || "");
   const address = cleanName(input.address || "");
+  const customerCode = (input.customerCode || "").trim();
   const customerType: CustomerType = input.customerType === "walkin" ? "walkin" : "regular";
   const status = input.status && CUSTOMER_STATUSES.includes(input.status) ? input.status : "active";
   if (name.length < 2) throw new CustomerError("Customer name is required");
-  if (customerType === "regular" && address.length < 3) throw new CustomerError("Address is required");
   if (!MILK_TYPES.includes(input.milkType)) throw new CustomerError("Choose a milk type");
   if (!CUSTOMER_TYPES.includes(customerType)) throw new CustomerError("Choose a customer type");
   if (customerType === "walkin") {
@@ -385,6 +390,7 @@ function validateCreate(input: CreateCustomerInput) {
       address,
       milkType: input.milkType,
       customerType,
+      customerCode,
       dailyQty: 0,
       rate: Number.isFinite(input.rate) ? round2(input.rate || 0) : 0,
       startDate: todayISO(),
@@ -396,25 +402,22 @@ function validateCreate(input: CreateCustomerInput) {
   if (!Number.isFinite(input.dailyQty) || (input.dailyQty ?? 0) <= 0) {
     throw new CustomerError("Daily quantity must be greater than 0");
   }
-  if (!Number.isFinite(input.rate) || (input.rate ?? 0) <= 0) {
-    throw new CustomerError("Milk rate must be greater than 0");
-  }
-  validateDate(input.startDate || "", "Delivery start date");
-  if (!TIME_RE.test(input.deliveryTime || "")) throw new CustomerError("Delivery time is invalid");
-  if (!input.paymentCycle || !PAYMENT_CYCLES.includes(input.paymentCycle)) {
-    throw new CustomerError("Choose a payment cycle");
-  }
+  const startDate = DATE_RE.test(input.startDate || "") ? input.startDate! : todayISO();
+  const deliveryTime = TIME_RE.test(input.deliveryTime || "") ? input.deliveryTime! : "06:30";
+  const paymentCycle =
+    input.paymentCycle && PAYMENT_CYCLES.includes(input.paymentCycle) ? input.paymentCycle : "monthly";
   return {
     name,
     mobile,
     address,
     milkType: input.milkType,
     customerType,
+    customerCode,
     dailyQty: round2(input.dailyQty || 0),
-    rate: round2(input.rate || 0),
-    startDate: input.startDate || todayISO(),
-    deliveryTime: input.deliveryTime || "06:30",
-    paymentCycle: input.paymentCycle,
+    rate: Number.isFinite(input.rate) ? round2(input.rate || 0) : 0,
+    startDate,
+    deliveryTime,
+    paymentCycle,
     status,
   };
 }
@@ -485,7 +488,8 @@ export async function createCustomer(dairyId: string, raw: CreateCustomerInput) 
   }
 
   const id = randomUUID();
-  const code = await nextCustomerCode(dairyId);
+  const code = input.customerCode || (await nextCustomerCode(dairyId));
+  await assertCodeFree(dairyId, code);
   const ts = nowISO();
   await qrun(`INSERT INTO Customer (id, dairyId, customerCode, name, mobile, address, milkType, customerType, defaultQty, defaultRate, status, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id,
@@ -528,12 +532,10 @@ export async function updateCustomer(dairyId: string, customerId: string, raw: U
   const status = raw.status ?? customer.status;
 
   if (name.length < 2) throw new CustomerError("Customer name is required");
-  if (customer.customerType === "regular" && address.length < 3) throw new CustomerError("Address is required");
   if (!MILK_TYPES.includes(milkType)) throw new CustomerError("Choose a milk type");
   if (customer.customerType === "regular" && dailyQty <= 0) throw new CustomerError("Daily quantity must be greater than 0");
-  if (customer.customerType === "regular" && rate <= 0) throw new CustomerError("Milk rate must be greater than 0");
-  if (customer.customerType === "regular" && !TIME_RE.test(deliveryTime)) throw new CustomerError("Delivery time is invalid");
-  if (customer.customerType === "regular" && !PAYMENT_CYCLES.includes(paymentCycle)) throw new CustomerError("Choose a payment cycle");
+  const safeTime = TIME_RE.test(deliveryTime) ? deliveryTime : "06:30";
+  const safeCycle = PAYMENT_CYCLES.includes(paymentCycle) ? paymentCycle : "monthly";
   if (!CUSTOMER_STATUSES.includes(status)) throw new CustomerError("Choose a status");
 
   const clash = mobile ? await findCustomerByMobile(dairyId, mobile) : null;
@@ -548,7 +550,7 @@ export async function updateCustomer(dairyId: string, customerId: string, raw: U
     return await getCustomerRow(dairyId, customerId);
   }
 
-  await qrun(`UPDATE CustomerSubscription SET dailyQty = ?, rate = ?, deliveryTime = ?, paymentCycle = ?, status = ?, updatedAt = ? WHERE dairyId = ? AND customerId = ?`, dailyQty, rate, deliveryTime, paymentCycle, status, ts, dairyId, customerId);
+  await qrun(`UPDATE CustomerSubscription SET dailyQty = ?, rate = ?, deliveryTime = ?, paymentCycle = ?, status = ?, updatedAt = ? WHERE dairyId = ? AND customerId = ?`, dailyQty, rate, safeTime, safeCycle, status, ts, dairyId, customerId);
 
   if (status === "stopped") {
     await qrun(`DELETE FROM DailyMilkDelivery WHERE dairyId = ? AND customerId = ? AND status = 'pending'`, dairyId, customerId);

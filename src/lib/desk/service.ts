@@ -128,6 +128,7 @@ function mapAdvance(row: Record<string, unknown>): Advance {
     date: str(row.date),
     recovered: flag(row.recovered),
     billId: row.billId == null || row.billId === "" ? null : str(row.billId),
+    createdAt: str(row.createdAt),
   };
 }
 
@@ -451,10 +452,11 @@ export async function addAdvance(dairyId: string, input: { farmerId: string; amo
     date: input.date,
     recovered: false,
     billId: null,
+    createdAt: new Date().toISOString(),
   };
   await qrun(
-    `INSERT INTO FarmerAdvance (id, dairyId, farmerId, amount, note, date, recovered, billId)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO FarmerAdvance (id, dairyId, farmerId, amount, note, date, recovered, billId, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     advance.id,
     dairyId,
     advance.farmerId,
@@ -463,6 +465,7 @@ export async function addAdvance(dairyId: string, input: { farmerId: string; amo
     advance.date,
     0,
     null,
+    advance.createdAt,
   );
   return advance;
 }

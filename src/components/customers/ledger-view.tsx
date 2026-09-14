@@ -7,7 +7,7 @@ import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { ledgerRef } from "@/lib/ref";
 import { formatInr, formatQty } from "@/lib/money";
 import { useToast } from "@/components/toast";
-import { Card, Field, MilkBadge, inputClass, PageHeader, Select } from "@/components/ui";
+import { AppList, AppRow, Card, Field, MilkBadge, inputClass, PageHeader, Select } from "@/components/ui";
 import { CustomerTypeBadge, DeliveryStatusBadge, EmptyState, LoadingRows, SalePaymentBadge } from "@/components/customers/shared";
 
 export function MilkLedgerView() {
@@ -96,14 +96,14 @@ export function MilkLedgerView() {
         </Field>
       </Card>
       <Card className="overflow-hidden p-0">
-        <div className="divide-y divide-line/70 md:hidden">
+        <AppList>
           {loading ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
+            <p className="px-3 py-8 text-center text-sm text-muted">Loading…</p>
           ) : rows.length === 0 ? (
             <EmptyState title="Ledger is empty" hint="Deliver regular milk or save a walk-in sale — each posts one ledger line." />
           ) : (
             rows.map((row) => (
-              <div key={row.id} className="px-4 py-3">
+              <AppRow key={row.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium">{row.customer.name}</p>
@@ -119,15 +119,15 @@ export function MilkLedgerView() {
                 <p className="mt-2 text-[12px] text-muted">
                   {formatQty(row.deliveredQty)} · {formatInr(row.rate)}
                 </p>
-                <p className="mt-1 text-[13px] font-semibold">{formatInr(row.amount)}</p>
+                <p className="mt-1 text-[15px] font-semibold tabular-nums">{formatInr(row.amount)}</p>
                 <div className="mt-1 flex items-center justify-between text-[12px]">
                   <SalePaymentBadge status={row.paymentStatus} />
                   <span>Bal {formatInr(row.outstanding)}</span>
                 </div>
-              </div>
+              </AppRow>
             ))
           )}
-        </div>
+        </AppList>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">

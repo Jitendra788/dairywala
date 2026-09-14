@@ -8,6 +8,7 @@ export type FarmerLedgerKind = "slip" | "advance" | "bill";
 export type FarmerLedgerLine = {
   id: string;
   date: string;
+  at: string;
   sort: string;
   kind: FarmerLedgerKind;
   ref: string;
@@ -63,7 +64,8 @@ export function buildFarmerLedger(
     lines.push({
       id: entry.id,
       date: entry.date,
-      sort: `${entry.date}T${entry.createdAt || "00:00:00"}-slip`,
+      at: entry.createdAt || entry.date,
+      sort: `${entry.createdAt || `${entry.date}T00:00:00`}-slip`,
       kind: "slip",
       ref: slipRef(entry.id),
       title: `Milk · ${entry.shift === "morning" ? "Subah" : "Shaam"} · ${entry.qty} L`,
@@ -79,7 +81,8 @@ export function buildFarmerLedger(
     lines.push({
       id: advance.id,
       date: advance.date,
-      sort: `${advance.date}T12:00:00-advance`,
+      at: advance.createdAt || advance.date,
+      sort: `${advance.createdAt || `${advance.date}T12:00:00`}-advance`,
       kind: "advance",
       ref: advanceRef(advance.id),
       title: "Advance given",
@@ -96,7 +99,8 @@ export function buildFarmerLedger(
     lines.push({
       id: bill.id,
       date: (paid && bill.paidAt ? bill.paidAt.slice(0, 10) : bill.toDate) || bill.toDate,
-      sort: `${paid && bill.paidAt ? bill.paidAt : `${bill.toDate}T18:00:00`}-bill`,
+      at: (paid && bill.paidAt ? bill.paidAt : bill.createdAt) || bill.toDate,
+      sort: `${paid && bill.paidAt ? bill.paidAt : bill.createdAt || `${bill.toDate}T18:00:00`}-bill`,
       kind: "bill",
       ref: billRef(bill.id),
       title: paid ? "Bill paid" : "Bill generated",

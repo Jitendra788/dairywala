@@ -6,7 +6,7 @@ import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { farmerLabel } from "@/lib/farmer-label";
 import { customerApi } from "@/lib/customers/client";
-import { Card, Field, inputClass, PageHeader } from "@/components/ui";
+import { AppList, AppRow, Card, Field, inputClass, PageHeader } from "@/components/ui";
 import { ProfitLossCard } from "@/components/views/finance-dashboard";
 import type { FinanceGrain, FinanceReport } from "@/lib/finance/types";
 
@@ -75,23 +75,23 @@ export function ReportsView() {
 
       <Card id="statement" className="p-5">
         <h2 className="font-display text-xl">Farmer statement</h2>
-        <div className="mt-3 divide-y divide-line/70 md:hidden">
+        <AppList>
           {[...byFarmer.entries()].map(([farmerId, tot]) => {
             const f = dairy.farmerById(farmerId);
             return (
-              <div key={farmerId} className="flex items-center justify-between gap-3 py-2.5">
+              <AppRow key={farmerId} className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{farmerLabel(f)}</p>
                   <p className="text-[11px] text-muted">{formatQty(round2(tot.qty))}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-[13px] font-semibold">{formatInr(tot.amount)}</p>
+                  <p className="text-[15px] font-semibold tabular-nums">{formatInr(tot.amount)}</p>
                   <p className="text-[11px] text-muted">{formatInr(dairy.farmerBalance(farmerId))}</p>
                 </div>
-              </div>
+              </AppRow>
             );
           })}
-        </div>
+        </AppList>
         <div className="table-scroll mt-3 hidden md:block">
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="text-[11px] uppercase tracking-[0.12em] text-muted">

@@ -21,10 +21,10 @@ export function PageHeader({
             {kicker}
           </p>
         ) : null}
-        <h1 className="font-display text-[22px] leading-tight tracking-tight break-words sm:text-[28px] sm:leading-none">
+        <h1 className="font-display text-[24px] leading-tight tracking-tight break-words sm:text-[28px] sm:leading-none">
           {title}
         </h1>
-        {hint ? <p className="mt-1.5 max-w-xl text-[13px] text-muted">{hint}</p> : null}
+        {hint ? <p className="mt-1 hidden max-w-xl text-[13px] text-muted sm:block">{hint}</p> : null}
       </div>
       {actions ? <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap [&>*]:w-full sm:[&>*]:w-auto">{actions}</div> : null}
     </div>
@@ -43,7 +43,7 @@ export function Card({
   return (
     <div
       id={id}
-      className={`rounded-2xl border border-line bg-card shadow-[0_8px_30px_rgba(22,48,36,0.05)] ${className}`}
+      className={`rounded-[22px] border border-line bg-card shadow-[0_8px_28px_rgba(22,48,36,0.06)] ${className}`}
     >
       {children}
     </div>
@@ -100,6 +100,20 @@ export function TableScroll({
   className?: string;
 }) {
   return <div className={`table-scroll min-w-0 ${className}`}>{children}</div>;
+}
+
+export function AppList({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-2 p-2 md:hidden">{children}</div>;
+}
+
+export function AppRow({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={`rounded-[18px] border border-line/80 bg-[#fbf8f1] p-3.5 ${className}`}>{children}</div>;
 }
 
 export const inputClass =

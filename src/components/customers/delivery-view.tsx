@@ -8,7 +8,7 @@ import { formatDate, todayISO } from "@/lib/dates";
 import { deliveryRef } from "@/lib/ref";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { btnGhost, btnPrimary, Card, Field, Initials, MilkBadge, inputClass, PageHeader } from "@/components/ui";
+import { AppList, AppRow, btnGhost, btnPrimary, Card, Field, Initials, MilkBadge, inputClass, PageHeader } from "@/components/ui";
 import { DeliveryStatusBadge, EmptyState, LoadingRows } from "@/components/customers/shared";
 
 type Dialog =
@@ -99,14 +99,14 @@ export function DeliveryView() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        <div className="divide-y divide-line/70 md:hidden">
+        <AppList>
           {loading ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
+            <p className="px-3 py-8 text-center text-sm text-muted">Loading…</p>
           ) : rows.length === 0 ? (
             <EmptyState title="No deliveries today" hint="Add an active customer or resume a paused subscription." />
           ) : (
             rows.map((row) => (
-              <div key={row.id} className="space-y-3 px-4 py-3">
+              <AppRow key={row.id} className="space-y-3">
                 <div className="flex items-start gap-3">
                   <Initials name={row.customer.name} />
                   <div className="min-w-0 flex-1">
@@ -138,10 +138,10 @@ export function DeliveryView() {
                     Not delivered
                   </button>
                 </div>
-              </div>
+              </AppRow>
             ))
           )}
-        </div>
+        </AppList>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">

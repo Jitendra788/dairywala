@@ -123,6 +123,7 @@ export type CreateCustomerInput = {
   address: string;
   milkType: CustomerMilkType;
   customerType?: CustomerType;
+  customerCode?: string;
   dailyQty?: number;
   rate?: number;
   startDate?: string;

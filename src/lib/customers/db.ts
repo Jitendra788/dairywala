@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { DEFAULT_DAIRY_ID, DEFAULT_DAIRY_NAME } from "@/lib/customers/context";
+import { isDbConnectError } from "@/lib/customers/errors";
 
 type StatementSync = {
   run: (...params: unknown[]) => { changes: number; lastInsertRowid: number | bigint };
@@ -130,6 +131,7 @@ const globalForDb = globalThis as unknown as {
   tonyDbReady?: Promise<void>;
   tonySchemaVersion?: number;
   tonyDbMode?: string;
+  tonyForceSqlite?: boolean;
 };
 
 export function postgresUrl() {
@@ -137,7 +139,21 @@ export function postgresUrl() {
 }
 
 export function isPostgres() {
+  if (globalForDb.tonyForceSqlite) return false;
   return Boolean(postgresUrl());
+}
+
+function canUseLocalSqlite() {
+  return !isServerless() && process.env.DS_FORCE_POSTGRES !== "1";
+}
+
+function fallBackToSqlite(error: unknown) {
+  if (!canUseLocalSqlite() || !isDbConnectError(error) || globalForDb.tonyForceSqlite) return false;
+  console.warn("Neon is unreachable; using local SQLite.");
+  globalForDb.tonyForceSqlite = true;
+  globalForDb.tonyDbReady = undefined;
+  globalForDb.tonyDbMode = "sqlite-fallback";
+  return true;
 }
 
 function isServerless() {
@@ -382,7 +398,8 @@ CREATE TABLE IF NOT EXISTS FarmerAdvance (
   note TEXT NOT NULL,
   date TEXT NOT NULL,
   recovered INTEGER NOT NULL DEFAULT 0,
-  billId TEXT
+  billId TEXT,
+  createdAt TEXT
 );
 CREATE TABLE IF NOT EXISTS FarmerBill (
   id TEXT PRIMARY KEY,
@@ -584,6 +601,11 @@ async function migratePostgres() {
   } catch {
     // already exists
   }
+  try {
+    await neonSql().query(`ALTER TABLE FarmerAdvance ADD COLUMN IF NOT EXISTS createdAt TEXT`);
+  } catch {
+    // already exists
+  }
 }
 
 function ensureColumn(db: DatabaseSync, table: string, column: string, def: string) {
@@ -610,6 +632,7 @@ function migrateSqlite(db: DatabaseSync) {
   ensureColumn(db, "EmailVerify", "otpCode", "TEXT");
   ensureColumn(db, "PlatformUser", "passwordPlain", "TEXT");
   ensureColumn(db, "PlatformUser", "lastDevice", "TEXT");
+  ensureColumn(db, "FarmerAdvance", "createdAt", "TEXT");
   db.prepare(`INSERT OR IGNORE INTO Dairy (id, name, createdAt) VALUES (?, ?, ?)`).run(
     DEFAULT_DAIRY_ID,
     DEFAULT_DAIRY_NAME,
@@ -633,39 +656,65 @@ export async function ensureDb() {
     globalForDb.tonySchemaVersion = SCHEMA_VERSION;
     globalForDb.tonyDbMode = mode;
   }
-  if (globalForDb.tonyDbReady) return globalForDb.tonyDbReady;
+  if (globalForDb.tonyDbReady) {
+    try {
+      await globalForDb.tonyDbReady;
+      return;
+    } catch {
+      globalForDb.tonyDbReady = undefined;
+    }
+  }
   globalForDb.tonyDbReady = (async () => {
-    if (isPostgres()) await migratePostgres();
-    else {
-      const db = sqliteDb();
-      migrateSqlite(db);
+    if (isPostgres()) {
+      try {
+        await migratePostgres();
+      } catch (error) {
+        if (!fallBackToSqlite(error)) throw error;
+        migrateSqlite(sqliteDb());
+      }
+    } else {
+      migrateSqlite(sqliteDb());
     }
   })();
   return globalForDb.tonyDbReady;
 }
 
-export async function qget(sql: string, ...params: unknown[]) {
+async function withStore<T>(run: () => Promise<T> | T): Promise<T> {
   await ensureDb();
-  if (isPostgres()) {
-    const rows = await pgQuery(sql, params);
-    return rows[0];
+  try {
+    return await run();
+  } catch (error) {
+    if (!fallBackToSqlite(error)) throw error;
+    await ensureDb();
+    return await run();
   }
-  return normalizeRow(sqliteDb().prepare(sql).get(...params));
+}
+
+export async function qget(sql: string, ...params: unknown[]) {
+  return withStore(async () => {
+    if (isPostgres()) {
+      const rows = await pgQuery(sql, params);
+      return rows[0];
+    }
+    return normalizeRow(sqliteDb().prepare(sql).get(...params));
+  });
 }
 
 export async function qall(sql: string, ...params: unknown[]) {
-  await ensureDb();
-  if (isPostgres()) return pgQuery(sql, params);
-  return sqliteDb().prepare(sql).all(...params).map((row) => normalizeRow(row)!);
+  return withStore(async () => {
+    if (isPostgres()) return pgQuery(sql, params);
+    return sqliteDb().prepare(sql).all(...params).map((row) => normalizeRow(row)!);
+  });
 }
 
 export async function qrun(sql: string, ...params: unknown[]) {
-  await ensureDb();
-  if (isPostgres()) {
-    await pgQuery(sql, params);
-    return { changes: 1 };
-  }
-  return sqliteDb().prepare(sql).run(...params);
+  return withStore(async () => {
+    if (isPostgres()) {
+      await pgQuery(sql, params);
+      return { changes: 1 };
+    }
+    return sqliteDb().prepare(sql).run(...params);
+  });
 }
 
 export async function assertDairy(dairyId: string) {

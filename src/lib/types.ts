@@ -81,6 +81,7 @@ export type Advance = {
   date: string;
   recovered: boolean;
   billId: string | null;
+  createdAt: string;
 };
 
 export type Bill = {

@@ -11,6 +11,8 @@ import { addDays, formatDate, todayISO } from "@/lib/dates";
 import { useToast } from "@/components/toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
+  AppList,
+  AppRow,
   btnGhost,
   btnPrimary,
   Card,
@@ -187,7 +189,7 @@ export function AllCustomersView() {
             <Field label="Mobile (optional)">
               <input className={inputClass} value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="Optional" inputMode="numeric" />
             </Field>
-            <Field label="Address">
+            <Field label="Address (optional)">
               <input className={inputClass} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </Field>
             <Field label="Milk type">
@@ -202,10 +204,10 @@ export function AllCustomersView() {
                 <Field label="Daily quantity">
                   <input className={inputClass} type="number" min="0.1" step="0.1" value={form.dailyQty} onChange={(e) => setForm({ ...form, dailyQty: e.target.value })} />
                 </Field>
-                <Field label="Milk rate">
-                  <input className={inputClass} type="number" min="1" step="0.5" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
+                <Field label="Milk rate (optional)">
+                  <input className={inputClass} type="number" min="0" step="0.5" value={form.rate} onChange={(e) => setForm({ ...form, rate: e.target.value })} />
                 </Field>
-                <Field label="Delivery time">
+                <Field label="Delivery time (optional)">
                   <input className={inputClass} type="time" value={form.deliveryTime} onChange={(e) => setForm({ ...form, deliveryTime: e.target.value })} />
                 </Field>
               </>
@@ -219,7 +221,7 @@ export function AllCustomersView() {
                 </Field>
               </>
             )}
-            <Field label="Status">
+            <Field label="Status (optional)">
               <Select className={inputClass} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as CustomerStatus })}>
                 <option value="active">Active</option>
                 <option value="paused">Paused</option>
@@ -263,14 +265,14 @@ export function AllCustomersView() {
             <option value="clear">Clear</option>
           </Select>
         </div>
-        <div className="divide-y divide-line/70 md:hidden">
+        <AppList>
           {loading ? (
-            <p className="px-4 py-8 text-center text-sm text-muted">Loading…</p>
+            <p className="px-3 py-8 text-center text-sm text-muted">Loading…</p>
           ) : filtered.length === 0 ? (
             <EmptyState title="No customers match" hint="Change filters or add a customer once." />
           ) : (
             filtered.map((row) => (
-              <div key={row.id} className="px-4 py-3">
+              <AppRow key={row.id}>
                 <div className="flex items-start gap-3">
                   <Initials name={row.name} />
                   <div className="min-w-0 flex-1">
@@ -285,7 +287,7 @@ export function AllCustomersView() {
                       <span>{formatQty(row.subscription?.dailyQty ?? row.defaultQty)}</span>
                       <span>{formatInr(row.subscription?.rate ?? row.defaultRate)}</span>
                     </div>
-                    <p className="mt-1 text-[13px] font-semibold">{formatInr(row.outstanding)}</p>
+                    <p className="mt-1 text-[15px] font-semibold tabular-nums">{formatInr(row.outstanding)}</p>
                   </div>
                   <div className="shrink-0">
                     <button type="button" className="rounded-lg p-1.5 text-muted hover:bg-[#f4ead6] hover:text-primary" onClick={() => startEdit(row)} aria-label="Edit">
@@ -313,10 +315,10 @@ export function AllCustomersView() {
                     ) : null}
                   </div>
                 </div>
-              </div>
+              </AppRow>
             ))
           )}
-        </div>
+        </AppList>
         <div className="table-scroll hidden md:block">
           <table className="w-full min-w-[1080px] text-left text-sm">
             <thead className="table-head text-[10px] tracking-wider text-muted uppercase">

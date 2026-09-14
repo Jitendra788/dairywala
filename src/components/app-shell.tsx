@@ -10,6 +10,7 @@ import { currentShift, formatDate, todayISO } from "@/lib/dates";
 import { useDairy } from "@/hooks/use-dairy";
 import { DairyLogo } from "@/components/dairy-brand";
 import { LanguageSwitch } from "@/components/language-switch";
+import { MobileNav } from "@/components/mobile-nav";
 import { useI18n } from "@/hooks/use-i18n";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -39,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           onToggleCollapse={() => setCollapsed((value) => !value)}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="relative z-40 flex min-h-14 shrink-0 items-center gap-1.5 border-b border-line bg-card px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:gap-3 sm:px-4">
+          <header className="relative z-40 flex min-h-12 shrink-0 items-center gap-1.5 border-b border-line bg-card/95 px-2 pt-[max(0.4rem,env(safe-area-inset-top))] pb-1.5 backdrop-blur-md sm:min-h-14 sm:gap-3 sm:px-4 sm:pb-2">
             <button
               type="button"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground lg:hidden"
@@ -75,9 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <UserMenu />
             </div>
           </header>
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[calc(5.4rem+env(safe-area-inset-bottom))] lg:pb-[max(16px,env(safe-area-inset-bottom))]">
             {children}
           </main>
+          <MobileNav onMore={() => setOpen(true)} />
         </div>
         </div>
       </div>

@@ -9,7 +9,7 @@ import { farmerCode, farmerName } from "@/lib/farmer-label";
 import { slipRef } from "@/lib/ref";
 import { calcAmount, fatPointRate, METHOD_LABEL, methodForMilk, pickChart, quoteRate } from "@/lib/rate";
 import { useDairy } from "@/hooks/use-dairy";
-import { btnPrimary, Card, Field, Initials, MilkBadge, inputClass } from "@/components/ui";
+import { AppList, AppRow, btnPrimary, Card, Field, Initials, MilkBadge, inputClass } from "@/components/ui";
 import type { MilkType, Shift } from "@/lib/types";
 
 export function CollectionDesk() {
@@ -266,15 +266,15 @@ export function CollectionDesk() {
           <span className="rounded-full bg-[#f4ead6] px-2.5 py-1 text-xs font-medium">{rows.length} slips</span>
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="divide-y divide-line/70 md:hidden">
+          <AppList>
             {rows.length === 0 ? (
-              <p className="px-4 py-10 text-center text-sm text-muted">Is shift mein koi slip nahi. Code daal ke save karo.</p>
+              <p className="px-3 py-10 text-center text-sm text-muted">Is shift mein koi slip nahi. Code daal ke save karo.</p>
             ) : (
               rows.map((row) => {
                 const f = dairy.farmerById(row.farmerId);
                 return (
-                  <div key={row.id} className="flex items-start gap-3 px-4 py-3">
-                    <Link href={`/collection/${row.id}`} className="flex min-w-0 flex-1 items-center gap-2">
+                  <AppRow key={row.id} className="flex items-start gap-3">
+                    <Link href={`/collection/${row.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                       <Initials name={farmerName(f)} />
                       <span className="min-w-0">
                         <span className="block truncate font-medium">{farmerName(f)}</span>
@@ -282,7 +282,7 @@ export function CollectionDesk() {
                       </span>
                     </Link>
                     <div className="shrink-0 text-right">
-                      <p className="text-[13px] font-semibold">{formatInr(row.amount)}</p>
+                      <p className="text-[15px] font-semibold tabular-nums">{formatInr(row.amount)}</p>
                       <div className="mt-1">
                         <button type="button" className="mr-1 rounded-lg p-1 text-muted hover:bg-[#f4ead6] hover:text-primary disabled:opacity-30" disabled={Boolean(row.billId)} onClick={() => loadEdit(row.id)} aria-label="Edit slip">
                           <Pencil size={14} />
@@ -306,11 +306,11 @@ export function CollectionDesk() {
                         </button>
                       </div>
                     </div>
-                  </div>
+                  </AppRow>
                 );
               })
             )}
-          </div>
+          </AppList>
           <table className="hidden w-full text-left text-[13px] md:table">
             <thead className="table-head sticky top-0 text-[10px] tracking-wider text-muted uppercase">
               <tr>
