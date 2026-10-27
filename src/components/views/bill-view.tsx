@@ -37,7 +37,7 @@ export function BillView() {
   const remain = billRemainingOf(bill);
   const giveNow = Number(amount) || 0;
 
-  async function recordPay() {
+  const recordPay = async () => {
     if (giveNow <= 0 || remain <= 0) return;
     setBusy(true);
     setError("");
@@ -55,7 +55,7 @@ export function BillView() {
     } finally {
       setBusy(false);
     }
-  }
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">

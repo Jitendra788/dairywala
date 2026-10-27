@@ -115,7 +115,10 @@ async function postOp<T>(op: string, payload: Record<string, unknown> = {}) {
     body: JSON.stringify({ op, payload }),
   });
   if (data.state) {
-    const extraPay = op === "addFarmerPayment" && data.result && typeof data.result === "object" ? [data.result as FarmerPayment] : [];
+    const extraPay =
+      op === "addFarmerPayment" && data.result && typeof data.result === "object"
+        ? [data.result as unknown as FarmerPayment]
+        : [];
     apply({
       ...data.state,
       payments: mergeById(data.state.payments || [], [...(state.payments || []), ...extraPay]),
