@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <UserMenu />
             </div>
           </header>
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[calc(5.4rem+env(safe-area-inset-bottom))] lg:pb-[max(16px,env(safe-area-inset-bottom))]">
+          <main className="min-h-0 min-w-0 flex-1 overflow-x-clip overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 pb-[calc(5.4rem+env(safe-area-inset-bottom))] lg:pb-[max(16px,env(safe-area-inset-bottom))]">
             {children}
           </main>
           <MobileNav onMore={() => setOpen(true)} />

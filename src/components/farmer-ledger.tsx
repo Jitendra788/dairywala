@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Banknote, Droplets, Receipt } from "lucide-react";
+import { Banknote, Droplets, Receipt, Wallet } from "lucide-react";
 import { formatDateTime } from "@/lib/dates";
 import { formatInr, formatQty } from "@/lib/money";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/lib/farmer-ledger";
 import { useI18n } from "@/hooks/use-i18n";
 import { btnGhost, btnInverse, btnPrimary, Card } from "@/components/ui";
-import type { Advance, Bill, CollectionEntry } from "@/lib/types";
+import type { Advance, Bill, CollectionEntry, FarmerPayment } from "@/lib/types";
 
 type Filter = "all" | FarmerLedgerKind;
 
@@ -25,20 +25,22 @@ export function FarmerLedger({
   entries,
   advances,
   bills,
+  payments = [],
 }: {
   farmerName?: string;
   farmerId?: string;
   entries: CollectionEntry[];
   advances: Advance[];
   bills: Bill[];
+  payments?: FarmerPayment[];
 }) {
   const { t } = useI18n();
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(1);
-  const summary = farmerMoneySummary(entries, advances, bills);
+  const summary = farmerMoneySummary(entries, advances, bills, payments);
   const rows = useMemo(
-    () => [...withRunningBalance(buildFarmerLedger(entries, advances, bills))].reverse(),
-    [entries, advances, bills],
+    () => [...withRunningBalance(buildFarmerLedger(entries, advances, bills, payments))].reverse(),
+    [entries, advances, bills, payments],
   );
   const shown = filter === "all" ? rows : rows.filter((row) => row.kind === filter);
   const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
@@ -97,6 +99,7 @@ export function FarmerLedger({
         <FilterChip active={filter === "slip"} onClick={() => setFilter("slip")} label={t("milkAmt")} count={rows.filter((r) => r.kind === "slip").length} />
         <FilterChip active={filter === "advance"} onClick={() => setFilter("advance")} label={t("advanceGiven")} count={rows.filter((r) => r.kind === "advance").length} />
         <FilterChip active={filter === "bill"} onClick={() => setFilter("bill")} label={t("ledgerBills")} count={rows.filter((r) => r.kind === "bill").length} />
+        <FilterChip active={filter === "payment"} onClick={() => setFilter("payment")} label={t("paidToFarmer")} count={rows.filter((r) => r.kind === "payment").length} />
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -109,13 +112,15 @@ export function FarmerLedger({
         ) : (
           <ol className="divide-y divide-line/70">
             {paged.map((row) => {
-              const Icon = row.kind === "advance" ? Banknote : row.kind === "bill" ? Receipt : Droplets;
+              const Icon = row.kind === "advance" ? Banknote : row.kind === "bill" ? Receipt : row.kind === "payment" ? Wallet : Droplets;
               const tone =
                 row.kind === "advance"
                   ? "bg-amber-50 text-amber-800"
                   : row.kind === "bill"
                     ? "bg-[#f4ead6] text-foreground"
-                    : "bg-emerald-50 text-primary";
+                    : row.kind === "payment"
+                      ? "bg-sky-50 text-sky-800"
+                      : "bg-emerald-50 text-primary";
               const inner = (
                 <div className="flex items-start gap-3">
                   <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tone}`}>

@@ -2,7 +2,7 @@ export type MilkType = "cow" | "buffalo";
 export type Shift = "morning" | "evening";
 export type ChartMethod = "fat-only" | "formula" | "grid";
 export type ChartKind = ChartMethod;
-export type BillStatus = "open" | "paid";
+export type BillStatus = "open" | "partial" | "paid";
 
 export type Farmer = {
   id: string;
@@ -84,6 +84,16 @@ export type Advance = {
   createdAt: string;
 };
 
+export type FarmerPayment = {
+  id: string;
+  farmerId: string;
+  billId: string | null;
+  amount: number;
+  date: string;
+  note: string;
+  createdAt: string;
+};
+
 export type Bill = {
   id: string;
   farmerId: string;
@@ -95,6 +105,8 @@ export type Bill = {
   gross: number;
   advance: number;
   net: number;
+  paidAmount: number;
+  remaining: number;
   status: BillStatus;
   createdAt: string;
   paidAt: string | null;
@@ -119,4 +131,5 @@ export type DairyState = {
   charts: RateChart[];
   advances: Advance[];
   bills: Bill[];
+  payments: FarmerPayment[];
 };

@@ -43,7 +43,7 @@ export function Card({
   return (
     <div
       id={id}
-      className={`rounded-[22px] border border-line bg-card shadow-[0_8px_28px_rgba(22,48,36,0.06)] ${className}`}
+      className={`min-w-0 rounded-[22px] border border-line bg-card shadow-[0_8px_28px_rgba(22,48,36,0.06)] ${className}`}
     >
       {children}
     </div>
@@ -99,7 +99,7 @@ export function TableScroll({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={`table-scroll min-w-0 ${className}`}>{children}</div>;
+  return <div className={`table-scroll min-w-0 max-w-full ${className}`}>{children}</div>;
 }
 
 export function AppList({ children }: { children: ReactNode }) {

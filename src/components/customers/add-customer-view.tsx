@@ -76,7 +76,7 @@ export function AddCustomerView() {
         title="Add Customer"
         hint="Regular customers get a daily subscription. Daily / walk-in customers are saved once and billed only when they buy milk."
       />
-      <Card className="p-5">
+      <Card className="p-4 sm:p-5">
         <div className="mb-4 grid grid-cols-2 gap-2">
           {(["regular", "walkin"] as const).map((type) => (
             <button
@@ -161,7 +161,7 @@ export function AddCustomerView() {
           )}
         </div>
         {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row [&>*]:w-full sm:[&>*]:w-auto">
           <button
             type="button"
             className={btnPrimary}

@@ -128,8 +128,7 @@ export function Sidebar({
   ];
 
   const paymentChildren: NavChild[] = [
-    { href: "/payments", label: label("receivePayment"), exact: true },
-    { href: "/payments?tab=bills", label: label("farmerPayments") },
+    { href: "/payments", label: label("farmerPayments"), exact: true },
     { href: "/payments?tab=advances", label: label("advances") },
     { href: "/customers/payments", label: label("customerPayments") },
     { href: "/payments?status=open", label: label("pendingPayments") },

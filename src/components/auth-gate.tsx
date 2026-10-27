@@ -27,10 +27,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
       setReady(true);
       return;
     }
-    setReady(false);
-    void hydrateDairy()
-      .catch(() => undefined)
-      .finally(() => setReady(true));
+    setReady(true);
+    void hydrateDairy().catch(() => undefined);
   }, [loggedIn, dairyId, isAdmin]);
 
   useEffect(() => {

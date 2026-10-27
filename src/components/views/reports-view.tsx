@@ -57,7 +57,7 @@ export function ReportsView() {
 
       {pnlReport ? <ProfitLossCard report={pnlReport} grain={grain} onGrain={setGrain} /> : null}
 
-      <Card className="grid gap-3 p-5 md:grid-cols-2">
+      <Card className="grid gap-3 p-3 sm:p-5 md:grid-cols-2">
         <Field label="From">
           <input type="date" className={inputClass} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
         </Field>
@@ -73,7 +73,7 @@ export function ReportsView() {
         <Mini label="Avg SNF" value={round2(avgSnf).toFixed(2)} />
       </div>
 
-      <Card id="statement" className="p-5">
+      <Card id="statement" className="p-3 sm:p-5">
         <h2 className="font-display text-xl">Farmer statement</h2>
         <AppList>
           {[...byFarmer.entries()].map(([farmerId, tot]) => {

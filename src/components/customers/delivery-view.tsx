@@ -84,17 +84,17 @@ export function DeliveryView() {
       />
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Card className="p-4">
-          <p className="text-[11px] tracking-[0.14em] text-muted uppercase">Today’s list</p>
-          <p className="font-display text-3xl">{rows.length}</p>
+        <Card className="p-2.5 sm:p-4">
+          <p className="text-[10px] tracking-[0.08em] text-muted uppercase sm:text-[11px] sm:tracking-[0.14em]">Today’s list</p>
+          <p className="font-display text-xl sm:text-3xl">{rows.length}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-[11px] tracking-[0.14em] text-muted uppercase">Pending</p>
-          <p className="font-display text-3xl">{pending}</p>
+        <Card className="p-2.5 sm:p-4">
+          <p className="text-[10px] tracking-[0.08em] text-muted uppercase sm:text-[11px] sm:tracking-[0.14em]">Pending</p>
+          <p className="font-display text-xl sm:text-3xl">{pending}</p>
         </Card>
-        <Card className="p-4">
-          <p className="text-[11px] tracking-[0.14em] text-muted uppercase">Date</p>
-          <p className="font-display text-2xl">{formatDate(date)}</p>
+        <Card className="p-2.5 sm:p-4">
+          <p className="text-[10px] tracking-[0.08em] text-muted uppercase sm:text-[11px] sm:tracking-[0.14em]">Date</p>
+          <p className="font-display text-[15px] leading-tight sm:text-2xl">{formatDate(date)}</p>
         </Card>
       </div>
 

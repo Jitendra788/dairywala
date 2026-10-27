@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, Clock3, Droplets, FileSpreadsheet, TrendingUp, Users, Wallet } from "lucide-react";
 import { useI18n } from "@/hooks/use-i18n";
+import { farmerPendingDue } from "@/lib/farmer-ledger";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { customerApi } from "@/lib/customers/client";
@@ -27,25 +28,25 @@ export function DashboardView() {
   const [monthReport, setMonthReport] = useState<FinanceReport | null>(null);
   const [pnlReport, setPnlReport] = useState<FinanceReport | null>(null);
   const [grain, setGrain] = useState<FinanceGrain>("month");
-  const openBills = dairy.bills.filter((bill) => bill.status === "open");
-  const farmerPending = round2(openBills.reduce((sum, bill) => sum + bill.net, 0));
+  const pendingFarmers = dairy.farmers.filter((farmer) => farmerPendingDue(farmer.id, dairy.bills, dairy.entries) > 0);
+  const farmerPending = round2(pendingFarmers.reduce((sum, farmer) => sum + farmerPendingDue(farmer.id, dairy.bills, dairy.entries), 0));
   const farmerDebit = dairy.payableTotal();
   const customerCredit = customerStats?.pending.amount ?? 0;
   const customerPendingCount = customerStats?.pending.count ?? 0;
 
   useEffect(() => {
-    customerApi<CustomerDashboardStats>(`/api/customers/stats?date=${todayISO()}`)
-      .then(setCustomerStats)
-      .catch(() => setCustomerStats(null));
-  }, []);
-
-  useEffect(() => {
-    customerApi<FinanceReport>(`/api/finance?from=${startOfMonth()}&to=${endOfMonth()}`)
-      .then(setMonthReport)
-      .catch(() => setMonthReport(null));
-    customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}`)
-      .then(setPnlReport)
-      .catch(() => setPnlReport(null));
+    const timer = window.setTimeout(() => {
+      customerApi<CustomerDashboardStats>(`/api/customers/stats?date=${todayISO()}`)
+        .then(setCustomerStats)
+        .catch(() => setCustomerStats(null));
+      customerApi<FinanceReport>(`/api/finance?from=${startOfMonth()}&to=${endOfMonth()}`)
+        .then(setMonthReport)
+        .catch(() => setMonthReport(null));
+      customerApi<FinanceReport>(`/api/finance?from=${addMonths(startOfMonth(), -11)}&to=${endOfMonth()}`)
+        .then(setPnlReport)
+        .catch(() => setPnlReport(null));
+    }, 250);
+    return () => window.clearTimeout(timer);
   }, []);
 
   return (
@@ -91,7 +92,7 @@ export function DashboardView() {
             icon={<Clock3 size={16} />}
             label={t("dashPendingPay")}
             value={formatInr(farmerPending)}
-            hint={t("dashPendingHint", { n: openBills.length })}
+            hint={t("dashPendingHint", { n: pendingFarmers.length })}
             tone="pending"
           />
           <MoneyCard
@@ -129,12 +130,12 @@ export function DashboardView() {
 
       {customerStats ? (
         <Card className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
               <p className="text-[10px] font-semibold tracking-[0.14em] text-muted uppercase">Customer milk</p>
               <h2 className="font-display text-lg">Today from the database</h2>
             </div>
-            <Link href="/customers/walk-in" className="text-xs font-semibold text-primary">
+            <Link href="/customers/walk-in" className="shrink-0 text-xs font-semibold text-primary">
               Walk-in desk →
             </Link>
           </div>
@@ -255,7 +256,7 @@ function MiniStat({ label, value, hint }: { label: string; value: string; hint: 
   return (
     <div className="rounded-2xl bg-[#f7f1e6] px-3 py-2.5">
       <p className="text-[10px] text-muted">{label}</p>
-      <p className="font-display text-[20px] leading-none">{value}</p>
+      <p className="font-display text-[18px] leading-none break-all tabular-nums sm:text-[20px]">{value}</p>
       <p className="mt-1 text-[10px] text-muted">{hint}</p>
     </div>
   );
@@ -291,7 +292,7 @@ function MoneyCard({
         <p className="text-[10px] font-semibold tracking-[0.12em] uppercase opacity-80">{label}</p>
         {icon}
       </div>
-      <p className="mt-1.5 font-display text-[26px] leading-none text-foreground">{value}</p>
+      <p className="mt-1.5 font-display text-[22px] leading-none break-all tabular-nums text-foreground sm:text-[26px]">{value}</p>
       <p className="mt-1.5 text-[11px] text-muted">{hint}</p>
     </Link>
   );

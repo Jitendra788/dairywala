@@ -9,6 +9,7 @@ import type {
   DairyState,
   Farmer,
   MilkType,
+  FarmerPayment,
   RateChart,
   Settings,
   Shift,
@@ -29,14 +30,99 @@ function apply(next: DairyState) {
   emit();
 }
 
-type OpResult<T> = { state: DairyState; result: T };
+type OpResult<T> = { state?: DairyState; result: T };
+
+function mergeById<T extends { id: string }>(server: T[], local: T[]) {
+  const map = new Map(server.map((row) => [row.id, row]));
+  for (const row of local) {
+    if (!map.has(row.id)) map.set(row.id, row);
+  }
+  return [...map.values()];
+}
+
+function applyOp(op: string, payload: Record<string, unknown>, result: unknown) {
+  if (op === "addCollection" && result && typeof result === "object") {
+    const entry = result as CollectionEntry;
+    apply({ ...state, entries: [entry, ...state.entries.filter((row) => row.id !== entry.id && !row.id.startsWith("tmp-"))] });
+    return;
+  }
+  if (op === "updateCollection" && result && typeof result === "object") {
+    const entry = result as CollectionEntry;
+    apply({ ...state, entries: state.entries.map((row) => (row.id === entry.id ? entry : row)) });
+    return;
+  }
+  if (op === "deleteCollection") {
+    apply({ ...state, entries: state.entries.filter((row) => row.id !== String(payload.id || "")) });
+    return;
+  }
+  if (op === "addFarmer" && result && typeof result === "object") {
+    const farmer = result as Farmer;
+    apply({ ...state, farmers: [...state.farmers.filter((row) => row.id !== farmer.id), farmer] });
+    return;
+  }
+  if (op === "updateFarmer") {
+    apply({
+      ...state,
+      farmers: state.farmers.map((row) => (row.id === payload.id ? { ...row, ...payload, id: row.id } : row)),
+    });
+    return;
+  }
+  if (op === "addFarmerPayment" && result && typeof result === "object") {
+    const payment = result as FarmerPayment;
+    apply({
+      ...state,
+      payments: [payment, ...(state.payments || []).filter((row) => row.id !== payment.id && !row.id.startsWith("tmp-"))],
+    });
+    return;
+  }
+  if (op === "addAdvance" && result && typeof result === "object") {
+    const advance = result as Advance;
+    apply({
+      ...state,
+      advances: [advance, ...state.advances.filter((row) => row.id !== advance.id && !row.id.startsWith("tmp-"))],
+    });
+    return;
+  }
+  if (op === "updateAdvance") {
+    apply({
+      ...state,
+      advances: state.advances.map((row) => (row.id === payload.id ? { ...row, ...payload, id: row.id } : row)),
+    });
+    return;
+  }
+  if (op === "deleteAdvance") {
+    apply({ ...state, advances: state.advances.filter((row) => row.id !== String(payload.id || "")) });
+    return;
+  }
+  if (op === "deleteBill") {
+    apply({ ...state, bills: state.bills.filter((row) => row.id !== String(payload.id || "")) });
+    return;
+  }
+  if (op === "addChart" && result && typeof result === "object") {
+    const chart = result as RateChart;
+    apply({ ...state, charts: [...state.charts.filter((row) => row.id !== chart.id), chart] });
+    return;
+  }
+  if (op === "deleteChart") {
+    apply({ ...state, charts: state.charts.filter((row) => row.id !== String(payload.id || "")) });
+    return;
+  }
+}
 
 async function postOp<T>(op: string, payload: Record<string, unknown> = {}) {
   const data = await customerApi<OpResult<T>>("/api/dairy", {
     method: "POST",
     body: JSON.stringify({ op, payload }),
   });
-  apply(data.state);
+  if (data.state) {
+    const extraPay = op === "addFarmerPayment" && data.result && typeof data.result === "object" ? [data.result as FarmerPayment] : [];
+    apply({
+      ...data.state,
+      payments: mergeById(data.state.payments || [], [...(state.payments || []), ...extraPay]),
+      advances: mergeById(data.state.advances || [], state.advances || []),
+      bills: mergeById(data.state.bills || [], state.bills),
+    });
+  } else applyOp(op, payload, data.result);
   return data.result;
 }
 
@@ -66,7 +152,15 @@ export function hydrateDairy() {
   localStorage.removeItem("tony-dairy-v1");
   hydratePromise = customerApi<DairyState>("/api/dairy")
     .then((next) => {
-      apply(next);
+      apply({
+        ...next,
+        farmers: mergeById(next.farmers, state.farmers),
+        entries: mergeById(next.entries, state.entries.filter((row) => !row.id.startsWith("tmp-"))),
+        advances: mergeById(next.advances, state.advances.filter((row) => !row.id.startsWith("tmp-"))),
+        bills: mergeById(next.bills, state.bills),
+        payments: mergeById(next.payments || [], state.payments || []),
+        charts: next.charts.length ? next.charts : state.charts,
+      });
     })
     .catch((error) => {
       hydrated = false;
@@ -84,11 +178,20 @@ export function farmerByCode(code: string) {
   return state.farmers.find((f) => f.code === code.trim());
 }
 
+export function farmerPaidTotal(farmerId: string) {
+  const fromPays = (state.payments || []).filter((row) => row.farmerId === farmerId).reduce((sum, row) => sum + row.amount, 0);
+  const fromBills = state.bills.filter((bill) => bill.farmerId === farmerId).reduce((sum, bill) => sum + (bill.paidAmount || (bill.status === "paid" ? bill.net : 0)), 0);
+  return round2(Math.max(fromPays, fromBills));
+}
+
 export function farmerBalance(farmerId: string) {
   const milk = state.entries.filter((e) => e.farmerId === farmerId).reduce((s, e) => s + e.amount, 0);
   const advances = state.advances.filter((a) => a.farmerId === farmerId).reduce((s, a) => s + a.amount, 0);
-  const paid = state.bills.filter((b) => b.farmerId === farmerId && b.status === "paid").reduce((s, b) => s + b.net, 0);
-  return round2(milk - advances - paid);
+  return round2(milk - advances - farmerPaidTotal(farmerId));
+}
+
+export function addFarmerPayment(input: { farmerId: string; amount: number; date: string; note?: string; billId?: string }) {
+  return postOp<FarmerPayment>("addFarmerPayment", input);
 }
 
 export function addFarmer(input: Omit<Farmer, "id" | "createdAt">) {
@@ -113,7 +216,33 @@ export function addCollection(input: {
   snf: number;
   clr: number;
 }) {
-  return postOp<CollectionEntry>("addCollection", input);
+  const prev = state;
+  const tempId = `tmp-${Date.now()}`;
+  apply({
+    ...state,
+    entries: [
+      {
+        id: tempId,
+        farmerId: input.farmerId,
+        date: input.date,
+        shift: input.shift,
+        milkType: input.milkType,
+        qty: input.qty,
+        fat: input.fat,
+        snf: input.snf,
+        clr: input.clr,
+        rate: 0,
+        amount: 0,
+        billId: null,
+        createdAt: new Date().toISOString(),
+      },
+      ...state.entries,
+    ],
+  });
+  return postOp<CollectionEntry>("addCollection", input).catch((err) => {
+    apply(prev);
+    throw err;
+  });
 }
 
 export function updateCollection(
@@ -188,15 +317,19 @@ export function addAdvance(input: { farmerId: string; amount: number; note: stri
   });
 }
 
-export function generateBills(fromDate: string, toDate: string) {
-  return postOp<Bill[]>("generateBills", { fromDate, toDate });
+export function generateBills(fromDate: string, toDate: string, farmerId?: string) {
+  return postOp<Bill[]>("generateBills", { fromDate, toDate, farmerId: farmerId || "" });
 }
 
 export function markBillPaid(id: string) {
   const prev = state;
   apply({
     ...state,
-    bills: state.bills.map((bill) => (bill.id === id ? { ...bill, status: "paid", paidAt: new Date().toISOString() } : bill)),
+    bills: state.bills.map((bill) =>
+      bill.id === id
+        ? { ...bill, status: "paid" as const, paidAmount: bill.net, remaining: 0, paidAt: new Date().toISOString() }
+        : bill,
+    ),
   });
   return postOp("markBillPaid", { id }).catch((err) => {
     apply(prev);

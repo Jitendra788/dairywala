@@ -393,10 +393,10 @@ export function WalkInView() {
       </Card>
 
       <Card className="p-4">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-display text-lg">{editingId ? "Edit sale" : "Quick milk sale"}</h2>
           {selected ? (
-            <p className="text-[12px] text-muted">
+            <p className="min-w-0 truncate text-[12px] text-muted">
               {selected.customerCode} · {selected.name}
               {selected.customerType === "regular" ? " · Regular — Daily Milk Delivery use karo" : ""}
             </p>
@@ -489,7 +489,7 @@ export function WalkInView() {
           <Field label="Notes (optional)">
             <input className={inputClass} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </Field>
-          <div className="flex items-end gap-2 md:col-span-3">
+          <div className="flex flex-col gap-2 md:col-span-3 sm:flex-row [&>*]:w-full sm:[&>*]:w-auto">
             <button type="submit" className={btnPrimary} disabled={busy || !selected || selected.customerType === "regular"}>
               {busy ? "Saving…" : editingId ? "Update sale" : "Save Today's Sale"}
             </button>

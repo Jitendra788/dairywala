@@ -156,7 +156,7 @@ export function ProfitLossCard({
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div>
           <p className="text-[10px] font-semibold tracking-[0.12em] text-muted uppercase">Net profit</p>
-          <p className="mt-1 font-display text-3xl">{formatInr(t.earning)}</p>
+          <p className="mt-1 font-display text-[28px] leading-none break-all tabular-nums sm:text-3xl">{formatInr(t.earning)}</p>
           <p className="mt-3 text-[11px] text-muted">Profit margin</p>
           <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#efe6d4]">
             <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, t.margin))}%` }} />
@@ -242,7 +242,7 @@ export function TodayMissionCard({ report }: { report: FinanceReport }) {
         <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
           <p className="text-[12px] text-muted">Net earning</p>
           <div className="text-right">
-            <p className="font-display text-2xl">{formatInr(p.earning)}</p>
+            <p className="font-display text-xl break-all tabular-nums sm:text-2xl">{formatInr(p.earning)}</p>
             <p className="text-[11px] text-muted">{p.margin.toFixed(1)}% margin</p>
           </div>
         </div>

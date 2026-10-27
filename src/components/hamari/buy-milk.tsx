@@ -318,7 +318,8 @@ export function BuyMilkScreen() {
         </div>
 
         <div className="overflow-hidden rounded-xl bg-card shadow-sm">
-          <table className="w-full text-left text-sm">
+          <div className="table-scroll">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-3 py-2 font-medium">Sr No</th>
@@ -422,6 +423,7 @@ export function BuyMilkScreen() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

@@ -7,6 +7,8 @@ export async function GET(request: Request) {
   return withDairy(request, (dairyId) => loadDesk(dairyId));
 }
 
+const RELOAD_OPS = new Set(["generateBills", "resetDemo", "saveCharts", "deleteFarmer", "updateSettings", "addFarmerPayment"]);
+
 export async function POST(request: Request) {
   return withDairy(request, async (dairyId, body) => {
     const op = strField(body, "op");
@@ -15,7 +17,9 @@ export async function POST(request: Request) {
         ? (body.payload as Record<string, unknown>)
         : body;
     const result = await runDeskOp(dairyId, op, payload);
-    const state = await loadDesk(dairyId);
-    return { state, result };
+    if (RELOAD_OPS.has(op)) {
+      return { state: await loadDesk(dairyId), result };
+    }
+    return { result };
   });
 }

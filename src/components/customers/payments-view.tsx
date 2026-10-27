@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { customerApi } from "@/lib/customers/client";
 import type { CustomerRow, PaymentMode, PaymentRow } from "@/lib/customers/types";
 import { formatDateTime, todayISO } from "@/lib/dates";
 import { formatInr } from "@/lib/money";
 import { useI18n } from "@/hooks/use-i18n";
 import { useToast } from "@/components/toast";
-import { AppList, AppRow, btnGhost, btnPrimary, Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
+import { PayTabs } from "@/components/pay-tabs";
+import { AppList, AppRow, btnPrimary, Card, Field, inputClass, PageHeader, Select } from "@/components/ui";
 import { EmptyState, LoadingRows } from "@/components/customers/shared";
 
 export function CustomerPaymentsView() {
@@ -73,30 +73,8 @@ export function CustomerPaymentsView() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
-      <PageHeader
-        kicker={t("payHubKicker")}
-        title={t("customerPayTitle")}
-        hint={t("customerPayHint")}
-        actions={
-          <Link href="/payments" className={btnGhost}>
-            {t("backPayments")}
-          </Link>
-        }
-      />
-      <div className="chip-row">
-        <Link href="/payments?tab=bills" className={btnGhost}>
-          {t("farmerPayments")}
-        </Link>
-        <Link href="/customers/payments" className={btnPrimary}>
-          {t("customerPayments")}
-        </Link>
-        <Link href="/payments?tab=advances" className={btnGhost}>
-          {t("advances")}
-        </Link>
-      </div>
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-[13px] text-foreground/80">
-        {t("customerPayHint")}
-      </div>
+      <PageHeader kicker={t("payHubKicker")} title={t("customerPayTitle")} />
+      <PayTabs active="customer" />
       <Card className="p-4 sm:p-5">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Field label={t("customer")}>
@@ -112,10 +90,10 @@ export function CustomerPaymentsView() {
             <input type="date" className={inputClass} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
           <Field label={t("amount")}>
-            <div className="flex items-center gap-2 rounded-2xl border border-line bg-[#fbf7ef] px-4 py-3 focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(24,122,72,0.12)] sm:hidden">
-              <span className="text-lg font-semibold text-muted">₹</span>
+            <div className="flex items-center gap-1.5 rounded-xl border border-line bg-[#fbf7ef] px-2.5 py-2 focus-within:border-primary focus-within:bg-white sm:hidden">
+              <span className="text-sm font-semibold text-muted">₹</span>
               <input
-                className="money-input w-full min-w-0 bg-transparent font-display text-[34px] leading-none outline-none"
+                className="w-full min-w-0 bg-transparent text-sm font-semibold outline-none"
                 inputMode="decimal"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}

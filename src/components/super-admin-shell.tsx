@@ -182,7 +182,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
               </button>
             </div>
           </header>
-          <main className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 pb-[max(16px,env(safe-area-inset-bottom))]">
+          <main className="min-h-0 flex-1 overflow-x-clip overflow-y-auto px-3 py-4 sm:px-5 lg:px-6 pb-[max(16px,env(safe-area-inset-bottom))]">
             {children}
           </main>
         </div>

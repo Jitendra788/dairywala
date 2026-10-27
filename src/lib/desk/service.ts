@@ -10,6 +10,7 @@ import type {
   CollectionEntry,
   DairyState,
   Farmer,
+  FarmerPayment,
   MilkType,
   RateChart,
   Settings,
@@ -133,6 +134,10 @@ function mapAdvance(row: Record<string, unknown>): Advance {
 }
 
 function mapBill(row: Record<string, unknown>): Bill {
+  const net = num(row.net);
+  const paidAmount = row.paidAmount == null ? (str(row.status) === "paid" ? net : 0) : num(row.paidAmount);
+  const remaining = round2(Math.max(0, net - paidAmount));
+  const status: Bill["status"] = remaining <= 0 ? "paid" : paidAmount > 0 ? "partial" : "open";
   return {
     id: str(row.id),
     farmerId: str(row.farmerId),
@@ -143,10 +148,24 @@ function mapBill(row: Record<string, unknown>): Bill {
     avgSnf: num(row.avgSnf),
     gross: num(row.gross),
     advance: num(row.advance),
-    net: num(row.net),
-    status: str(row.status) as Bill["status"],
+    net,
+    paidAmount: round2(paidAmount),
+    remaining,
+    status,
     createdAt: str(row.createdAt),
     paidAt: row.paidAt == null || row.paidAt === "" ? null : str(row.paidAt),
+  };
+}
+
+function mapPayment(row: Record<string, unknown>): FarmerPayment {
+  return {
+    id: str(row.id),
+    farmerId: str(row.farmerId),
+    billId: row.billId == null || row.billId === "" ? null : str(row.billId),
+    amount: num(row.amount),
+    date: str(row.date),
+    note: str(row.note),
+    createdAt: str(row.createdAt),
   };
 }
 
@@ -218,13 +237,14 @@ export async function ensureDesk(dairyId: string) {
 
 export async function loadDesk(dairyId: string): Promise<DairyState> {
   await ensureDesk(dairyId);
-  const [settingsRow, farmerRows, entryRows, chartRows, advanceRows, billRows] = await Promise.all([
+  const [settingsRow, farmerRows, entryRows, chartRows, advanceRows, billRows, paymentRows] = await Promise.all([
     qget(`SELECT * FROM DairySettings WHERE dairyId = ?`, dairyId),
     qall(`SELECT * FROM Farmer WHERE dairyId = ? ORDER BY code`, dairyId),
     qall(`SELECT * FROM CollectionEntry WHERE dairyId = ? ORDER BY createdAt DESC`, dairyId),
     qall(`SELECT * FROM RateChart WHERE dairyId = ?`, dairyId),
     qall(`SELECT * FROM FarmerAdvance WHERE dairyId = ? ORDER BY date DESC`, dairyId),
     qall(`SELECT * FROM FarmerBill WHERE dairyId = ? ORDER BY createdAt DESC`, dairyId),
+    qall(`SELECT * FROM FarmerPayment WHERE dairyId = ? ORDER BY createdAt DESC`, dairyId).catch(() => []),
   ]);
   return {
     settings: mapSettings(settingsRow),
@@ -233,6 +253,7 @@ export async function loadDesk(dairyId: string): Promise<DairyState> {
     charts: ensureMethodCharts(chartRows.map(mapChart)),
     advances: advanceRows.map(mapAdvance),
     bills: billRows.map(mapBill),
+    payments: paymentRows.map(mapPayment),
   };
 }
 
@@ -325,6 +346,7 @@ export async function deleteFarmer(dairyId: string, id: string) {
   if (billed) throw new CustomerError("Billed slips wali farmer delete nahi ho sakti");
   await qrun(`DELETE FROM CollectionEntry WHERE dairyId = ? AND farmerId = ?`, dairyId, id);
   await qrun(`DELETE FROM FarmerAdvance WHERE dairyId = ? AND farmerId = ?`, dairyId, id);
+  await qrun(`DELETE FROM FarmerPayment WHERE dairyId = ? AND farmerId = ?`, dairyId, id);
   await qrun(`DELETE FROM FarmerBill WHERE dairyId = ? AND farmerId = ?`, dairyId, id);
   await qrun(`DELETE FROM Farmer WHERE dairyId = ? AND id = ?`, dairyId, id);
 }
@@ -417,6 +439,21 @@ export async function updateCollection(
     dairyId,
     id,
   );
+  return {
+    id,
+    farmerId: input.farmerId,
+    date: input.date,
+    shift: input.shift,
+    milkType: input.milkType,
+    qty: input.qty,
+    fat: input.fat,
+    snf: input.snf,
+    clr: input.clr,
+    rate,
+    amount: calcAmount(input.qty, rate),
+    billId: existing.billId == null || existing.billId === "" ? null : String(existing.billId),
+    createdAt: String(existing.createdAt || new Date().toISOString()),
+  };
 }
 
 export async function deleteCollection(dairyId: string, id: string) {
@@ -498,7 +535,7 @@ export async function deleteAdvance(dairyId: string, id: string) {
 export async function deleteBill(dairyId: string, id: string) {
   const bill = await qget(`SELECT * FROM FarmerBill WHERE dairyId = ? AND id = ?`, dairyId, id);
   if (!bill) throw new CustomerError("Bill nahi mili");
-  if (str(bill.status) === "paid") throw new CustomerError("Paid bill delete nahi ho sakti");
+  if (str(bill.status) === "paid" || num(bill.paidAmount) > 0) throw new CustomerError("Paid bill delete nahi ho sakti");
   await qrun(
     `UPDATE CollectionEntry SET billId = NULL WHERE dairyId = ? AND billId = ?`,
     dairyId,
@@ -512,12 +549,12 @@ export async function deleteBill(dairyId: string, id: string) {
   await qrun(`DELETE FROM FarmerBill WHERE dairyId = ? AND id = ?`, dairyId, id);
 }
 
-export async function generateBills(dairyId: string, fromDate: string, toDate: string) {
+export async function generateBills(dairyId: string, fromDate: string, toDate: string, farmerId?: string) {
   const open = (await qall(
-    `SELECT * FROM CollectionEntry WHERE dairyId = ? AND date >= ? AND date <= ? AND (billId IS NULL OR billId = '')`,
-    dairyId,
-    fromDate,
-    toDate,
+    farmerId
+      ? `SELECT * FROM CollectionEntry WHERE dairyId = ? AND farmerId = ? AND date >= ? AND date <= ? AND (billId IS NULL OR billId = '')`
+      : `SELECT * FROM CollectionEntry WHERE dairyId = ? AND date >= ? AND date <= ? AND (billId IS NULL OR billId = '')`,
+    ...(farmerId ? [dairyId, farmerId, fromDate, toDate] : [dairyId, fromDate, toDate]),
   )).map(mapEntry);
   const byFarmer = new Map<string, CollectionEntry[]>();
   for (const entry of open) {
@@ -546,6 +583,7 @@ export async function generateBills(dairyId: string, fromDate: string, toDate: s
       advance += item.amount;
       recovered.push(item.id);
     }
+    const net = round2(gross - advance);
     const bill: Bill = {
       id: billId,
       farmerId,
@@ -556,15 +594,17 @@ export async function generateBills(dairyId: string, fromDate: string, toDate: s
       avgSnf,
       gross,
       advance: round2(advance),
-      net: round2(gross - advance),
+      net,
+      paidAmount: 0,
+      remaining: net,
       status: "open",
       createdAt: new Date().toISOString(),
       paidAt: null,
     };
     await qrun(
       `INSERT INTO FarmerBill
-        (id, dairyId, farmerId, fromDate, toDate, qty, avgFat, avgSnf, gross, advance, net, status, createdAt, paidAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, dairyId, farmerId, fromDate, toDate, qty, avgFat, avgSnf, gross, advance, net, paidAmount, status, createdAt, paidAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       bill.id,
       dairyId,
       bill.farmerId,
@@ -576,6 +616,7 @@ export async function generateBills(dairyId: string, fromDate: string, toDate: s
       bill.gross,
       bill.advance,
       bill.net,
+      0,
       bill.status,
       bill.createdAt,
       null,
@@ -597,12 +638,75 @@ export async function generateBills(dairyId: string, fromDate: string, toDate: s
 }
 
 export async function markBillPaid(dairyId: string, id: string) {
+  const bill = await qget(`SELECT * FROM FarmerBill WHERE dairyId = ? AND id = ?`, dairyId, id);
+  if (!bill) throw new CustomerError("Bill nahi mili");
   await qrun(
-    `UPDATE FarmerBill SET status = 'paid', paidAt = ? WHERE dairyId = ? AND id = ?`,
+    `UPDATE FarmerBill SET status = 'paid', paidAmount = net, paidAt = ? WHERE dairyId = ? AND id = ?`,
     new Date().toISOString(),
     dairyId,
     id,
   );
+}
+
+export async function addFarmerPayment(
+  dairyId: string,
+  input: { farmerId: string; amount: number; date: string; note?: string; billId?: string },
+) {
+  const amount = round2(input.amount);
+  if (amount <= 0) throw new CustomerError("Payment amount must be greater than 0");
+  const farmer = await qget(`SELECT id FROM Farmer WHERE dairyId = ? AND id = ?`, dairyId, input.farmerId);
+  if (!farmer) throw new CustomerError("Farmer nahi mili");
+
+  const loaded = (await qall(
+    `SELECT * FROM FarmerBill WHERE dairyId = ? AND farmerId = ? ORDER BY createdAt ASC`,
+    dairyId,
+    input.farmerId,
+  )).map(mapBill);
+  const bills = input.billId
+    ? [...loaded.filter((bill) => bill.id === input.billId), ...loaded.filter((bill) => bill.id !== input.billId)]
+    : loaded;
+  let leftover = amount;
+  let lastBillId: string | null = null;
+  for (const bill of bills) {
+    if (leftover <= 0) break;
+    if (bill.remaining <= 0) continue;
+    const take = round2(Math.min(bill.remaining, leftover));
+    const paidAmount = round2(bill.paidAmount + take);
+    const remaining = round2(bill.net - paidAmount);
+    leftover = round2(leftover - take);
+    lastBillId = bill.id;
+    await qrun(
+      `UPDATE FarmerBill SET paidAmount = ?, status = ?, paidAt = ? WHERE dairyId = ? AND id = ?`,
+      paidAmount,
+      remaining <= 0 ? "paid" : paidAmount > 0 ? "partial" : "open",
+      remaining <= 0 ? new Date().toISOString() : bill.paidAt,
+      dairyId,
+      bill.id,
+    );
+  }
+
+  const payment: FarmerPayment = {
+    id: uid("pay"),
+    farmerId: input.farmerId,
+    billId: lastBillId,
+    amount,
+    date: input.date,
+    note: input.note || "Farmer payment",
+    createdAt: new Date().toISOString(),
+  };
+  await qrun(
+    `INSERT INTO FarmerPayment (id, dairyId, farmerId, billId, amount, date, note, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    payment.id,
+    dairyId,
+    payment.farmerId,
+    payment.billId,
+    payment.amount,
+    payment.date,
+    payment.note,
+    payment.createdAt,
+  );
+  return payment;
 }
 
 export async function updateSettings(dairyId: string, patch: Partial<Settings>) {
@@ -631,6 +735,7 @@ export async function updateSettings(dairyId: string, patch: Partial<Settings>) 
 export async function resetDesk(dairyId: string) {
   await qrun(`DELETE FROM CollectionEntry WHERE dairyId = ?`, dairyId);
   await qrun(`DELETE FROM FarmerAdvance WHERE dairyId = ?`, dairyId);
+  await qrun(`DELETE FROM FarmerPayment WHERE dairyId = ?`, dairyId);
   await qrun(`DELETE FROM FarmerBill WHERE dairyId = ?`, dairyId);
   await qrun(`DELETE FROM Farmer WHERE dairyId = ?`, dairyId);
   await qrun(`DELETE FROM RateChart WHERE dairyId = ?`, dairyId);
@@ -653,8 +758,7 @@ export async function runDeskOp(dairyId: string, op: string, payload: Record<str
     case "addCollection":
       return addCollection(dairyId, payload as Parameters<typeof addCollection>[1]);
     case "updateCollection":
-      await updateCollection(dairyId, str(payload.id), payload as Parameters<typeof updateCollection>[2]);
-      return null;
+      return updateCollection(dairyId, str(payload.id), payload as Parameters<typeof updateCollection>[2]);
     case "deleteCollection":
       await deleteCollection(dairyId, str(payload.id));
       return null;
@@ -678,10 +782,18 @@ export async function runDeskOp(dairyId: string, op: string, payload: Record<str
       await deleteBill(dairyId, str(payload.id));
       return null;
     case "generateBills":
-      return generateBills(dairyId, str(payload.fromDate), str(payload.toDate));
+      return generateBills(dairyId, str(payload.fromDate), str(payload.toDate), str(payload.farmerId) || undefined);
     case "markBillPaid":
       await markBillPaid(dairyId, str(payload.id));
       return null;
+    case "addFarmerPayment":
+      return addFarmerPayment(dairyId, {
+        farmerId: str(payload.farmerId),
+        amount: num(payload.amount),
+        date: str(payload.date),
+        note: str(payload.note),
+        billId: str(payload.billId) || undefined,
+      });
     case "updateSettings":
       await updateSettings(dairyId, payload as Partial<Settings>);
       return null;

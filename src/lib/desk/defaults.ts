@@ -34,5 +34,6 @@ export function emptyDeskState(): DairyState {
     charts: defaultCharts(),
     advances: [],
     bills: [],
+    payments: [],
   };
 }

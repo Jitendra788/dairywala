@@ -123,7 +123,7 @@ const CAMEL_FIELDS = [
   "trialEndsAt",
 ];
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 const globalForDb = globalThis as unknown as {
   tonyCustomerDb?: DatabaseSync;
@@ -413,9 +413,20 @@ CREATE TABLE IF NOT EXISTS FarmerBill (
   gross DOUBLE PRECISION NOT NULL,
   advance DOUBLE PRECISION NOT NULL,
   net DOUBLE PRECISION NOT NULL,
+  paidAmount DOUBLE PRECISION NOT NULL DEFAULT 0,
   status TEXT NOT NULL,
   createdAt TEXT NOT NULL,
   paidAt TEXT
+);
+CREATE TABLE IF NOT EXISTS FarmerPayment (
+  id TEXT PRIMARY KEY,
+  dairyId TEXT NOT NULL,
+  farmerId TEXT NOT NULL,
+  billId TEXT,
+  amount DOUBLE PRECISION NOT NULL,
+  date TEXT NOT NULL,
+  note TEXT NOT NULL,
+  createdAt TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS DairyAuth (
   dairyId TEXT PRIMARY KEY,
@@ -573,9 +584,44 @@ CREATE INDEX IF NOT EXISTS idx_collection_dairy_date ON CollectionEntry(dairyId,
 CREATE INDEX IF NOT EXISTS idx_collection_farmer ON CollectionEntry(dairyId, farmerId);
 CREATE INDEX IF NOT EXISTS idx_advance_farmer ON FarmerAdvance(dairyId, farmerId);
 CREATE INDEX IF NOT EXISTS idx_bill_farmer ON FarmerBill(dairyId, farmerId);
+CREATE INDEX IF NOT EXISTS idx_farmer_pay ON FarmerPayment(dairyId, farmerId);
 `;
 
+async function ensureFarmerPaySchema() {
+  try {
+    await neonSql().query(`ALTER TABLE FarmerBill ADD COLUMN IF NOT EXISTS paidAmount DOUBLE PRECISION NOT NULL DEFAULT 0`);
+  } catch {
+    // exists
+  }
+  try {
+    await neonSql().query(`CREATE TABLE IF NOT EXISTS FarmerPayment (
+      id TEXT PRIMARY KEY,
+      dairyId TEXT NOT NULL,
+      farmerId TEXT NOT NULL,
+      billId TEXT,
+      amount DOUBLE PRECISION NOT NULL,
+      date TEXT NOT NULL,
+      note TEXT NOT NULL,
+      createdAt TEXT NOT NULL
+    )`);
+  } catch {
+    // exists
+  }
+  try {
+    await neonSql().query(`UPDATE FarmerBill SET paidAmount = net WHERE (paidAmount IS NULL OR paidAmount = 0) AND status = 'paid'`);
+  } catch {
+    // ignore
+  }
+}
+
 async function migratePostgres() {
+  try {
+    await neonSql().query(`SELECT 1 FROM Dairy LIMIT 1`);
+    await ensureFarmerPaySchema();
+    return;
+  } catch (error) {
+    if (isDbConnectError(error)) throw error;
+  }
   const statements = SCHEMA.split(";").map((part) => part.trim()).filter(Boolean);
   for (const statement of statements) {
     await neonSql().query(statement);
@@ -586,26 +632,6 @@ async function migratePostgres() {
     DEFAULT_DAIRY_NAME,
     now,
   ]);
-  try {
-    await neonSql().query(`ALTER TABLE EmailVerify ADD COLUMN IF NOT EXISTS otpCode TEXT`);
-  } catch {
-    // already exists
-  }
-  try {
-    await neonSql().query(`ALTER TABLE PlatformUser ADD COLUMN IF NOT EXISTS passwordPlain TEXT`);
-  } catch {
-    // already exists
-  }
-  try {
-    await neonSql().query(`ALTER TABLE PlatformUser ADD COLUMN IF NOT EXISTS lastDevice TEXT`);
-  } catch {
-    // already exists
-  }
-  try {
-    await neonSql().query(`ALTER TABLE FarmerAdvance ADD COLUMN IF NOT EXISTS createdAt TEXT`);
-  } catch {
-    // already exists
-  }
 }
 
 function ensureColumn(db: DatabaseSync, table: string, column: string, def: string) {
@@ -633,6 +659,12 @@ function migrateSqlite(db: DatabaseSync) {
   ensureColumn(db, "PlatformUser", "passwordPlain", "TEXT");
   ensureColumn(db, "PlatformUser", "lastDevice", "TEXT");
   ensureColumn(db, "FarmerAdvance", "createdAt", "TEXT");
+  ensureColumn(db, "FarmerBill", "paidAmount", "REAL NOT NULL DEFAULT 0");
+  try {
+    db.exec(`UPDATE FarmerBill SET paidAmount = net WHERE (paidAmount IS NULL OR paidAmount = 0) AND status = 'paid'`);
+  } catch {
+    // ignore
+  }
   db.prepare(`INSERT OR IGNORE INTO Dairy (id, name, createdAt) VALUES (?, ?, ?)`).run(
     DEFAULT_DAIRY_ID,
     DEFAULT_DAIRY_NAME,

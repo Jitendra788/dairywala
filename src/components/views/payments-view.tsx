@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, Banknote, Pencil, Trash2, UserRound, Users } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { addDays, formatDate, formatDateRange, formatDateTime, todayISO } from "@/lib/dates";
 import { farmerLabel } from "@/lib/farmer-label";
-import { farmerAdvanceSummary } from "@/lib/farmer-ledger";
+import { billPaidAmount, billRemainingOf, farmerAdvanceSummary, farmerPendingDue } from "@/lib/farmer-ledger";
 import { useI18n } from "@/hooks/use-i18n";
 import { advanceRef, billRef } from "@/lib/ref";
 import { formatInr, formatQty, round2 } from "@/lib/money";
 import { useDairy } from "@/hooks/use-dairy";
 import { FarmerLedger } from "@/components/farmer-ledger";
+import { PayTabs } from "@/components/pay-tabs";
 import { AppList, AppRow, btnGhost, btnPrimary, Card, Field, confirmAction, inputClass, PageHeader, Select } from "@/components/ui";
 
 type Tab = "bills" | "advances" | "history";
@@ -22,8 +23,7 @@ export function PaymentsView() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const pendingOnly = searchParams.get("status") === "open";
-  const view: "hub" | Tab =
-    tabParam === "advances" || tabParam === "history" ? tabParam : tabParam === "bills" || pendingOnly ? "bills" : "hub";
+  const view: Tab = tabParam === "advances" || tabParam === "history" ? tabParam : "bills";
 
   const [fromDate, setFromDate] = useState(addDays(todayISO(), -9));
   const [toDate, setToDate] = useState(todayISO());
@@ -32,7 +32,10 @@ export function PaymentsView() {
   const [farmerId, setFarmerId] = useState(dairy.farmers[0]?.id ?? "");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState("");
-  const [showMore, setShowMore] = useState(false);
+  const [billFilter, setBillFilter] = useState<"all" | "open" | "paid">(pendingOnly ? "open" : "all");
+  const [payAmt, setPayAmt] = useState("");
+  const [payDate, setPayDate] = useState(todayISO());
+  const [payNote, setPayNote] = useState("");
   const [adv, setAdv] = useState({
     farmerId: dairy.farmers[0]?.id ?? "",
     amount: "",
@@ -48,114 +51,215 @@ export function PaymentsView() {
     }
   }, [searchParams, dairy.farmers]);
 
+  const pendingRows = useMemo(() => {
+    return dairy.farmers
+      .map((farmer) => ({
+        farmer,
+        pending: farmerPendingDue(farmer.id, dairy.bills, dairy.entries),
+      }))
+      .filter((row) => row.pending > 0)
+      .sort((a, b) => b.pending - a.pending);
+  }, [dairy.farmers, dairy.bills, dairy.entries]);
+  const pendingTotal = round2(pendingRows.reduce((sum, row) => sum + row.pending, 0));
+  const farmerChoices = pendingOnly ? pendingRows.map((row) => row.farmer) : dairy.farmers;
+
   useEffect(() => {
+    if (pendingOnly) {
+      if (pendingRows.length && !pendingRows.some((row) => row.farmer.id === farmerId)) {
+        setFarmerId(pendingRows[0].farmer.id);
+      }
+      return;
+    }
     if (!farmerId && dairy.farmers[0]) setFarmerId(dairy.farmers[0].id);
     if (!adv.farmerId && dairy.farmers[0]) setAdv((prev) => ({ ...prev, farmerId: dairy.farmers[0].id }));
-  }, [dairy.farmers, farmerId, adv.farmerId]);
+  }, [dairy.farmers, farmerId, adv.farmerId, pendingOnly, pendingRows]);
 
-  const bills = dairy.bills.filter((bill) => (pendingOnly ? bill.status === "open" : true));
+  const payments = dairy.payments || [];
+  const farmerBills = dairy.bills.filter((row) => row.farmerId === farmerId);
+  const farmerPays = payments.filter((row) => row.farmerId === farmerId);
+  const paid = farmerId ? dairy.farmerPaidTotal(farmerId) : 0;
+  const toPay = farmerId ? farmerPendingDue(farmerId, dairy.bills, dairy.entries) : 0;
+  const giveNow = Number(payAmt) || 0;
+  const afterPay = round2(Math.max(0, toPay - giveNow));
   const unbilled = useMemo(
-    () => dairy.entries.filter((e) => !e.billId && e.date >= fromDate && e.date <= toDate),
-    [dairy.entries, fromDate, toDate],
+    () => dairy.entries.filter((e) => e.farmerId === farmerId && !e.billId),
+    [dairy.entries, farmerId],
   );
+  const bills = dairy.bills.filter((bill) => {
+    const remain = billRemainingOf(bill);
+    if (pendingOnly || billFilter === "open") return remain > 0;
+    if (billFilter === "paid") return remain <= 0;
+    return true;
+  });
   const advSummary = farmerAdvanceSummary(dairy.advances);
-  const openAdvance = dairy.advances.filter((a) => !a.recovered);
   const selectedFarmer = dairy.farmerById(farmerId);
 
-  if (view === "hub") {
-    return (
-      <div className="mx-auto max-w-4xl space-y-5">
-        <PageHeader kicker={t("payHubKicker")} title={t("payHubTitle")} hint={t("payHubHint")} />
-        <Tip className="hidden sm:block">
-          <p className="font-semibold text-foreground">{t("howTo")}</p>
-          <ol className="mt-1.5 list-decimal space-y-1 pl-4">
-            <li>{t("payStep1")}</li>
-            <li>{t("payStep2")}</li>
-            <li>{t("payStep3")}</li>
-          </ol>
-        </Tip>
-        <div className="grid gap-3 md:grid-cols-3">
-          <HubCard
-            href="/payments?tab=bills"
-            icon={<Users size={20} />}
-            title={t("farmerPayCard")}
-            text={t("farmerPayCardHint")}
-            action={t("farmerPayOpen")}
-          />
-          <HubCard
-            href="/customers/payments"
-            icon={<UserRound size={20} />}
-            title={t("customerPayCard")}
-            text={t("customerPayCardHint")}
-            action={t("customerPayOpen")}
-          />
-          <HubCard
-            href="/payments?tab=advances"
-            icon={<Banknote size={20} />}
-            title={t("advanceCard")}
-            text={t("advanceCardHint")}
-            action={t("giveAdvance")}
-          />
-        </div>
-      </div>
-    );
+  async function payFarmerNow() {
+    if (!farmerId || giveNow <= 0) return;
+    setBusy("pay");
+    setError("");
+    setMessage("");
+    try {
+      await dairy.addFarmerPayment({ farmerId, amount: giveNow, date: payDate, note: payNote });
+      setPayAmt("");
+      setPayNote("");
+      setMessage(t("paymentSaved", { amt: formatInr(afterPay) }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("dashboardClosed"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function fillPay(id: string, amount: number) {
+    setFarmerId(id);
+    setPayAmt(String(amount));
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
+    <div className="mx-auto max-w-7xl space-y-3">
       <PageHeader
         kicker={t("payHubKicker")}
-        title={view === "advances" ? t("advanceTitle") : view === "history" ? t("farmerHistory") : t("farmerPayTitle")}
-        hint={view === "advances" ? t("advanceHint") : view === "history" ? t("farmerPayHint") : t("farmerPayHint")}
-        actions={
-          <Link href="/payments" className={btnGhost}>
-            {t("backPayments")}
-          </Link>
+        title={
+          pendingOnly
+            ? t("pendingPayments")
+            : view === "advances"
+              ? t("advanceTitle")
+              : view === "history"
+                ? t("farmerHistory")
+                : t("farmerPayTitle")
         }
       />
-
-      <div className="chip-row">
-        <Link href="/payments?tab=bills" className={`${view === "bills" ? btnPrimary : btnGhost}`}>
-          {t("farmerPayments")}
-        </Link>
-        <Link href="/customers/payments" className={btnGhost}>
-          {t("customerPayments")}
-        </Link>
-        <Link href="/payments?tab=advances" className={`${view === "advances" ? btnPrimary : btnGhost}`}>
-          {t("advances")}
-        </Link>
-        <Link href="/payments?tab=history" className={`${view === "history" ? btnPrimary : btnGhost}`}>
-          {t("farmerHistory")}
-        </Link>
-      </div>
+      <PayTabs
+        active={
+          pendingOnly ? "pending" : view === "advances" ? "advance" : view === "history" ? "history" : "farmer"
+        }
+      />
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {message ? <p className="text-sm text-primary">{message}</p> : null}
 
       {view === "bills" ? (
         <>
-          <Tip className="hidden sm:block">{t("farmerPayHint")}</Tip>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-            <Mini label={t("unbilledSlips")} value={String(unbilled.length)} hint={formatQty(unbilled.reduce((s, e) => s + e.qty, 0))} />
-            <Mini label={t("openBills")} value={String(dairy.bills.filter((b) => b.status === "open").length)} hint={formatInr(dairy.bills.filter((b) => b.status === "open").reduce((s, b) => s + b.net, 0))} />
-            <Mini label={t("advanceOpenAmt")} value={formatInr(advSummary.open)} hint={`${advSummary.openCount}`} warn={advSummary.open > 0} />
-            <Mini label={t("advanceCleared")} value={formatInr(advSummary.recovered)} hint={t("advanceCleared")} />
-          </div>
-          <Card className="p-4 sm:p-5">
-            <div className="grid gap-3 sm:grid-cols-2">
+          {pendingOnly ? (
+            <Card className="p-4 sm:p-5">
+              <p className="text-[11px] font-medium text-muted">{t("pendingTotal")}</p>
+              <p className="mt-1 font-display text-[36px] leading-none tabular-nums text-amber-900">{formatInr(pendingTotal)}</p>
+              <p className="mt-2 text-[13px] text-muted">{t("dashPendingHint", { n: pendingRows.length })}</p>
+              {pendingRows.length ? (
+                <ul className="mt-4 space-y-2">
+                  {pendingRows.map((row) => (
+                    <li key={row.farmer.id}>
+                      <button
+                        type="button"
+                        className={`flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left ${
+                          farmerId === row.farmer.id ? "bg-emerald-50" : "bg-[#f7f1e6]"
+                        }`}
+                        onClick={() => fillPay(row.farmer.id, row.pending)}
+                      >
+                        <span className="truncate font-medium">{farmerLabel(row.farmer)}</span>
+                        <span className="shrink-0 font-semibold tabular-nums text-amber-900">{formatInr(row.pending)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-muted">{t("noPendingBills")}</p>
+              )}
+            </Card>
+          ) : null}
+
+          <Card className="p-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(7.5rem,0.7fr))] sm:items-end">
+              <div className="col-span-2 sm:col-span-1">
+                <Field label={t("farmer")}>
+                  <Select className={inputClass} value={farmerId} onChange={(e) => setFarmerId(e.target.value)}>
+                    {farmerChoices.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {farmerLabel(f)}
+                        {pendingOnly ? ` · ${formatInr(pendingRows.find((row) => row.farmer.id === f.id)?.pending || 0)}` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+              <NumBox label={t("alreadyPaid")} value={formatInr(paid)} />
+              <NumBox label={t("toPayFarmer")} value={formatInr(toPay)} ok={toPay === 0} />
+            </div>
+            {unbilled.length ? (
+              <p className="mt-1.5 text-[12px] text-amber-800">
+                {t("unbilledSlips")} {unbilled.length} · {formatQty(unbilled.reduce((s, e) => s + e.qty, 0))}
+              </p>
+            ) : null}
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-end">
+              <div className="min-w-0 sm:w-[8.5rem]">
+                <Field label={t("amount")}>
+                  <div className="flex items-center gap-1 rounded-xl border border-line bg-[#fbf7ef] px-2.5 py-2 focus-within:border-primary focus-within:bg-white">
+                    <span className="text-sm font-semibold text-muted">₹</span>
+                    <input
+                      className="w-full min-w-0 bg-transparent text-sm font-semibold outline-none"
+                      inputMode="decimal"
+                      value={payAmt}
+                      onChange={(e) => setPayAmt(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </Field>
+              </div>
+              <div className="min-w-0 sm:w-[10.5rem]">
+                <Field label={t("paymentDate")}>
+                  <input type="date" className={inputClass} value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+                </Field>
+              </div>
+              <div className="col-span-2 min-w-0 flex-1">
+                <Field label={t("note")}>
+                  <input className={inputClass} value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder={t("noteOptional")} />
+                </Field>
+              </div>
+              <button
+                type="button"
+                className={`${btnPrimary} col-span-2 w-full sm:w-auto`}
+                disabled={!farmerId || giveNow <= 0 || busy === "pay"}
+                onClick={() => void payFarmerNow()}
+              >
+                {busy === "pay" ? t("paying") : t("payNow")}
+              </button>
+            </div>
+            {giveNow > 0 ? (
+              <p className="mt-1.5 text-[12px] text-muted">
+                {t("afterPayRemain")} <span className="font-semibold">{formatInr(afterPay)}</span>
+              </p>
+            ) : null}
+            {farmerPays.length ? (
+              <ul className="mt-2 space-y-1 border-t border-line pt-2">
+                {farmerPays.slice(0, 5).map((row) => {
+                  const note = displayPayNote(row.note);
+                  return (
+                    <li key={row.id} className="flex items-center justify-between gap-3 text-[13px]">
+                      <span className="min-w-0 truncate">
+                        <span className="text-muted">{formatDate(row.date)}</span>
+                        {note ? <span className="text-ink"> · {note}</span> : null}
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums">{formatInr(row.amount)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </Card>
+
+          {pendingOnly ? null : (
+            <>
+          <Card className="p-3 sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <Field label={t("from")}>
                 <input type="date" className={inputClass} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
               </Field>
               <Field label={t("to")}>
                 <input type="date" className={inputClass} value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </Field>
-            </div>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted">
-                {t("period")} {formatDateRange(fromDate, toDate)}
-              </p>
               <button
                 type="button"
-                className={`${btnPrimary} w-full sm:w-auto`}
+                className={`${btnPrimary} mt-5 w-full sm:w-auto`}
                 disabled={busy === "bills"}
                 onClick={() => {
                   setBusy("bills");
@@ -175,58 +279,65 @@ export function PaymentsView() {
             </div>
           </Card>
 
+          <div className="chip-row">
+            <button type="button" className={billFilter === "all" ? btnPrimary : btnGhost} onClick={() => setBillFilter("all")}>
+              {t("filterAll")}
+            </button>
+            <button type="button" className={billFilter === "open" ? btnPrimary : btnGhost} onClick={() => setBillFilter("open")}>
+              {t("filterUnpaid")}
+            </button>
+            <button type="button" className={billFilter === "paid" ? btnPrimary : btnGhost} onClick={() => setBillFilter("paid")}>
+              {t("filterPaid")}
+            </button>
+          </div>
+            </>
+          )}
+
           <Card className="overflow-hidden p-0">
             <AppList>
               {bills.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-muted">{pendingOnly ? t("noPendingBills") : t("noBills")}</p>
+                <p className="px-3 py-8 text-center text-sm text-muted">
+                  {pendingOnly ? (pendingRows.length ? `${t("unbilledSlips")} · ${t("generateBills")}` : t("noPendingBills")) : t("noBills")}
+                </p>
               ) : (
                 bills.map((bill) => {
-                  const farmer = dairy.farmerById(bill.farmerId);
-                  const rowBusy = busy === bill.id;
+                  const remain = billRemainingOf(bill);
+                  const paidAmt = billPaidAmount(bill);
                   return (
                     <AppRow key={bill.id}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <Link href={`/payments?tab=history&farmer=${bill.farmerId}`} className="block truncate font-medium">
-                            {farmerLabel(farmer)}
-                          </Link>
+                          <p className="truncate font-medium">{farmerLabel(dairy.farmerById(bill.farmerId))}</p>
                           <p className="text-[11px] text-muted">{formatDateRange(bill.fromDate, bill.toDate)}</p>
-                          <p className="font-mono text-[11px] text-muted">{billRef(bill.id)}</p>
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="text-[16px] font-semibold tabular-nums">{formatInr(bill.net)}</p>
-                          <p className={`mt-0.5 text-[11px] font-semibold ${bill.status === "paid" ? "text-primary" : "text-amber-800"}`}>
-                            {bill.status === "paid" ? t("paid") : t("unpaid")}
+                          <p className={`text-[11px] font-semibold ${remain > 0 ? "text-amber-800" : "text-primary"}`}>
+                            {remain > 0 ? `${t("remainingDue")} ${formatInr(remain)}` : t("payClearedZero")}
                           </p>
                         </div>
                       </div>
                       <div className="mt-3 flex gap-2">
-                        {bill.status === "open" ? (
-                          <>
-                            <button
-                              type="button"
-                              className={`${btnPrimary} flex-1`}
-                              disabled={rowBusy}
-                              onClick={() => {
-                                setBusy(bill.id);
-                                setError("");
-                                void dairy
-                                  .markBillPaid(bill.id)
-                                  .catch((e) => setError(e instanceof Error ? e.message : t("dashboardClosed")))
-                                  .finally(() => setBusy(""));
-                              }}
-                            >
-                              {rowBusy ? t("paying") : t("payNow")}
-                            </button>
-                            <Link href={`/payments/bills/${bill.id}`} className={`${btnGhost} flex-1`}>
-                              {t("view")}
-                            </Link>
-                          </>
-                        ) : (
-                          <Link href={`/payments/bills/${bill.id}`} className={`${btnGhost} w-full`}>
-                            {t("view")}
-                          </Link>
-                        )}
+                        {remain > 0 ? (
+                          <button type="button" className={`${btnPrimary} flex-1`} onClick={() => fillPay(bill.farmerId, remain)}>
+                            {t("payNow")}
+                          </button>
+                        ) : null}
+                        <Link href={`/payments/bills/${bill.id}`} className={`${btnGhost} ${remain > 0 ? "flex-1" : "w-full"}`}>
+                          {t("view")}
+                        </Link>
+                        {paidAmt <= 0 ? (
+                          <button
+                            type="button"
+                            className={`${btnGhost} text-danger`}
+                            onClick={() => {
+                              if (!confirmAction(t("confirmDeleteBill"))) return;
+                              void dairy.deleteBill(bill.id).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        ) : null}
                       </div>
                     </AppRow>
                   );
@@ -234,80 +345,47 @@ export function PaymentsView() {
               )}
             </AppList>
             <div className="table-scroll hidden md:block">
-              <table className="w-full min-w-[920px] text-left text-sm">
+              <table className="w-full min-w-[800px] text-left text-sm">
                 <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
                   <tr>
-                    <th className="px-4 py-2.5 font-medium">{t("reference")}</th>
-                    <th className="py-2.5 font-medium">{t("farmer")}</th>
+                    <th className="px-4 py-2.5 font-medium">{t("farmer")}</th>
                     <th className="py-2.5 font-medium">{t("period")}</th>
                     <th className="py-2.5 font-medium">{t("amount")}</th>
-                    <th className="py-2.5 font-medium">{t("advanceCleared")}</th>
-                    <th className="py-2.5 font-medium">{t("colStatus")}</th>
+                    <th className="py-2.5 font-medium">{t("alreadyPaid")}</th>
+                    <th className="py-2.5 font-medium">{t("toPayFarmer")}</th>
                     <th className="px-4 py-2.5 font-medium text-right">{t("payNow")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bills.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-muted">
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted">
                         {pendingOnly ? t("noPendingBills") : t("noBills")}
                       </td>
                     </tr>
                   ) : (
                     bills.map((bill) => {
-                      const farmer = dairy.farmerById(bill.farmerId);
-                      const rowBusy = busy === bill.id;
+                      const remain = billRemainingOf(bill);
+                      const paidAmt = billPaidAmount(bill);
                       return (
                         <tr key={bill.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                          <td className="px-4 py-2.5 font-mono text-xs">
+                          <td className="px-4 py-2.5">
                             <Link href={`/payments/bills/${bill.id}`} className="hover:text-primary">
-                              {billRef(bill.id)}
+                              {farmerLabel(dairy.farmerById(bill.farmerId))}
                             </Link>
-                          </td>
-                          <td className="py-2.5">
-                            <Link href={`/payments?tab=history&farmer=${bill.farmerId}`} className="hover:text-primary">
-                              {farmerLabel(farmer)}
-                            </Link>
+                            <p className="font-mono text-[11px] text-muted">{billRef(bill.id)}</p>
                           </td>
                           <td>{formatDateRange(bill.fromDate, bill.toDate)}</td>
                           <td className="font-semibold">{formatInr(bill.net)}</td>
-                          <td className={bill.advance ? "font-semibold text-amber-800" : "text-muted"}>
-                            {bill.advance ? `−${formatInr(bill.advance)}` : "—"}
-                          </td>
-                          <td className="capitalize">{bill.status === "paid" ? `${t("paid")} ${formatDateTime(bill.paidAt ?? "")}` : t("unpaid")}</td>
+                          <td>{formatInr(paidAmt)}</td>
+                          <td className={remain > 0 ? "font-semibold text-amber-800" : "font-semibold text-primary"}>{formatInr(remain)}</td>
                           <td className="px-4 text-right">
-                            {bill.status === "open" ? (
-                              <div className="inline-flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  className={btnPrimary}
-                                  disabled={rowBusy}
-                                  onClick={() => {
-                                    setBusy(bill.id);
-                                    setError("");
-                                    void dairy
-                                      .markBillPaid(bill.id)
-                                      .catch((e) => setError(e instanceof Error ? e.message : t("dashboardClosed")))
-                                      .finally(() => setBusy(""));
-                                  }}
-                                >
-                                  {rowBusy ? t("paying") : t("payNow")}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="rounded-lg p-2 text-muted hover:bg-red-50 hover:text-danger"
-                                  onClick={() => {
-                                    if (!confirmAction(t("confirmDeleteBill"))) return;
-                                    void dairy.deleteBill(bill.id).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
-                                  }}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
+                            {remain > 0 ? (
+                              <button type="button" className={btnPrimary} onClick={() => fillPay(bill.farmerId, remain)}>
+                                {t("payNow")}
+                              </button>
                             ) : (
-                              <Link href={`/payments?tab=history&farmer=${bill.farmerId}`} className="text-[11px] text-primary">
-                                {t("history")}
-                              </Link>
+                              <span className="text-[11px] text-primary">{t("payClearedZero")}</span>
                             )}
                           </td>
                         </tr>
@@ -323,16 +401,22 @@ export function PaymentsView() {
 
       {view === "advances" ? (
         <>
-          <Tip className="hidden sm:block">{t("advanceHint")}</Tip>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-            <Mini label={t("advanceCard")} value={formatInr(advSummary.given)} hint={`${advSummary.count}`} />
-            <Mini label={t("advanceOpenAmt")} value={formatInr(advSummary.open)} hint={`${openAdvance.length}`} warn={advSummary.open > 0} />
-            <Mini label={t("advanceCleared")} value={formatInr(advSummary.recovered)} hint={t("advanceCleared")} />
-          </div>
           <Card className="p-4 sm:p-5">
-            <h2 className="mb-3 font-display text-lg">{editingId ? t("edit") : t("giveAdvance")}</h2>
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <NumBox label={t("advanceOpenAmt")} value={formatInr(advSummary.open)} />
+              <NumBox label={t("advanceCleared")} value={formatInr(advSummary.recovered)} ok />
+            </div>
+            <Field label={t("farmer")}>
+              <Select className={inputClass} value={adv.farmerId} onChange={(e) => setAdv({ ...adv, farmerId: e.target.value })}>
+                {dairy.farmers.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {farmerLabel(f)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label={t("amount")}>
-              <div className="flex items-center gap-2 rounded-2xl border border-line bg-[#fbf7ef] px-4 py-3 focus-within:border-primary focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(24,122,72,0.12)]">
+              <div className="mt-3 flex items-center gap-2 rounded-2xl border border-line bg-[#fbf7ef] px-4 py-3 focus-within:border-primary focus-within:bg-white">
                 <span className="text-lg font-semibold text-muted">₹</span>
                 <input
                   className="money-input w-full min-w-0 bg-transparent font-display text-[34px] leading-none outline-none"
@@ -343,35 +427,18 @@ export function PaymentsView() {
                 />
               </div>
             </Field>
-            <div className="mt-3">
-              <Field label={t("farmer")}>
-                <Select className={inputClass} value={adv.farmerId} onChange={(e) => setAdv({ ...adv, farmerId: e.target.value })}>
-                  {dairy.farmers.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {farmerLabel(f)}
-                    </option>
-                  ))}
-                </Select>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label={t("paymentDate")}>
+                <input type="date" className={inputClass} value={adv.date} onChange={(e) => setAdv({ ...adv, date: e.target.value })} />
+              </Field>
+              <Field label={t("noteOptional")}>
+                <input className={inputClass} value={adv.note} onChange={(e) => setAdv({ ...adv, note: e.target.value })} />
               </Field>
             </div>
-            {showMore ? (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label={t("noteOptional")}>
-                  <input className={inputClass} value={adv.note} onChange={(e) => setAdv({ ...adv, note: e.target.value })} />
-                </Field>
-                <Field label={t("paymentDate")}>
-                  <input type="date" className={inputClass} value={adv.date} onChange={(e) => setAdv({ ...adv, date: e.target.value })} />
-                </Field>
-              </div>
-            ) : null}
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button type="button" className="self-start text-[12px] font-semibold text-primary" onClick={() => setShowMore((v) => !v)}>
-                {showMore ? t("lessOptions") : t("moreOptions")}
-              </button>
-              <button
-                type="button"
-                className={`${btnPrimary} w-full sm:w-auto`}
-                disabled={!adv.farmerId || !Number(adv.amount) || busy === "adv"}
+            <button
+              type="button"
+              className={`${btnPrimary} mt-4 w-full sm:w-auto`}
+              disabled={!adv.farmerId || !Number(adv.amount) || busy === "adv"}
               onClick={() => {
                 setBusy("adv");
                 setError("");
@@ -401,74 +468,62 @@ export function PaymentsView() {
             >
               {busy === "adv" ? t("saving") : editingId ? t("save") : t("giveAdvance")}
             </button>
-            </div>
           </Card>
           <Card className="overflow-hidden p-0">
             <AppList>
               {dairy.advances.length === 0 ? (
                 <p className="px-3 py-8 text-center text-sm text-muted">{t("noAdvance")}</p>
               ) : (
-                dairy.advances.map((a) => {
-                  const farmer = dairy.farmerById(a.farmerId);
-                  return (
-                    <AppRow key={a.id}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{farmerLabel(farmer)}</p>
-                          <p className="text-[11px] text-muted">{formatDateTime(a.createdAt || a.date)} · {a.note || "—"}</p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-[16px] font-semibold tabular-nums">{formatInr(a.amount)}</p>
-                          <p className={`mt-0.5 text-[11px] font-semibold ${a.recovered ? "text-primary" : "text-amber-800"}`}>
-                            {a.recovered ? t("advanceCleared") : t("unpaid")}
-                          </p>
-                        </div>
+                dairy.advances.map((a) => (
+                  <AppRow key={a.id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{farmerLabel(dairy.farmerById(a.farmerId))}</p>
+                        <p className="text-[11px] text-muted">{formatDate(a.date)}{a.note ? ` · ${a.note}` : ""}</p>
                       </div>
-                      {!a.recovered ? (
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            type="button"
-                            className={`${btnGhost} flex-1`}
-                            onClick={() => {
-                              setEditingId(a.id);
-                              setShowMore(true);
-                              setAdv({
-                                farmerId: a.farmerId,
-                                amount: String(a.amount),
-                                note: a.note,
-                                date: a.date,
-                              });
-                            }}
-                          >
-                            {t("edit")}
-                          </button>
-                          <button
-                            type="button"
-                            className={`${btnGhost} flex-1 text-danger`}
-                            onClick={() => {
-                              if (!confirmAction(t("confirmDeleteAdvance"))) return;
-                              void dairy.deleteAdvance(a.id).then(() => {
-                                if (editingId === a.id) setEditingId(null);
-                              }).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
-                            }}
-                          >
-                            {t("delete")}
-                          </button>
-                        </div>
-                      ) : null}
-                    </AppRow>
-                  );
-                })
+                      <div className="shrink-0 text-right">
+                        <p className="text-[16px] font-semibold tabular-nums">{formatInr(a.amount)}</p>
+                        <p className={`text-[11px] font-semibold ${a.recovered ? "text-primary" : "text-amber-800"}`}>
+                          {a.recovered ? t("advanceCleared") : t("unpaid")}
+                        </p>
+                      </div>
+                    </div>
+                    {!a.recovered ? (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          className={`${btnGhost} flex-1`}
+                          onClick={() => {
+                            setEditingId(a.id);
+                            setAdv({ farmerId: a.farmerId, amount: String(a.amount), note: a.note, date: a.date });
+                          }}
+                        >
+                          {t("edit")}
+                        </button>
+                        <button
+                          type="button"
+                          className={`${btnGhost} flex-1 text-danger`}
+                          onClick={() => {
+                            if (!confirmAction(t("confirmDeleteAdvance"))) return;
+                            void dairy.deleteAdvance(a.id).then(() => {
+                              if (editingId === a.id) setEditingId(null);
+                            }).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
+                          }}
+                        >
+                          {t("delete")}
+                        </button>
+                      </div>
+                    ) : null}
+                  </AppRow>
+                ))
               )}
             </AppList>
             <div className="table-scroll hidden md:block">
-              <table className="w-full min-w-[800px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="table-head text-[10px] tracking-wider text-muted uppercase">
                   <tr>
-                    <th className="px-4 py-2.5 font-medium">{t("reference")}</th>
+                    <th className="px-4 py-2.5 font-medium">{t("farmer")}</th>
                     <th className="py-2.5 font-medium">{t("paymentDate")}</th>
-                    <th className="py-2.5 font-medium">{t("farmer")}</th>
-                    <th className="py-2.5 font-medium">{t("noteOptional")}</th>
                     <th className="py-2.5 font-medium">{t("amount")}</th>
                     <th className="py-2.5 font-medium">{t("colStatus")}</th>
                     <th className="px-4 py-2.5 font-medium text-right" />
@@ -477,71 +532,50 @@ export function PaymentsView() {
                 <tbody>
                   {dairy.advances.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-muted">
-                        {t("noAdvance")}
-                      </td>
+                      <td colSpan={5} className="px-4 py-8 text-center text-muted">{t("noAdvance")}</td>
                     </tr>
                   ) : (
-                    dairy.advances.map((a) => {
-                      const farmer = dairy.farmerById(a.farmerId);
-                      return (
-                        <tr key={a.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
-                          <td className="px-4 py-2.5 font-mono text-xs">{advanceRef(a.id)}</td>
-                          <td>{formatDateTime(a.createdAt || a.date)}</td>
-                          <td>
-                            <Link href={`/payments?tab=history&farmer=${a.farmerId}`} className="hover:text-primary">
-                              {farmerLabel(farmer)}
-                            </Link>
-                          </td>
-                          <td>{a.note}</td>
-                          <td className="font-semibold">{formatInr(a.amount)}</td>
-                          <td>
-                            {a.recovered ? (
-                              <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                {t("advanceCleared")}
-                                {a.billId ? ` · ${billRef(a.billId)}` : ""}
-                              </span>
-                            ) : (
-                              <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                                {t("unpaid")}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 text-right">
-                            <button
-                              type="button"
-                              className="mr-1 rounded-lg p-1.5 text-muted hover:bg-[#f4ead6] hover:text-primary disabled:opacity-30"
-                              disabled={a.recovered}
-                              onClick={() => {
-                                setEditingId(a.id);
-                                setShowMore(true);
-                                setAdv({
-                                  farmerId: a.farmerId,
-                                  amount: String(a.amount),
-                                  note: a.note,
-                                  date: a.date,
-                                });
-                              }}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded-lg p-1.5 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
-                              disabled={a.recovered}
-                              onClick={() => {
-                                if (!confirmAction(t("confirmDeleteAdvance"))) return;
-                                void dairy.deleteAdvance(a.id).then(() => {
-                                  if (editingId === a.id) setEditingId(null);
-                                }).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
+                    dairy.advances.map((a) => (
+                      <tr key={a.id} className="border-t border-line/70 hover:bg-[#faf6ee]">
+                        <td className="px-4 py-2.5">
+                          {farmerLabel(dairy.farmerById(a.farmerId))}
+                          <p className="font-mono text-[11px] text-muted">{advanceRef(a.id)}</p>
+                        </td>
+                        <td>{formatDate(a.date)}</td>
+                        <td className="font-semibold">{formatInr(a.amount)}</td>
+                        <td>
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${a.recovered ? "bg-emerald-50 text-primary" : "bg-amber-50 text-amber-800"}`}>
+                            {a.recovered ? t("advanceCleared") : t("unpaid")}
+                          </span>
+                        </td>
+                        <td className="px-4 text-right">
+                          <button
+                            type="button"
+                            className="mr-1 rounded-lg p-1.5 text-muted hover:bg-[#f4ead6] disabled:opacity-30"
+                            disabled={a.recovered}
+                            onClick={() => {
+                              setEditingId(a.id);
+                              setAdv({ farmerId: a.farmerId, amount: String(a.amount), note: a.note, date: a.date });
+                            }}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg p-1.5 text-muted hover:bg-red-50 hover:text-danger disabled:opacity-30"
+                            disabled={a.recovered}
+                            onClick={() => {
+                              if (!confirmAction(t("confirmDeleteAdvance"))) return;
+                              void dairy.deleteAdvance(a.id).then(() => {
+                                if (editingId === a.id) setEditingId(null);
+                              }).catch((e) => setError(e instanceof Error ? e.message : t("delete")));
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
@@ -553,24 +587,15 @@ export function PaymentsView() {
       {view === "history" ? (
         <div className="space-y-4">
           <Card className="p-4 sm:p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="min-w-0 flex-1">
-                <Field label={t("farmer")}>
-                  <Select className={inputClass} value={farmerId} onChange={(e) => setFarmerId(e.target.value)}>
-                    {dairy.farmers.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {farmerLabel(f)}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              </div>
-              {selectedFarmer ? (
-                <Link href={`/farmers/${selectedFarmer.id}`} className={`${btnGhost} w-full shrink-0 sm:w-auto`}>
-                  {t("openFarmer")}
-                </Link>
-              ) : null}
-            </div>
+            <Field label={t("farmer")}>
+              <Select className={inputClass} value={farmerId} onChange={(e) => setFarmerId(e.target.value)}>
+                {dairy.farmers.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {farmerLabel(f)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </Card>
           {selectedFarmer ? (
             <FarmerLedger
@@ -579,6 +604,7 @@ export function PaymentsView() {
               entries={dairy.entries.filter((e) => e.farmerId === selectedFarmer.id)}
               advances={dairy.advances.filter((a) => a.farmerId === selectedFarmer.id)}
               bills={dairy.bills.filter((b) => b.farmerId === selectedFarmer.id)}
+              payments={payments.filter((row) => row.farmerId === selectedFarmer.id)}
             />
           ) : (
             <p className="text-sm text-muted">{t("navFarmers")}</p>
@@ -589,48 +615,16 @@ export function PaymentsView() {
   );
 }
 
-function HubCard({
-  href,
-  icon,
-  title,
-  text,
-  action,
-}: {
-  href: string;
-  icon: ReactNode;
-  title: string;
-  text: string;
-  action: string;
-}) {
-  return (
-    <Link
-      href={href}
-      prefetch
-      className="flex min-h-[92px] items-center gap-3 rounded-[22px] border border-line bg-card p-4 shadow-[0_8px_30px_rgba(22,48,36,0.05)] transition-transform duration-75 active:scale-[0.99] hover:border-primary/40 md:min-h-[168px] md:flex-col md:items-stretch"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-primary md:h-10 md:w-10 md:rounded-xl">{icon}</span>
-      <div className="min-w-0 flex-1 md:mt-3">
-        <p className="font-display text-[20px] leading-none md:text-[22px]">{title}</p>
-        <p className="mt-1 text-[13px] text-muted md:mt-2">{text}</p>
-        <span className="mt-2 hidden items-center gap-1 text-[13px] font-semibold text-primary md:mt-3 md:inline-flex">
-          {action} <ArrowRight size={14} />
-        </span>
-      </div>
-      <ArrowRight size={16} className="shrink-0 text-primary md:hidden" />
-    </Link>
-  );
+function displayPayNote(note?: string) {
+  const text = (note || "").trim();
+  return !text || text === "Farmer payment" ? "" : text;
 }
 
-function Tip({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-[13px] text-foreground/80 ${className}`}>{children}</div>;
-}
-
-function Mini({ label, value, hint, warn }: { label: string; value: string; hint: string; warn?: boolean }) {
+function NumBox({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
   return (
-    <Card className={`p-3 ${warn ? "border-amber-200 bg-amber-50" : ""}`}>
-      <p className="text-[11px] font-medium text-muted">{label}</p>
-      <p className="mt-1 font-display text-[22px] leading-none">{value}</p>
-      <p className="mt-1 text-[11px] text-muted">{hint}</p>
-    </Card>
+    <div className={`rounded-xl px-2.5 py-1.5 ${ok ? "bg-emerald-50" : "bg-[#f7f1e6]"}`}>
+      <p className="text-[10px] leading-none text-muted">{label}</p>
+      <p className={`mt-1 font-display text-[18px] leading-none tabular-nums ${ok ? "text-primary" : ""}`}>{value}</p>
+    </div>
   );
 }

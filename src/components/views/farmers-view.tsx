@@ -112,10 +112,10 @@ export function FarmersView() {
       />
 
       {open ? (
-        <Card className="p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-lg">{editingId ? "Update farmer" : "New farmer"}</h2>
-            <button type="button" className="text-xs text-muted" onClick={() => setOpen(false)}>
+        <Card className="p-4 sm:p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="min-w-0 font-display text-lg">{editingId ? "Update farmer" : "New farmer"}</h2>
+            <button type="button" className="shrink-0 text-xs text-muted" onClick={() => setOpen(false)}>
               Close
             </button>
           </div>
@@ -154,7 +154,7 @@ export function FarmersView() {
             </Field>
           </div>
           {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row [&>*]:w-full sm:[&>*]:w-auto">
             <button type="button" className={btnPrimary} onClick={save} disabled={!form.code || !form.name}>
               {editingId ? "Update farmer" : "Save farmer"}
             </button>
@@ -382,6 +382,7 @@ export function FarmerProfile() {
         entries={history}
         advances={dairy.advances.filter((a) => a.farmerId === farmer.id)}
         bills={bills}
+        payments={(dairy.payments || []).filter((row) => row.farmerId === farmer.id)}
       />
     </div>
   );

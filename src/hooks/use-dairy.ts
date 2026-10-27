@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { getAuthServerSnapshot, getSessionSnapshot, subscribeAuth } from "@/lib/auth";
 import {
   addAdvance,
+  addFarmerPayment,
   addChart,
   addCollection,
   addFarmer,
@@ -13,6 +14,7 @@ import {
   deleteCollection,
   deleteFarmer,
   farmerBalance,
+  farmerPaidTotal,
   farmerByCode,
   farmerById,
   generateBills,
@@ -50,6 +52,7 @@ export function useDairy() {
     updateCollection,
     deleteCollection,
     addAdvance,
+    addFarmerPayment,
     updateAdvance,
     deleteAdvance,
     deleteBill,
@@ -63,6 +66,7 @@ export function useDairy() {
     farmerByCode,
     farmerById,
     farmerBalance,
+    farmerPaidTotal,
     lastEntryForFarmer,
     todayStats,
     payableTotal,
